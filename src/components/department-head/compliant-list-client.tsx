@@ -84,8 +84,13 @@ export function CompliantListClient() {
   }, []);
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
-      <SectionCard title="Compliant Inspections" description="Only VERIFIED_COMPLIANT inspections are listed here.">
+    <div className="ui-split-workspace">
+      <SectionCard
+        fill
+        title="Compliant Inspections"
+        description="VERIFIED_COMPLIANT only"
+        contentClassName="ui-split-pane-body px-3 py-2.5 sm:px-3.5 lg:px-4"
+      >
         {loading ? (
           <LoadingState message="Loading compliant list…" compact />
         ) : rows.length === 0 ? (
@@ -111,7 +116,12 @@ export function CompliantListClient() {
         )}
       </SectionCard>
 
-      <SectionCard title="Compliant Details" description={selected ? `${selected.applicationNumber} • ${selected.businessName}` : "Select a compliant inspection."}>
+      <SectionCard
+        fill
+        title="Compliant Details"
+        description={selected ? `${selected.applicationNumber} • ${selected.businessName}` : "Select a compliant inspection."}
+        contentClassName="ui-split-pane-body px-3 py-2.5 sm:px-3.5 lg:px-4"
+      >
         {message ? (
           <InfoBanner title="Load issue" description={message} variant="danger" />
         ) : null}
@@ -119,7 +129,7 @@ export function CompliantListClient() {
         {!selected ? (
           <EmptyState title="No selected inspection" description="Choose one inspection from the list." />
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               <div className={dhSummaryTileClass}>
                 <p className={dhSummaryLabelClass}>Business Name / Trade Name</p>

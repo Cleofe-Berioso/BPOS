@@ -19,7 +19,7 @@ export function PageHeader({
   showHeroWatermark?: boolean;
 }) {
   return (
-    <div className="ui-page-header app-surface flex flex-col gap-1.5 px-3.5 py-2.5 sm:px-4 lg:flex-row lg:flex-wrap lg:items-start lg:justify-between lg:gap-2.5 lg:px-5">
+    <div className="ui-page-header app-surface flex shrink-0 flex-col gap-1 px-3 py-2 sm:px-3.5 lg:flex-row lg:flex-wrap lg:items-start lg:justify-between lg:gap-2 lg:px-4">
       {showHeroWatermark ? (
         <div className="ui-page-header-watermark" aria-hidden="true">
           <Image src="/images/logo.png" alt="" width={144} height={144} className="h-full w-full object-contain" />
@@ -51,7 +51,7 @@ export function PageHeader({
           {badge ? <div className="shrink-0">{badge}</div> : null}
         </div>
         {description ? (
-          <p className="ui-muted-text max-w-3xl text-sm leading-5" style={{ color: "var(--ink-muted)" }}>
+          <p className="ui-muted-text max-w-3xl text-sm leading-5 line-clamp-2" style={{ color: "var(--ink-muted)" }}>
             {description}
           </p>
         ) : null}

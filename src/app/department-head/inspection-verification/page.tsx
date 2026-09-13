@@ -9,11 +9,11 @@ export default async function DepartmentHeadInspectionVerificationPage() {
   if (!session) notFound();
 
   return (
-    <section className="ui-page-stack">
+    <section className="ui-page-stack ui-page-stack--workspace">
       <PageHeader
         eyebrow="Department Head"
         title="Inspection Verification"
-        description="Verify JIT inspection results before compliant cases or flagged cases move forward."
+        description="Verify JIT inspection results before cases move forward."
         badge={<RoleBadge roleType="VIEW_ONLY" label="Department Head" />}
       />
 

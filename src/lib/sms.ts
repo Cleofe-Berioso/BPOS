@@ -3,7 +3,7 @@ import { logSmsAction } from "@/lib/audit-log";
 import { getSmsProviderEnvLabel, isSmsEnabled, resolveSmsProvider, type SmsProviderName } from "@/lib/sms-config";
 import { normalizePhMobile } from "@/lib/ph-mobile";
 
-export type ReleaseSmsStatus = "FOR_RELEASE" | "RELEASED";
+export type ReleaseSmsStatus = "FOR_RELEASE";
 
 export interface ReleaseSmsPayload {
   applicationId: string;
@@ -49,9 +49,7 @@ function buildReleaseSmsMessage(input: {
   status: ReleaseSmsStatus;
 }): string {
   const instruction =
-    input.status === "FOR_RELEASE"
-      ? "Please prepare a valid ID and wait for BPLO release instructions."
-      : "Please claim your released permit/certificate at BPLO with a valid ID.";
+    "Please prepare a valid ID and wait for BPLO release instructions.";
 
   return trimMessageForSms(
     `Hello ${shortName(input.applicantName)}. BPOS update: ${input.businessName} ` +

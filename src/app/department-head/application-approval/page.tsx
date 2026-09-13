@@ -11,6 +11,7 @@ import { DocumentDownloadButton } from "@/components/ui/document-download-button
 import { LoadingState } from "@/components/ui/loading-state";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import {
+  dhDetailSectionTitleClass,
   dhDocumentListItemClass,
   dhFormControlClass,
   dhPanelClass,
@@ -20,6 +21,7 @@ import {
   dhSummaryLabelClass,
   dhSummaryTileClass,
   dhSummaryValueClass,
+  dhSurfacePanelClass,
 } from "@/components/department-head/department-head-ui-styles";
 import { validationStatusBadgeClass, evaluateRequiredDocumentsValidation, mapDocumentValidationStatusToDb } from "@/lib/document-validation";
 import type { BusinessInfo } from "@/lib/applicant-types";
@@ -280,20 +282,20 @@ export default function DepartmentHeadApplicationApprovalPage() {
   }
 
   return (
-    <section className="ui-page-stack">
+    <section className="ui-page-stack ui-page-stack--workspace">
       <PageHeader
         eyebrow="Department Head"
         title="Application Approvals"
-        description="Review BPLO-approved applications before they proceed to Fees & Assessment."
+        description="Review BPLO-approved applications before Fees & Assessment."
         badge={<RoleBadge roleType="VIEW_ONLY" label="Department Head" />}
       />
 
-      <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
+      <div className="ui-split-workspace">
         <SectionCard
-          title="Pending Application Approvals"
-          description="BPLO-approved applications waiting for Department Head decision."
-        >
-          <div className="mb-3 flex justify-end">
+          fill
+          title="Queue"
+          description={`${totalCount} pending`}
+          action={
             <button
               type="button"
               onClick={() => void loadQueue(page, pageSize)}
@@ -302,16 +304,17 @@ export default function DepartmentHeadApplicationApprovalPage() {
             >
               {loading ? "Refreshing…" : "Refresh"}
             </button>
-          </div>
+          }
+          contentClassName="ui-split-pane-body px-3 py-2.5 sm:px-3.5 lg:px-4"
+        >
           {loading ? (
             <LoadingState message="Loading application queue…" compact />
           ) : rows.length === 0 ? (
             <div className={dhPanelClass}>
-              No applications are pending approval. Applications appear here only after BPLO uses
-              &quot;Send to Department Head Review&quot; (status: Department Head Review).
+              No applications pending approval. Items appear after BPLO sends them to Department Head Review.
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {rows.map((row) => {
                 const active = selectedId === row.id;
                 return (
@@ -323,8 +326,8 @@ export default function DepartmentHeadApplicationApprovalPage() {
                   >
                     <p className="font-mono ui-caption">{row.applicationNumber}</p>
                     <p className={dhSummaryValueClass}>{row.businessName}</p>
-                    <p className="mt-1 ui-caption">{row.ownerName} • {row.applicationType}</p>
-                    <div className="mt-2">
+                    <p className="mt-0.5 ui-caption">{row.ownerName} • {row.applicationType}</p>
+                    <div className="mt-1.5">
                       <StatusBadge status={row.currentStatus as any} />
                     </div>
                   </button>
@@ -332,7 +335,7 @@ export default function DepartmentHeadApplicationApprovalPage() {
               })}
             </div>
           )}
-          <div className="mt-3">
+          <div className="mt-2 border-t border-[var(--border-color)] pt-2">
             <PaginationControls
               basePath="/department-head/application-approval"
               queryParams={{}}
@@ -353,324 +356,328 @@ export default function DepartmentHeadApplicationApprovalPage() {
         </SectionCard>
 
         <SectionCard
-          title={selected ? "Application Review Details" : "Application Review Details"}
-          description={selected ? `${selected.applicationNumber} • ${selected.businessName}` : "Select an item from the queue."}
+          fill
+          title="Review"
+          description={selected ? `${selected.applicationNumber} • ${selected.businessName}` : "Select an application from the queue."}
         >
           {!selected ? (
-            <div className={dhPanelClass}>
-              No selected application.
+            <div className="ui-split-pane-body px-3 py-2.5 sm:px-3.5 lg:px-4">
+              <div className={dhPanelClass}>No selected application.</div>
             </div>
           ) : (
-            <div className="space-y-4">
-              {(() => {
-                const formData = selected.formData ?? {};
-                const ownerFirstName = readText(formData, ["ownerFirstName"], "");
-                const ownerMiddleName = readText(formData, ["ownerMiddleName"], "");
-                const ownerSurname = readText(formData, ["ownerSurname"], "");
-                const ownerName = readText(formData, ["ownerName"], selected.ownerName);
-                const latitude = typeof formData.businessLatitude === "number" ? formData.businessLatitude : null;
-                const longitude = typeof formData.businessLongitude === "number" ? formData.businessLongitude : null;
+            (() => {
+              const formData = selected.formData ?? {};
+              const ownerFirstName = readText(formData, ["ownerFirstName"], "");
+              const ownerMiddleName = readText(formData, ["ownerMiddleName"], "");
+              const ownerSurname = readText(formData, ["ownerSurname"], "");
+              const ownerName = readText(formData, ["ownerName"], selected.ownerName);
+              const latitude = typeof formData.businessLatitude === "number" ? formData.businessLatitude : null;
+              const longitude = typeof formData.businessLongitude === "number" ? formData.businessLongitude : null;
 
-
-                return (
-                  <>
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                <div className={dhSummaryTileClass}>
-                  <p className={dhSummaryLabelClass}>Application Number</p>
-                  <p className={dhSummaryValueClass}>{selected.applicationNumber}</p>
-                </div>
-                <div className={dhSummaryTileClass}>
-                  <p className={dhSummaryLabelClass}>Application Type</p>
-                  <p className={dhSummaryValueClass}>{selected.applicationType}</p>
-                </div>
-                <div className={dhSummaryTileClass}>
-                  <p className={dhSummaryLabelClass}>Current Status</p>
-                  <div className="mt-1">
-                    <StatusBadge status={selected.currentStatus as any} />
-                  </div>
-                </div>
-                <div className={dhSummaryTileClass}>
-                  <p className={dhSummaryLabelClass}>Applicant / Owner Name</p>
-                  <p className={dhSummaryValueClass}>{selected.ownerName}</p>
-                </div>
-                <div className={dhSummaryTileClass}>
-                  <p className={dhSummaryLabelClass}>Business Name</p>
-                  <p className={dhSummaryValueClass}>{selected.businessName}</p>
-                </div>
-                <div className={dhSummaryTileClass}>
-                  <p className={dhSummaryLabelClass}>Submitted Date</p>
-                  <p className={dhSummaryValueClass}>{formatDateTime(selected.submittedDate)}</p>
-                </div>
-                <div className={dhSummaryTileClass}>
-                  <p className={dhSummaryLabelClass}>Last Updated</p>
-                  <p className={dhSummaryValueClass}>{formatDateTime(selected.updatedDate)}</p>
-                </div>
-                <div className={dhSummaryTileClass}>
-                  <p className={dhSummaryLabelClass}>Business Type</p>
-                  <p className={dhSummaryValueClass}>{selected.businessType}</p>
-                </div>
-                <div className={`${dhSummaryTileClass} md:col-span-2 xl:col-span-2`}>
-                  <p className={dhSummaryLabelClass}>Line of Business</p>
-                  <p className={dhSummaryValueClass}>{selected.lineOfBusiness}</p>
-                </div>
-                <div className={`${dhSummaryTileClass} md:col-span-2 xl:col-span-3`}>
-                  <p className={dhSummaryLabelClass}>Business Address</p>
-                  <p className={dhSummaryValueClass}>{selected.businessAddress}</p>
-                </div>
-              </div>
-
-              <div className="grid gap-4 lg:grid-cols-2">
-                <SectionCard title="Applicant / Owner Information" description="Filed owner identity and contact details.">
-                  <div className="space-y-2 text-sm text-[var(--ink-muted)]">
-                    {ownerFirstName || ownerMiddleName || ownerSurname ? (
-                      <>
-                        <p><strong>First Name:</strong> {ownerFirstName || "-"}</p>
-                        <p><strong>Middle Name:</strong> {ownerMiddleName || "-"}</p>
-                        <p><strong>Surname:</strong> {ownerSurname || "-"}</p>
-                      </>
-                    ) : (
-                      <p><strong>Owner / President:</strong> {ownerName}</p>
-                    )}
-                    <p><strong>Age:</strong> {readText(formData, ["ownerAge"])}</p>
-                    <p><strong>Birthdate:</strong> {formatBirthDate(readText(formData, ["birthDate"]))}</p>
-                    <p><strong>Sex:</strong> {readText(formData, ["sex"])}</p>
-                    <p><strong>Nationality:</strong> {readText(formData, ["nationality"])}</p>
-                    <p><strong>Email:</strong> {readText(formData, ["email"])}</p>
-                    <p><strong>Phone:</strong> {readText(formData, ["phone"])}</p>
-                  </div>
-                </SectionCard>
-
-                <SectionCard title="Business Identity" description="Filed registration and identity details.">
-                  <div className="space-y-2 text-sm text-[var(--ink-muted)]">
-                    <p><strong>Business Name:</strong> {readText(formData, ["businessName"], selected.businessName)}</p>
-                    <p><strong>Trade Name:</strong> {readText(formData, ["tradeName"])}</p>
-                    <p><strong>Business Type:</strong> {readText(formData, ["businessType"], selected.businessType)}</p>
-                    <p><strong>Registration Type:</strong> {readText(formData, ["businessType"], selected.businessType)}</p>
-                    <p><strong>Registration Number:</strong> {readText(formData, ["registrationNumber"])}</p>
-                    <p><strong>TIN:</strong> {readText(formData, ["tin"])}</p>
-                    <p><strong>Business Activity:</strong> {readText(formData, ["businessActivity"])}</p>
-                    <p><strong>Main / Branch:</strong> {readText(formData, ["businessOperationType"])}</p>
-                    <p><strong>Line of Business:</strong> {readText(formData, ["lineOfBusiness"], selected.lineOfBusiness)}</p>
-                  </div>
-                </SectionCard>
-
-                <SectionCard title="Address and Location" description="Filed addresses and map pin details.">
-                  <div className="space-y-2 text-sm text-[var(--ink-muted)]">
-                    <p><strong>Main Office Address:</strong> {readText(formData, ["mainOfficeAddress"])}</p>
-                    <p><strong>Business Address:</strong> {readText(formData, ["businessAddress"], selected.businessAddress)}</p>
-                    <p><strong>Barangay:</strong> {readText(formData, ["barangay"])}</p>
-                    <p><strong>Street:</strong> {readText(formData, ["streetAddress"])}</p>
-                    <p><strong>Coordinates:</strong> {latitude != null && longitude != null ? `${latitude}, ${longitude}` : "-"}</p>
-                    <p><strong>Location Verification:</strong> {latitude != null && longitude != null ? "Location pinned" : "Location not pinned"}</p>
-                  </div>
-                </SectionCard>
-
-                <SectionCard title="Business Operation Details" description="Operational and property declarations.">
-                  <div className="space-y-2 text-sm text-[var(--ink-muted)]">
-                    <p><strong>Business Area:</strong> {readText(formData, ["businessArea"])}</p>
-                    <p><strong>Total Floor Area:</strong> {readText(formData, ["totalFloorArea"])}</p>
-                    <p><strong>Asset Size:</strong> {readText(formData, ["assetSize"])}</p>
-                    <p><strong>Property Ownership:</strong> {readText(formData, ["propertyOwnership"])}</p>
-                    <p><strong>Tax Declaration Number:</strong> {readText(formData, ["taxDeclarationNumber"])}</p>
-                    <p><strong>Property Identification Number:</strong> {readText(formData, ["propertyIdentificationNumber"])}</p>
-                    <p><strong>Tax Incentives:</strong> {readText(formData, ["taxIncentives"])}</p>
-                    <p><strong>Market Business:</strong> {readFlag(formData, "isMarket")}</p>
-                    <p><strong>Agriculture-related:</strong> {readFlag(formData, "isAgriculture")}</p>
-                    <p><strong>Liquor/Tobacco:</strong> {readFlag(formData, "isLiquorOrTobacco")}</p>
-                  </div>
-                </SectionCard>
-
-                <SectionCard title="Employee Counts" description="Submitted staffing and vehicle declarations.">
-                  <div className="space-y-2 text-sm text-[var(--ink-muted)]">
-                    <p><strong>Total Employees:</strong> {readText(formData, ["totalEmployees"])}</p>
-                    <p><strong>Male Employees:</strong> {readText(formData, ["maleEmployees"])}</p>
-                    <p><strong>Female Employees:</strong> {readText(formData, ["femaleEmployees"])}</p>
-                    <p><strong>Employees within Municipality:</strong> {readText(formData, ["employeesWithinMunicipality"])}</p>
-                    <p><strong>Delivery Vehicles:</strong> {readText(formData, ["deliveryVehicles"])}</p>
-                  </div>
-                </SectionCard>
-
-                <SectionCard title="Application-specific Notes" description="Renewal and closure-specific declarations.">
-                  <div className="space-y-2 text-sm text-[var(--ink-muted)]">
-                    <p><strong>Application Type:</strong> {selected.applicationType}</p>
-
-                    {selected.applicationType === "RENEWAL" ? (
-                      <p><strong>Renewal Payment Preference:</strong> {readText(formData, ["paymentFrequency"])}</p>
-                    ) : null}
-                    {selected.applicationType === "NEW" ? (
-                      <p><strong>Capital Investment:</strong> {readText(formData, ["capitalInvestment"])}</p>
-                    ) : null}
-                    {selected.applicationType === "RENEWAL" ? (
-                      <p><strong>Gross Profit:</strong> {readText(formData, ["grossProfit"])}</p>
-                    ) : null}
-                    {selected.applicationType === "CLOSURE" ? (
-                      <>
-                        <p>
-                          <strong>Closure Type:</strong>{" "}
-                          {selected.closureType === "RETIREMENT"
-                            ? "Retirement"
-                            : selected.closureType === "NON_COMPLIANT_RELATED"
-                              ? "Non-compliant Related"
-                              : selected.closureType === "OTHERS"
-                                ? selected.closureTypeOtherReason?.trim()
-                                  ? `Others — ${selected.closureTypeOtherReason.trim()}`
-                                  : "Others"
-                                : "-"}
-                        </p>
-                        <p>
-                          <strong>Line of Business:</strong>{" "}
-                          {readText(formData, ["closureLineOfBusiness", "lineOfBusiness"])}
-                        </p>
-                        <p>
-                          <strong>Business Activity:</strong>{" "}
-                          {readText(formData, ["closureBusinessActivity", "businessActivity"])}
-                        </p>
-                        <p>
-                          <strong>Last Date of Operation:</strong>{" "}
-                          {readText(formData, ["closureLastDateOfOperation"])}
-                        </p>
-                      </>
-                    ) : null}
-                  </div>
-                </SectionCard>
-              </div>
-
-              <div className={dhSummaryTileClass}>
-                <p className={dhSummaryLabelClass}>BPLO Remarks</p>
-                <p className="mt-1 text-sm text-[var(--foreground)]">{selected.bploRemarks ?? "No BPLO remarks provided."}</p>
-              </div>
-
-              <SectionCard title="Uploaded Documents" description="Applicant-provided files attached to this application.">
-                {selected.documents.length === 0 ? (
-                  <div className="text-sm text-[var(--ink-muted)]">No uploaded documents.</div>
-                ) : (
-                  <ul className="space-y-2 text-sm">
-                    {selected.documents.map((doc) => {
-                      const validationStatus = doc.validationStatus ?? "Pending Review";
-                      return (
-                      <li key={doc.id} className={dhDocumentListItemClass}>
-                        <p className="font-medium text-[var(--foreground)]">{doc.documentName}: {doc.fileName}</p>
-                        <p className="ui-caption">Uploaded: {formatDateTime(doc.uploadedAt)}</p>
-                        <p className="mt-1">
-                          <span className={`ui-badge ${validationStatusBadgeClass(validationStatus as "Pending Review")}`}>
-                            {validationStatus}
-                          </span>
-                        </p>
-                        {doc.validationRemarks ? (
-                          <p className="mt-1 ui-caption">
-                            <span className="font-semibold text-[var(--foreground)]">Validation remarks:</span> {doc.validationRemarks}
-                          </p>
-                        ) : null}
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          <a
-                            href={`/api/department-head/application-approval/${selected.id}/documents/${doc.id}/download`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={`${actionButtonStyles("secondary", "sm")} inline-flex`}
-                          >
-                            Preview
-                          </a>
-                          <DocumentDownloadButton
-                            url={`/api/department-head/application-approval/${selected.id}/documents/${doc.id}/download?download=1`}
-                            fileName={doc.fileName || doc.documentName || "document"}
-                          />
+              return (
+                <>
+                  <div className="ui-split-pane-body space-y-3 px-3 py-2.5 sm:px-3.5 lg:px-4">
+                    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                      <div className={dhSummaryTileClass}>
+                        <p className={dhSummaryLabelClass}>Application Number</p>
+                        <p className={dhSummaryValueClass}>{selected.applicationNumber}</p>
+                      </div>
+                      <div className={dhSummaryTileClass}>
+                        <p className={dhSummaryLabelClass}>Type</p>
+                        <p className={dhSummaryValueClass}>{selected.applicationType}</p>
+                      </div>
+                      <div className={dhSummaryTileClass}>
+                        <p className={dhSummaryLabelClass}>Status</p>
+                        <div className="mt-0.5">
+                          <StatusBadge status={selected.currentStatus as any} />
                         </div>
-                      </li>
-                    );
-                    })}
-                  </ul>
-                )}
-              </SectionCard>
+                      </div>
+                      <div className={dhSummaryTileClass}>
+                        <p className={dhSummaryLabelClass}>Owner</p>
+                        <p className={dhSummaryValueClass}>{selected.ownerName}</p>
+                      </div>
+                      <div className={dhSummaryTileClass}>
+                        <p className={dhSummaryLabelClass}>Business Name</p>
+                        <p className={dhSummaryValueClass}>{selected.businessName}</p>
+                      </div>
+                      <div className={dhSummaryTileClass}>
+                        <p className={dhSummaryLabelClass}>Submitted</p>
+                        <p className={dhSummaryValueClass}>{formatDateTime(selected.submittedDate)}</p>
+                      </div>
+                      <div className={dhSummaryTileClass}>
+                        <p className={dhSummaryLabelClass}>Updated</p>
+                        <p className={dhSummaryValueClass}>{formatDateTime(selected.updatedDate)}</p>
+                      </div>
+                      <div className={dhSummaryTileClass}>
+                        <p className={dhSummaryLabelClass}>Business Type</p>
+                        <p className={dhSummaryValueClass}>{selected.businessType}</p>
+                      </div>
+                      <div className={`${dhSummaryTileClass} sm:col-span-2`}>
+                        <p className={dhSummaryLabelClass}>Line of Business</p>
+                        <p className={dhSummaryValueClass}>{selected.lineOfBusiness}</p>
+                      </div>
+                      <div className={`${dhSummaryTileClass} sm:col-span-2`}>
+                        <p className={dhSummaryLabelClass}>Business Address</p>
+                        <p className={dhSummaryValueClass}>{selected.businessAddress}</p>
+                      </div>
+                    </div>
 
-              <SectionCard title="Timeline / Remarks" description="Status transitions and recorded remarks.">
-                {selected.history.length === 0 ? (
-                  <div className="text-sm text-[var(--ink-muted)]">No timeline entries yet.</div>
-                ) : (
-                  <ul className="space-y-2 text-sm text-[var(--ink-muted)]">
-                    {selected.history.map((item) => (
-                      <li key={item.id} className={dhDocumentListItemClass}>
-                        <p className="font-medium text-[var(--foreground)]">
-                          {item.fromStatus ? `${item.fromStatus} to ` : ""}
-                          {item.toStatus}
-                        </p>
-                        <p className="ui-caption">Actor: {item.actorRole}</p>
-                        <p className="ui-caption">{formatDateTime(item.createdAt)}</p>
-                        <p className="mt-1 text-sm text-[var(--ink-muted)]">{item.remarks ?? "No remarks provided."}</p>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </SectionCard>
+                    <div className="grid gap-2 lg:grid-cols-2">
+                      <div className={dhSurfacePanelClass}>
+                        <p className={dhDetailSectionTitleClass}>Owner</p>
+                        <div className="space-y-1 text-sm text-[var(--ink-muted)]">
+                          {ownerFirstName || ownerMiddleName || ownerSurname ? (
+                            <>
+                              <p><strong>First Name:</strong> {ownerFirstName || "-"}</p>
+                              <p><strong>Middle Name:</strong> {ownerMiddleName || "-"}</p>
+                              <p><strong>Surname:</strong> {ownerSurname || "-"}</p>
+                            </>
+                          ) : (
+                            <p><strong>Owner / President:</strong> {ownerName}</p>
+                          )}
+                          <p><strong>Age:</strong> {readText(formData, ["ownerAge"])}</p>
+                          <p><strong>Birthdate:</strong> {formatBirthDate(readText(formData, ["birthDate"]))}</p>
+                          <p><strong>Sex:</strong> {readText(formData, ["sex"])}</p>
+                          <p><strong>Nationality:</strong> {readText(formData, ["nationality"])}</p>
+                          <p><strong>Email:</strong> {readText(formData, ["email"])}</p>
+                          <p><strong>Phone:</strong> {readText(formData, ["phone"])}</p>
+                        </div>
+                      </div>
 
-              {approvalBlocked ? (
-                <InfoBanner
-                  title="Approval blocked by document validation"
-                  description={
-                    approvalBlockMessage ??
-                    "All required documents must be marked Valid before this application can be approved."
-                  }
-                  variant="danger"
-                />
-              ) : (
-                <InfoBanner
-                  title="Documents ready for approval"
-                  description="All required documents are marked Valid. You may approve this application when review is complete."
-                  variant="success"
-                />
-              )}
+                      <div className={dhSurfacePanelClass}>
+                        <p className={dhDetailSectionTitleClass}>Business identity</p>
+                        <div className="space-y-1 text-sm text-[var(--ink-muted)]">
+                          <p><strong>Business Name:</strong> {readText(formData, ["businessName"], selected.businessName)}</p>
+                          <p><strong>Trade Name:</strong> {readText(formData, ["tradeName"])}</p>
+                          <p><strong>Business Type:</strong> {readText(formData, ["businessType"], selected.businessType)}</p>
+                          <p><strong>Registration Number:</strong> {readText(formData, ["registrationNumber"])}</p>
+                          <p><strong>TIN:</strong> {readText(formData, ["tin"])}</p>
+                          <p><strong>Business Activity:</strong> {readText(formData, ["businessActivity"])}</p>
+                          <p><strong>Main / Branch:</strong> {readText(formData, ["businessOperationType"])}</p>
+                          <p><strong>Line of Business:</strong> {readText(formData, ["lineOfBusiness"], selected.lineOfBusiness)}</p>
+                        </div>
+                      </div>
 
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-[var(--foreground)]" htmlFor="approval-remarks">
-                  Remarks (required for Return and Reject)
-                </label>
-                <textarea
-                  id="approval-remarks"
-                  className={dhFormControlClass}
-                  rows={3}
-                  value={remarks}
-                  onChange={(event) => setRemarks(event.target.value)}
-                  placeholder="Required for Return for Correction and Reject actions"
-                />
-              </div>
+                      <div className={dhSurfacePanelClass}>
+                        <p className={dhDetailSectionTitleClass}>Address & location</p>
+                        <div className="space-y-1 text-sm text-[var(--ink-muted)]">
+                          <p><strong>Main Office Address:</strong> {readText(formData, ["mainOfficeAddress"])}</p>
+                          <p><strong>Business Address:</strong> {readText(formData, ["businessAddress"], selected.businessAddress)}</p>
+                          <p><strong>Barangay:</strong> {readText(formData, ["barangay"])}</p>
+                          <p><strong>Street:</strong> {readText(formData, ["streetAddress"])}</p>
+                          <p><strong>Coordinates:</strong> {latitude != null && longitude != null ? `${latitude}, ${longitude}` : "-"}</p>
+                          <p><strong>Location:</strong> {latitude != null && longitude != null ? "Pinned" : "Not pinned"}</p>
+                        </div>
+                      </div>
 
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => void runAction("approve")}
-                  disabled={pendingAction !== null || approvalBlocked}
-                  className={actionButtonStyles("primary", "sm")}
-                >
-                  {pendingAction === "approve" ? "Processing..." : "Approve"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void runAction("return")}
-                  disabled={pendingAction !== null}
-                  className={actionButtonStyles("warning", "sm")}
-                >
-                  {pendingAction === "return" ? "Processing..." : "Return for Correction"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void runAction("reject")}
-                  disabled={pendingAction !== null}
-                  className={actionButtonStyles("danger", "sm")}
-                >
-                  {pendingAction === "reject" ? "Processing..." : "Reject"}
-                </button>
-              </div>
+                      <div className={dhSurfacePanelClass}>
+                        <p className={dhDetailSectionTitleClass}>Operations</p>
+                        <div className="space-y-1 text-sm text-[var(--ink-muted)]">
+                          <p><strong>Business Area:</strong> {readText(formData, ["businessArea"])}</p>
+                          <p><strong>Total Floor Area:</strong> {readText(formData, ["totalFloorArea"])}</p>
+                          <p><strong>Asset Size:</strong> {readText(formData, ["assetSize"])}</p>
+                          <p><strong>Property Ownership:</strong> {readText(formData, ["propertyOwnership"])}</p>
+                          <p><strong>Tax Declaration No.:</strong> {readText(formData, ["taxDeclarationNumber"])}</p>
+                          <p><strong>PIN:</strong> {readText(formData, ["propertyIdentificationNumber"])}</p>
+                          <p><strong>Tax Incentives:</strong> {readText(formData, ["taxIncentives"])}</p>
+                          <p><strong>Market:</strong> {readFlag(formData, "isMarket")} · <strong>Agriculture:</strong> {readFlag(formData, "isAgriculture")} · <strong>Liquor/Tobacco:</strong> {readFlag(formData, "isLiquorOrTobacco")}</p>
+                        </div>
+                      </div>
 
-              {message ? (
-                <InfoBanner
-                  title={message.type === "success" ? "Action completed" : "Action blocked"}
-                  description={message.text}
-                  variant={message.type === "success" ? "success" : "danger"}
-                />
-              ) : null}
-                  </>
-                );
-              })()}
-            </div>
+                      <div className={dhSurfacePanelClass}>
+                        <p className={dhDetailSectionTitleClass}>Employees</p>
+                        <div className="space-y-1 text-sm text-[var(--ink-muted)]">
+                          <p><strong>Total:</strong> {readText(formData, ["totalEmployees"])}</p>
+                          <p><strong>Male / Female:</strong> {readText(formData, ["maleEmployees"])} / {readText(formData, ["femaleEmployees"])}</p>
+                          <p><strong>Within Municipality:</strong> {readText(formData, ["employeesWithinMunicipality"])}</p>
+                          <p><strong>Delivery Vehicles:</strong> {readText(formData, ["deliveryVehicles"])}</p>
+                        </div>
+                      </div>
+
+                      <div className={dhSurfacePanelClass}>
+                        <p className={dhDetailSectionTitleClass}>Application notes</p>
+                        <div className="space-y-1 text-sm text-[var(--ink-muted)]">
+                          <p><strong>Type:</strong> {selected.applicationType}</p>
+                          {selected.applicationType === "RENEWAL" ? (
+                            <p><strong>Payment Preference:</strong> {readText(formData, ["paymentFrequency"])}</p>
+                          ) : null}
+                          {selected.applicationType === "NEW" ? (
+                            <p><strong>Capital Investment:</strong> {readText(formData, ["capitalInvestment"])}</p>
+                          ) : null}
+                          {selected.applicationType === "RENEWAL" ? (
+                            <p><strong>Gross Profit:</strong> {readText(formData, ["grossProfit"])}</p>
+                          ) : null}
+                          {selected.applicationType === "CLOSURE" ? (
+                            <>
+                              <p>
+                                <strong>Closure Type:</strong>{" "}
+                                {selected.closureType === "RETIREMENT"
+                                  ? "Retirement"
+                                  : selected.closureType === "NON_COMPLIANT_RELATED"
+                                    ? "Non-compliant Related"
+                                    : selected.closureType === "OTHERS"
+                                      ? selected.closureTypeOtherReason?.trim()
+                                        ? `Others — ${selected.closureTypeOtherReason.trim()}`
+                                        : "Others"
+                                      : "-"}
+                              </p>
+                              <p>
+                                <strong>Line of Business:</strong>{" "}
+                                {readText(formData, ["closureLineOfBusiness", "lineOfBusiness"])}
+                              </p>
+                              <p>
+                                <strong>Business Activity:</strong>{" "}
+                                {readText(formData, ["closureBusinessActivity", "businessActivity"])}
+                              </p>
+                              <p>
+                                <strong>Last Date of Operation:</strong>{" "}
+                                {readText(formData, ["closureLastDateOfOperation"])}
+                              </p>
+                            </>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className={dhSummaryTileClass}>
+                      <p className={dhSummaryLabelClass}>BPLO Remarks</p>
+                      <p className="mt-0.5 text-sm text-[var(--foreground)]">{selected.bploRemarks ?? "No BPLO remarks provided."}</p>
+                    </div>
+
+                    <div className={dhSurfacePanelClass}>
+                      <p className={dhDetailSectionTitleClass}>Documents</p>
+                      {selected.documents.length === 0 ? (
+                        <div className="text-sm text-[var(--ink-muted)]">No uploaded documents.</div>
+                      ) : (
+                        <ul className="space-y-1.5 text-sm">
+                          {selected.documents.map((doc) => {
+                            const validationStatus = doc.validationStatus ?? "Pending Review";
+                            return (
+                              <li key={doc.id} className={dhDocumentListItemClass}>
+                                <p className="font-medium text-[var(--foreground)]">{doc.documentName}: {doc.fileName}</p>
+                                <p className="ui-caption">Uploaded: {formatDateTime(doc.uploadedAt)}</p>
+                                <p className="mt-1">
+                                  <span className={`ui-badge ${validationStatusBadgeClass(validationStatus as "Pending Review")}`}>
+                                    {validationStatus}
+                                  </span>
+                                </p>
+                                {doc.validationRemarks ? (
+                                  <p className="mt-1 ui-caption">
+                                    <span className="font-semibold text-[var(--foreground)]">Validation remarks:</span> {doc.validationRemarks}
+                                  </p>
+                                ) : null}
+                                <div className="mt-1.5 flex flex-wrap gap-2">
+                                  <a
+                                    href={`/api/department-head/application-approval/${selected.id}/documents/${doc.id}/download`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={`${actionButtonStyles("secondary", "sm")} inline-flex`}
+                                  >
+                                    Preview
+                                  </a>
+                                  <DocumentDownloadButton
+                                    url={`/api/department-head/application-approval/${selected.id}/documents/${doc.id}/download?download=1`}
+                                    fileName={doc.fileName || doc.documentName || "document"}
+                                  />
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </div>
+
+                    <div className={dhSurfacePanelClass}>
+                      <p className={dhDetailSectionTitleClass}>Timeline</p>
+                      {selected.history.length === 0 ? (
+                        <div className="text-sm text-[var(--ink-muted)]">No timeline entries yet.</div>
+                      ) : (
+                        <ul className="space-y-1.5 text-sm text-[var(--ink-muted)]">
+                          {selected.history.map((item) => (
+                            <li key={item.id} className={dhDocumentListItemClass}>
+                              <p className="font-medium text-[var(--foreground)]">
+                                {item.fromStatus ? `${item.fromStatus} to ` : ""}
+                                {item.toStatus}
+                              </p>
+                              <p className="ui-caption">Actor: {item.actorRole} · {formatDateTime(item.createdAt)}</p>
+                              <p className="mt-0.5 text-sm text-[var(--ink-muted)]">{item.remarks ?? "No remarks provided."}</p>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="ui-split-pane-footer space-y-2 px-3 pb-2.5 sm:px-3.5 lg:px-4">
+                    {approvalBlocked ? (
+                      <InfoBanner
+                        title="Approval blocked"
+                        description={
+                          approvalBlockMessage ??
+                          "All required documents must be marked Valid before approval."
+                        }
+                        variant="danger"
+                      />
+                    ) : (
+                      <InfoBanner
+                        title="Ready for approval"
+                        description="All required documents are Valid."
+                        variant="success"
+                      />
+                    )}
+
+                    <div className="space-y-1.5">
+                      <label className="block text-sm font-medium text-[var(--foreground)]" htmlFor="approval-remarks">
+                        Remarks (required for Return and Reject)
+                      </label>
+                      <textarea
+                        id="approval-remarks"
+                        className={dhFormControlClass}
+                        rows={2}
+                        value={remarks}
+                        onChange={(event) => setRemarks(event.target.value)}
+                        placeholder="Required for Return for Correction and Reject actions"
+                      />
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void runAction("approve")}
+                        disabled={pendingAction !== null || approvalBlocked}
+                        className={actionButtonStyles("primary", "sm")}
+                      >
+                        {pendingAction === "approve" ? "Processing..." : "Approve"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void runAction("return")}
+                        disabled={pendingAction !== null}
+                        className={actionButtonStyles("warning", "sm")}
+                      >
+                        {pendingAction === "return" ? "Processing..." : "Return for Correction"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void runAction("reject")}
+                        disabled={pendingAction !== null}
+                        className={actionButtonStyles("danger", "sm")}
+                      >
+                        {pendingAction === "reject" ? "Processing..." : "Reject"}
+                      </button>
+                    </div>
+
+                    {message ? (
+                      <InfoBanner
+                        title={message.type === "success" ? "Action completed" : "Action blocked"}
+                        description={message.text}
+                        variant={message.type === "success" ? "success" : "danger"}
+                      />
+                    ) : null}
+                  </div>
+                </>
+              );
+            })()
           )}
         </SectionCard>
       </div>

@@ -27,7 +27,11 @@ export function useNotifications() {
         signal,
       });
 
-      let data: { notifications?: Notification[]; error?: string } = {};
+      let data: {
+        notifications?: Notification[];
+        records?: Notification[];
+        error?: string;
+      } = {};
       try {
         data = await response.json();
       } catch {
@@ -36,7 +40,11 @@ export function useNotifications() {
         }
       }
 
-      const notifs = data.notifications ?? [];
+      if (!response.ok) {
+        throw new Error(data.error || `Server error (${response.status})`);
+      }
+
+      const notifs = data.notifications ?? data.records ?? [];
       setNotifications(notifs);
       setUnreadCount(getUnreadCount(notifs));
       setError(null);

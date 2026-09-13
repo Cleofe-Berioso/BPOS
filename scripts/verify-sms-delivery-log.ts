@@ -75,37 +75,31 @@ async function main() {
   const jitNoPermitSource = await readFile("src/lib/jit-no-permit-notifications.ts", "utf8");
 
   const forReleaseTriggerCount = (permitIssuanceSource.match(/status:\s*\"FOR_RELEASE\"\s+as\s+const/g) ?? []).length;
-  const releasedTriggerCount = (permitIssuanceSource.match(/status:\s*\"RELEASED\"\s+as\s+const/g) ?? []).length;
   const senderCallCount = (permitIssuanceSource.match(/sendReleaseStatusSms\(/g) ?? []).length;
   const hasDeliveryLogCreate = smsSource.includes("prisma.smsDeliveryLog.create");
   const hasCentralizedIsSmsEnabled = smsConfigSource.includes("export function isSmsEnabled()");
   const releaseSmsUsesCentralConfig = smsSource.includes('from "@/lib/sms-config"');
-  const jitSmsUsesCentralConfig = jitNoPermitSource.includes('from "@/lib/sms-config"');
-  const jitSmsUsesTransactionalSender = jitNoPermitSource.includes("sendTransactionalSms(");
+  const jitHasNoSmsSender = !jitNoPermitSource.includes("sendTransactionalSms(");
   const noDuplicateProviderFetchInJit =
     !jitNoPermitSource.includes("api.twilio.com") && !jitNoPermitSource.includes("api.semaphore.co");
   const releaseSmsGatedBeforeSend = smsSource.includes("if (!isSmsEnabled())");
-  const jitSmsGatedBeforeSend = jitNoPermitSource.includes("if (!isSmsEnabled())");
 
   assert(forReleaseTriggerCount >= 1, "FOR_RELEASE trigger context for SMS not found.");
-  assert(releasedTriggerCount >= 1, "RELEASED trigger context for SMS not found.");
-  assert(senderCallCount >= 2, "Expected sendReleaseStatusSms calls for prepare/release flows.");
+  assert(senderCallCount === 1, "Expected exactly one sendReleaseStatusSms call (FOR_RELEASE prepare only).");
+  assert(!permitIssuanceSource.includes('status: "RELEASED" as const,\n        toPhone'), "RELEASED SMS context should be removed.");
   assert(hasDeliveryLogCreate, "SmsDeliveryLog creation not found in SMS sender implementation.");
   assert(hasCentralizedIsSmsEnabled, "Centralized isSmsEnabled() not found in sms-config.");
   assert(releaseSmsUsesCentralConfig, "Release SMS sender must import sms-config.");
-  assert(jitSmsUsesCentralConfig, "JIT no-permit notifications must import sms-config.");
-  assert(jitSmsUsesTransactionalSender, "JIT no-permit notifications must use sendTransactionalSms.");
+  assert(jitHasNoSmsSender, "JIT no-permit notifications must not send SMS.");
   assert(noDuplicateProviderFetchInJit, "JIT no-permit notifications must not call provider APIs directly.");
   assert(releaseSmsGatedBeforeSend, "Release SMS sender must gate on isSmsEnabled().");
-  assert(jitSmsGatedBeforeSend, "JIT no-permit SMS path must gate on isSmsEnabled().");
 
   console.log("[SMS VERIFY] Trigger log linkage check: PASS", {
     forReleaseTriggerCount,
-    releasedTriggerCount,
     senderCallCount,
     hasDeliveryLogCreate,
     hasCentralizedIsSmsEnabled,
-    jitSmsUsesTransactionalSender,
+    jitHasNoSmsSender,
     noDuplicateProviderFetchInJit,
   });
 

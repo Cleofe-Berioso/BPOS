@@ -13,9 +13,25 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const page = searchParams.get("page") ?? undefined;
     const pageSize = searchParams.get("pageSize") ?? undefined;
+    const hasPagination = page != null || pageSize != null;
 
-    const result = await listApplicantNotifications(authContext.applicantId, { page, pageSize });
-    return NextResponse.json(result);
+    const result = hasPagination
+      ? await listApplicantNotifications(authContext.applicantId, { page, pageSize })
+      : await listApplicantNotifications(authContext.applicantId);
+
+    // Support both the notifications page (`records`) and header hook (`notifications`).
+    if (Array.isArray(result)) {
+      return NextResponse.json({
+        notifications: result,
+        records: result,
+        totalCount: result.length,
+      });
+    }
+
+    return NextResponse.json({
+      ...result,
+      notifications: result.records,
+    });
   } catch (error) {
     return NextResponse.json({ error: safeApiErrorMessage(error, "Unable to load notifications") }, { status: 500 });
   }

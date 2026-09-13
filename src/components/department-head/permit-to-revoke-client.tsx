@@ -215,10 +215,12 @@ export function PermitToRevokeClient() {
   }
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
+    <div className="ui-split-workspace">
       <SectionCard
-        title="Flagged Cases Queue"
-        description="Only Department Head verified NON_COMPLIANT inspections ready for revocation decision are listed here."
+        fill
+        title="Flagged Cases"
+        description="Ready for revocation decision"
+        contentClassName="ui-split-pane-body px-3 py-2.5 sm:px-3.5 lg:px-4"
       >
         {loading ? (
           <LoadingState message="Loading revocation queue…" compact />
@@ -267,14 +269,16 @@ export function PermitToRevokeClient() {
       </SectionCard>
 
       <SectionCard
+        fill
         title="Flagged Case Decision"
         description={selected ? `${selected.applicationNumber} • ${selected.businessName}` : "Select a flagged case."}
+        contentClassName="ui-split-pane-body px-3 py-2.5 sm:px-3.5 lg:px-4"
       >
         {!selected ? (
           <EmptyState title="No selected inspection" description="Choose an inspection from the queue." />
         ) : (
-          <div className="space-y-4">
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <div className="space-y-3">
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
               <div className={dhSummaryTileClass}>
                 <p className={dhSummaryLabelClass}>Business Name / Trade Name</p>
                 <p className={dhSummaryValueClass}>{selected.tradeName ? `${selected.businessName} / ${selected.tradeName}` : selected.businessName}</p>

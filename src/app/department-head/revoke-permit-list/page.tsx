@@ -9,7 +9,7 @@ export default async function DepartmentHeadRevokePermitListPage() {
   if (!session) notFound();
 
   return (
-    <section className="ui-page-stack">
+    <section className="ui-page-stack ui-page-stack--workspace">
       <PageHeader
         eyebrow="Department Head"
         title="Restrictions List"

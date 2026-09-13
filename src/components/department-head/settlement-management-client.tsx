@@ -92,8 +92,13 @@ export function SettlementManagementClient() {
   }, []);
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
-      <SectionCard title="Eligible Cases" description="Cases eligible for Department Head settlement.">
+    <div className="ui-split-workspace">
+      <SectionCard
+        fill
+        title="Eligible Cases"
+        description="Ready for settlement"
+        contentClassName="ui-split-pane-body px-3 py-2.5 sm:px-3.5 lg:px-4"
+      >
         {loading ? (
           <LoadingState message="Loading eligible cases…" compact />
         ) : rows.length === 0 ? (
@@ -123,12 +128,17 @@ export function SettlementManagementClient() {
         )}
       </SectionCard>
 
-      <SectionCard title="Case Details" description={selected ? `${selected.applicationNumber ?? selected.inspectionId} • ${selected.businessName}` : "Select a case from the list."}>
+      <SectionCard
+        fill
+        title="Case Details"
+        description={selected ? `${selected.applicationNumber ?? selected.inspectionId} • ${selected.businessName}` : "Select a case from the list."}
+        contentClassName="ui-split-pane-body px-3 py-2.5 sm:px-3.5 lg:px-4"
+      >
         {!selected ? (
           <EmptyState title="No selected case" description="Choose an eligible case from the list." />
         ) : (
-          <div className="space-y-4">
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <div className="space-y-3">
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
               <div className={dhSummaryTileClass}>
                 <p className={dhSummaryLabelClass}>Business Name</p>
                 <p className={dhSummaryValueClass}>{selected.businessName}</p>

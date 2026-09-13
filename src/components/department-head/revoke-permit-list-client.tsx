@@ -136,10 +136,12 @@ export function RevokePermitListClient() {
   }, [page, pageSize]);
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
+    <div className="ui-split-workspace">
       <SectionCard
+        fill
         title="Restricted Businesses"
-        description="Read-only list of businesses with approved revocations and active restrictions."
+        description="Approved revocations"
+        contentClassName="ui-split-pane-body px-3 py-2.5 sm:px-3.5 lg:px-4"
       >
         {loading ? (
           <LoadingState message="Loading restricted businesses…" compact />
@@ -200,13 +202,15 @@ export function RevokePermitListClient() {
       </SectionCard>
 
       <SectionCard
+        fill
         title="Restriction Details"
         description={selected ? `${selected.applicationNumber} • ${selected.businessName}` : "Select a restricted business."}
+        contentClassName="ui-split-pane-body px-3 py-2.5 sm:px-3.5 lg:px-4"
       >
         {!selected ? (
           <EmptyState title="No selected record" description="Choose a restricted business from the list." />
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               <div className={dhSummaryTileClass}>
                 <p className={dhSummaryLabelClass}>Business Name</p>

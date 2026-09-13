@@ -17,7 +17,7 @@ export function NotificationDropdown() {
   const dropdownRef = useRef<HTMLElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  const { notifications, unreadCount, isLoading, error, markAsRead, markAllAsRead, addLocalNotification, refetch } =
+  const { notifications, unreadCount, isLoading, error, markAsRead, markAllAsRead, refetch } =
     useNotifications();
 
   /**
@@ -127,16 +127,10 @@ export function NotificationDropdown() {
                 <p className="text-xs text-[var(--ink-muted)] mt-1">
                   You&apos;re all caught up! Check back soon.
                 </p>
-                <button
-                  onClick={() => addLocalNotification()}
-                  className="mt-3 inline-flex items-center rounded-md bg-[var(--primary)] px-3 py-1.5 text-sm font-semibold text-white hover:bg-[var(--primary-strong)]"
-                >
-                  Add test notification
-                </button>
               </div>
             ) : (
               <div className="space-y-1 p-2">
-                {notifications.map((notification) => (
+                {notifications.slice(0, 8).map((notification) => (
                   <NotificationItem
                     key={notification.id}
                     notification={notification}

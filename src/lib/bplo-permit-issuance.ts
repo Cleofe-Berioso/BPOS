@@ -793,9 +793,6 @@ export async function releasePermitIssuance(
       },
     });
 
-    const businessName = resolveBusinessName(app.formData, app.businessRecord?.businessName ?? null);
-    const toPhone = resolveApplicantPhone(app.formData) ?? app.businessRecord?.phone ?? null;
-
     return {
       applicationId,
       applicationNumber: app.applicationNumber,
@@ -803,25 +800,14 @@ export async function releasePermitIssuance(
       status: "RELEASED" as const,
       newApplicationStatus: "RELEASED" as const,
       complianceClosureResult,
-      smsContext: {
-        applicationId,
-        applicantId: app.applicantId,
-        applicationNumber: app.applicationNumber,
-        applicantName: app.applicant.name,
-        businessName,
-        status: "RELEASED" as const,
-        toPhone,
-      },
     };
   });
 
-  const smsDelivery = await sendReleaseStatusSms(result.smsContext);
   return {
     applicationId: result.applicationId,
     applicationNumber: result.applicationNumber,
     documentNumber: result.documentNumber,
     status: result.status,
     newApplicationStatus: result.newApplicationStatus,
-    smsDelivery,
   };
 }

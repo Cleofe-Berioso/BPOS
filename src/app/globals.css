@@ -153,6 +153,67 @@ h1, h2, h3, h4, h5, h6,
   gap: var(--space-3);
 }
 
+/* Master-detail workspaces: keep chrome fixed; scroll only inside panes. */
+.ui-page-stack--workspace {
+  gap: var(--space-2);
+}
+
+.ui-split-workspace {
+  display: grid;
+  gap: 0.75rem;
+  min-height: 0;
+}
+
+.ui-split-pane {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ui-split-pane-body {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.ui-split-pane-footer {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border-color);
+  background: var(--surface);
+  padding-top: 0.75rem;
+}
+
+@media (min-width: 1280px) {
+  .ui-page-stack--workspace {
+    height: calc(100dvh - 4.75rem);
+    max-height: calc(100dvh - 4.75rem);
+    overflow: hidden;
+  }
+
+  .ui-page-stack--workspace > .ui-split-workspace {
+    flex: 1 1 auto;
+    min-height: 0;
+    grid-template-columns: 300px minmax(0, 1fr);
+    overflow: hidden;
+  }
+
+  .ui-page-stack--workspace > .ui-split-workspace > .ui-section-card,
+  .ui-page-stack--workspace > .ui-split-workspace > .ui-split-pane {
+    min-height: 0;
+    height: 100%;
+  }
+}
+
+/* Slightly tighter portal main bottom padding so workspace fits one viewport. */
+@media (min-width: 1280px) {
+  .app-portal-main:has(.ui-page-stack--workspace) {
+    padding-bottom: 0.75rem;
+  }
+}
+
 .ui-surface-header {
   background-color: var(--surface-header);
   border-bottom: 1px solid var(--border-color);
