@@ -1,12 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireSuperAdminSession } from "@/lib/superadmin-api";
 import { createRenewalExtension, listRenewalExtensions } from "@/lib/fee-settings";
-
-function parseDate(value: unknown): Date | null {
-  if (typeof value !== "string" || !value.trim()) return null;
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
+import { parseRenewalExtensionCreate } from "@/lib/superadmin-settings-policies";
 
 export async function GET() {
   const session = await requireSuperAdminSession();
@@ -31,37 +26,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  const { startDate, endDate, isActive, waiveSurcharge, waiveInterest } = body as Record<string, unknown>;
-
-  const parsedStart = parseDate(startDate);
-  const parsedEnd = parseDate(endDate);
-  if (!parsedStart || !parsedEnd) {
-    return NextResponse.json({ error: "Valid start and end dates are required." }, { status: 400 });
-  }
-
-  if (parsedEnd < parsedStart) {
-    return NextResponse.json({ error: "End date cannot be before start date." }, { status: 400 });
-  }
-
-  if (typeof isActive !== "boolean") {
-    return NextResponse.json({ error: "Enabled/disabled status is required." }, { status: 400 });
-  }
-
-  if (typeof waiveSurcharge !== "boolean") {
-    return NextResponse.json({ error: "Waive surcharge setting is required." }, { status: 400 });
-  }
-
-  if (typeof waiveInterest !== "boolean") {
-    return NextResponse.json({ error: "Waive interest setting is required." }, { status: 400 });
+  const parsed = parseRenewalExtensionCreate(body as Record<string, unknown>);
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 });
   }
 
   try {
     const extension = await createRenewalExtension({
-      startDate: parsedStart,
-      endDate: parsedEnd,
-      isActive,
-      waiveSurcharge,
-      waiveInterest,
+      ...parsed.value,
       updatedById: session.user.id,
     });
 

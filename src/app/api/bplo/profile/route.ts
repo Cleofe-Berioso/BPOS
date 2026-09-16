@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireBploSession } from "@/lib/bplo-api";
-import { formatPersonName } from "@/lib/person-name";
 import { safeApiErrorMessage } from "@/lib/api-errors";
 import { createStorageSignedUrlByPath } from "@/lib/document-storage";
+import { parseBploProfileNameUpdate } from "@/lib/superadmin-user-policies";
 
 const PROFILE_IMAGE_SIGNED_URL_TTL_SECONDS = 60 * 30;
 
@@ -97,27 +97,12 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Invalid request payload." }, { status: 400 });
   }
 
-  const record = body as Record<string, unknown>;
-  const firstName = typeof record.firstName === "string" ? record.firstName.trim() : "";
-  const middleName = typeof record.middleName === "string" ? record.middleName.trim() : "";
-  const lastName = typeof record.lastName === "string" ? record.lastName.trim() : "";
-  const suffix = typeof record.suffix === "string" ? record.suffix.trim() : "";
-
-  if (!firstName) {
-    return NextResponse.json({ error: "First name is required." }, { status: 400 });
+  const parsed = parseBploProfileNameUpdate(body as Record<string, unknown>);
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: parsed.status });
   }
 
-  if (!lastName) {
-    return NextResponse.json({ error: "Last name is required." }, { status: 400 });
-  }
-
-  const computedName = formatPersonName({
-    firstName,
-    middleName,
-    lastName,
-    suffix,
-    fallbackName: `${firstName} ${lastName}`,
-  });
+  const { firstName, middleName, lastName, suffix, name: computedName } = parsed.value;
 
   try {
     const updated = await prisma.user.update({

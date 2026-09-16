@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { captureE2eOtp } from "@/lib/e2e-otp-capture";
 
 /**
  * Generate a 6-digit random OTP
@@ -84,6 +85,7 @@ export async function requestPasswordResetOtp(email: string): Promise<string> {
     if (process.env.NODE_ENV !== "production") {
       console.log(`[password-reset] OTP generated for: ${normalizedEmail}`);
     }
+    captureE2eOtp("password-reset", normalizedEmail, plainOtp);
     return plainOtp;
   } catch (error) {
     if (process.env.NODE_ENV !== "production") {

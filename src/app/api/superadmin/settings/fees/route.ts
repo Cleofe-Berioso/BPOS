@@ -9,6 +9,7 @@ import {
   updateFeeConfigurationItemById,
 } from "@/lib/fee-settings";
 import { logSettingsAction } from "@/lib/audit-log";
+import { validateFeeAmount } from "@/lib/superadmin-settings-policies";
 
 export async function GET() {
   const session = await requireSuperAdminSession();
@@ -54,15 +55,16 @@ export async function POST(req: Request) {
     );
   }
 
-  if (typeof amount !== "number" || Number.isNaN(amount) || amount < 0) {
-    return NextResponse.json({ error: "Fee amount must be a non-negative number." }, { status: 400 });
+  const amountCheck = validateFeeAmount(amount);
+  if (!amountCheck.ok) {
+    return NextResponse.json({ error: amountCheck.error }, { status: 400 });
   }
 
   try {
     const item = await upsertFeeConfigurationItem({
       category,
       classification,
-      amount,
+      amount: amountCheck.amount,
       isActive: true,
       updatedById: session.user.id,
     });
@@ -74,8 +76,8 @@ export async function POST(req: Request) {
       "FEE_CONFIGURATION",
       item.id,
       "CREATED",
-      `Fee configuration: ${category} / ${classification} = PHP ${amount}`,
-      { category, classification, amount, isActive: true }
+      `Fee configuration: ${category} / ${classification} = PHP ${amountCheck.amount}`,
+      { category, classification, amount: amountCheck.amount, isActive: true }
     );
 
     return NextResponse.json({ success: true, item });
@@ -104,8 +106,9 @@ export async function PATCH(req: Request) {
   }
 
   if (typeof amount !== "undefined") {
-    if (typeof amount !== "number" || Number.isNaN(amount) || amount < 0) {
-      return NextResponse.json({ error: "Fee amount must be a non-negative number." }, { status: 400 });
+    const amountCheck = validateFeeAmount(amount);
+    if (!amountCheck.ok) {
+      return NextResponse.json({ error: amountCheck.error }, { status: 400 });
     }
   }
 

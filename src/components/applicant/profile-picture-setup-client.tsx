@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Camera, CameraOff, CheckCircle2, ImagePlus, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { actionButtonStyles } from "@/components/ui/action-button";
+import { useProfileCamera } from "@/components/applicant/use-profile-camera";
 import {
   clearApplicantProfileSetupNextPath,
   readApplicantProfileSetupNextPath,
@@ -26,11 +27,17 @@ export function ProfilePictureSetupClient() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [cameraActive, setCameraActive] = useState(false);
-  const [cameraLoading, setCameraLoading] = useState(false);
   const [nextPath, setNextPath] = useState("/applicant/dashboard");
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const {
+    videoRef,
+    cameraActive,
+    cameraLoading,
+    cameraError,
+    setCameraError,
+    startCamera,
+    stopCamera,
+    captureFrame,
+  } = useProfileCamera();
 
   useEffect(() => {
     setNextPath(readApplicantProfileSetupNextPath());
@@ -40,15 +47,6 @@ export function ProfilePictureSetupClient() {
     if (!file) return null;
     return URL.createObjectURL(file);
   }, [file]);
-
-  useEffect(() => {
-    return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
-        streamRef.current = null;
-      }
-    };
-  }, []);
 
   useEffect(() => {
     return () => {
@@ -76,72 +74,17 @@ export function ProfilePictureSetupClient() {
 
     setFile(nextFile);
     setError(null);
+    setCameraError(null);
     setMessage("Profile image is ready to upload.");
   }
 
-  async function startCamera() {
-    setCameraLoading(true);
-    setError(null);
-    setMessage(null);
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user" },
-        audio: false,
-      });
-
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-      setCameraActive(true);
-    } catch {
-      setError("Camera access was denied or unavailable. Use file upload instead.");
-      setCameraActive(false);
-    } finally {
-      setCameraLoading(false);
-    }
-  }
-
-  function stopCamera() {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-    setCameraActive(false);
-  }
-
   async function captureFromCamera() {
-    const video = videoRef.current;
-    if (!video || !video.videoWidth || !video.videoHeight) {
-      setError("Camera is still initializing. Try again in a moment.");
-      return;
-    }
-
-    const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-
-    const context = canvas.getContext("2d");
-    if (!context) {
-      setError("Unable to capture from camera. Please use file upload.");
-      return;
-    }
-
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    const blob = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob((result) => resolve(result), "image/jpeg", 0.9);
-    });
-
+    setError(null);
+    const blob = await captureFrame();
     if (!blob) {
-      setError("Unable to capture image. Please try again.");
+      setError(cameraError ?? "Unable to capture image. Please try again.");
       return;
     }
-
     assignFile(buildCaptureFile(blob));
     stopCamera();
   }
@@ -180,6 +123,8 @@ export function ProfilePictureSetupClient() {
     }
   }
 
+  const displayError = error ?? cameraError;
+
   return (
     <section className="ui-page-stack">
       <PageHeader
@@ -195,7 +140,9 @@ export function ProfilePictureSetupClient() {
               <button
                 type="button"
                 disabled={cameraLoading || submitting}
-                onClick={startCamera}
+                onClick={() => {
+                  void startCamera();
+                }}
                 className={actionButtonStyles("secondary", "sm")}
               >
                 {cameraLoading ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Camera className="mr-1.5 h-4 w-4" />}
@@ -206,7 +153,9 @@ export function ProfilePictureSetupClient() {
                 <button
                   type="button"
                   disabled={submitting}
-                  onClick={captureFromCamera}
+                  onClick={() => {
+                    void captureFromCamera();
+                  }}
                   className={actionButtonStyles("primary", "sm")}
                 >
                   <Camera className="mr-1.5 h-4 w-4" />
@@ -246,7 +195,7 @@ export function ProfilePictureSetupClient() {
               <video
                 ref={videoRef}
                 aria-label="Camera preview"
-                className="h-auto w-full max-h-[360px] object-contain"
+                className="h-auto w-full max-h-[360px] object-contain scale-x-[-1]"
                 autoPlay
                 playsInline
                 muted
@@ -264,7 +213,7 @@ export function ProfilePictureSetupClient() {
             </div>
           ) : null}
 
-          {error ? <p className="text-sm font-medium text-[var(--danger)]">{error}</p> : null}
+          {displayError ? <p className="text-sm font-medium text-[var(--danger)]">{displayError}</p> : null}
           {message ? (
             <p className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--success)]">
               <CheckCircle2 className="h-4 w-4" />
@@ -276,7 +225,9 @@ export function ProfilePictureSetupClient() {
             <button
               type="button"
               disabled={!file || submitting}
-              onClick={uploadProfileImage}
+              onClick={() => {
+                void uploadProfileImage();
+              }}
               className={actionButtonStyles("primary", "md")}
             >
               {submitting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}

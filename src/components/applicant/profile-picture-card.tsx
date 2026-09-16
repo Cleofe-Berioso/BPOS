@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Camera, CameraOff, CheckCircle2, ImagePlus, Loader2 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { actionButtonStyles } from "@/components/ui/action-button";
+import { useProfileCamera } from "@/components/applicant/use-profile-camera";
 import {
   PROFILE_IMAGE_FILE_INPUT_ACCEPT,
   validateProfileImageFile,
@@ -28,11 +29,17 @@ export function ProfilePictureCard({ userName }: ProfilePictureCardProps) {
   const [file, setFile] = useState<File | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [cameraActive, setCameraActive] = useState(false);
-  const [cameraLoading, setCameraLoading] = useState(false);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const {
+    videoRef,
+    cameraActive,
+    cameraLoading,
+    cameraError,
+    setCameraError,
+    startCamera,
+    stopCamera,
+    captureFrame,
+  } = useProfileCamera();
 
   const previewUrl = useMemo(() => {
     if (!file) return null;
@@ -64,7 +71,7 @@ export function ProfilePictureCard({ userName }: ProfilePictureCardProps) {
       }
     }
 
-    fetchProfilePicture();
+    void fetchProfilePicture();
   }, []);
 
   useEffect(() => {
@@ -75,34 +82,15 @@ export function ProfilePictureCard({ userName }: ProfilePictureCardProps) {
     };
   }, [previewUrl]);
 
-  useEffect(() => {
-    return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
-        streamRef.current = null;
-      }
-    };
-  }, []);
-
   function resetComposer() {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-
+    stopCamera();
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
-
     setFile(null);
     setMessage(null);
     setError(null);
-    setCameraActive(false);
-    setCameraLoading(false);
+    setCameraError(null);
     setSubmitting(false);
   }
 
@@ -124,6 +112,7 @@ export function ProfilePictureCard({ userName }: ProfilePictureCardProps) {
   function openModal() {
     setModalOpen(true);
     setError(null);
+    setCameraError(null);
     setMessage(null);
   }
 
@@ -150,74 +139,17 @@ export function ProfilePictureCard({ userName }: ProfilePictureCardProps) {
 
     setFile(nextFile);
     setError(null);
+    setCameraError(null);
     setMessage("Profile image is ready to upload.");
   }
 
-  async function startCamera() {
-    setCameraLoading(true);
-    setError(null);
-    setMessage(null);
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user" },
-        audio: false,
-      });
-
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-      setCameraActive(true);
-    } catch {
-      setError("Camera access was denied or unavailable. Use file upload instead.");
-      setCameraActive(false);
-    } finally {
-      setCameraLoading(false);
-    }
-  }
-
-  function stopCamera() {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-
-    setCameraActive(false);
-  }
-
   async function captureFromCamera() {
-    const video = videoRef.current;
-    if (!video || !video.videoWidth || !video.videoHeight) {
-      setError("Camera is still initializing. Try again in a moment.");
-      return;
-    }
-
-    const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-
-    const context = canvas.getContext("2d");
-    if (!context) {
-      setError("Unable to capture from camera. Please use file upload.");
-      return;
-    }
-
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    const blob = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob((result) => resolve(result), "image/jpeg", 0.9);
-    });
-
+    setError(null);
+    const blob = await captureFrame();
     if (!blob) {
-      setError("Unable to capture image. Please try again.");
+      setError(cameraError ?? "Unable to capture image. Please try again.");
       return;
     }
-
     assignFile(buildCaptureFile(blob));
     stopCamera();
   }
@@ -263,6 +195,8 @@ export function ProfilePictureCard({ userName }: ProfilePictureCardProps) {
     );
   }
 
+  const displayError = error ?? cameraError;
+
   return (
     <>
       <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-[var(--border-color)] bg-[var(--surface)] p-8">
@@ -295,7 +229,7 @@ export function ProfilePictureCard({ userName }: ProfilePictureCardProps) {
           </button>
         </div>
 
-        {error && <p className="text-sm text-[var(--danger)]">{error}</p>}
+        {error && !modalOpen ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
       </div>
 
       <Modal
@@ -311,7 +245,9 @@ export function ProfilePictureCard({ userName }: ProfilePictureCardProps) {
             <button
               type="button"
               disabled={!file || submitting}
-              onClick={uploadProfileImage}
+              onClick={() => {
+                void uploadProfileImage();
+              }}
               className={actionButtonStyles("primary", "sm")}
             >
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
@@ -326,7 +262,9 @@ export function ProfilePictureCard({ userName }: ProfilePictureCardProps) {
               <button
                 type="button"
                 disabled={cameraLoading || submitting}
-                onClick={startCamera}
+                onClick={() => {
+                  void startCamera();
+                }}
                 className={actionButtonStyles("secondary", "sm")}
               >
                 {cameraLoading ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Camera className="mr-1.5 h-4 w-4" />}
@@ -337,7 +275,9 @@ export function ProfilePictureCard({ userName }: ProfilePictureCardProps) {
                 <button
                   type="button"
                   disabled={submitting}
-                  onClick={captureFromCamera}
+                  onClick={() => {
+                    void captureFromCamera();
+                  }}
                   className={actionButtonStyles("primary", "sm")}
                 >
                   <Camera className="mr-1.5 h-4 w-4" />
@@ -378,7 +318,7 @@ export function ProfilePictureCard({ userName }: ProfilePictureCardProps) {
               <video
                 ref={videoRef}
                 aria-label="Camera preview"
-                className="h-auto max-h-[360px] w-full object-contain"
+                className="h-auto max-h-[360px] w-full object-contain scale-x-[-1]"
                 autoPlay
                 playsInline
                 muted
@@ -398,7 +338,7 @@ export function ProfilePictureCard({ userName }: ProfilePictureCardProps) {
 
           {!cameraActive && !previewUrl ? <p className="text-sm text-[var(--ink-muted)]">No new image selected yet.</p> : null}
 
-          {error ? <p className="text-sm font-medium text-[var(--danger)]">{error}</p> : null}
+          {displayError ? <p className="text-sm font-medium text-[var(--danger)]">{displayError}</p> : null}
           {message ? (
             <p className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--success)]">
               <CheckCircle2 className="h-4 w-4" />

@@ -2,10 +2,7 @@ import { NextResponse } from "next/server";
 import { requireSuperAdminSession } from "@/lib/superadmin-api";
 import { getOrCreateSystemFeeSetting, updateSystemFeeSetting } from "@/lib/fee-settings";
 import { logSettingsAction } from "@/lib/audit-log";
-
-function isNonNegativeNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0;
-}
+import { parseSystemPenaltySettings } from "@/lib/superadmin-settings-policies";
 
 export async function GET() {
   const session = await requireSuperAdminSession();
@@ -30,59 +27,14 @@ export async function PUT(req: Request) {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  const {
-    renewalSurchargePercent,
-    monthlyInterestPercent,
-    liquorTobaccoAddOnPercent,
-    powerDistributionFixedFee,
-    privatePortFixedFee,
-    renewalComplianceMinorPenalty,
-    renewalComplianceMajorPenalty,
-    renewalComplianceSeverePenalty,
-  } = body as Record<string, unknown>;
-
-  if (!isNonNegativeNumber(renewalSurchargePercent)) {
-    return NextResponse.json({ error: "Renewal surcharge percent must be non-negative." }, { status: 400 });
-  }
-
-  if (!isNonNegativeNumber(monthlyInterestPercent)) {
-    return NextResponse.json({ error: "Monthly interest percent must be non-negative." }, { status: 400 });
-  }
-
-  if (!isNonNegativeNumber(liquorTobaccoAddOnPercent)) {
-    return NextResponse.json({ error: "Liquor/tobacco add-on percent must be non-negative." }, { status: 400 });
-  }
-
-  if (typeof powerDistributionFixedFee !== "undefined" && !isNonNegativeNumber(powerDistributionFixedFee)) {
-    return NextResponse.json({ error: "Power Distribution fixed fee must be non-negative." }, { status: 400 });
-  }
-
-  if (typeof privatePortFixedFee !== "undefined" && !isNonNegativeNumber(privatePortFixedFee)) {
-    return NextResponse.json({ error: "Private Port fixed fee must be non-negative." }, { status: 400 });
-  }
-
-  if (typeof renewalComplianceMinorPenalty !== "undefined" && !isNonNegativeNumber(renewalComplianceMinorPenalty)) {
-    return NextResponse.json({ error: "Renewal compliance minor penalty must be non-negative." }, { status: 400 });
-  }
-
-  if (typeof renewalComplianceMajorPenalty !== "undefined" && !isNonNegativeNumber(renewalComplianceMajorPenalty)) {
-    return NextResponse.json({ error: "Renewal compliance major penalty must be non-negative." }, { status: 400 });
-  }
-
-  if (typeof renewalComplianceSeverePenalty !== "undefined" && !isNonNegativeNumber(renewalComplianceSeverePenalty)) {
-    return NextResponse.json({ error: "Renewal compliance severe penalty must be non-negative." }, { status: 400 });
+  const parsed = parseSystemPenaltySettings(body as Record<string, unknown>);
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 });
   }
 
   try {
     const penalties = await updateSystemFeeSetting({
-      renewalSurchargePercent,
-      monthlyInterestPercent,
-      liquorTobaccoAddOnPercent,
-      ...(typeof powerDistributionFixedFee === "number" ? { powerDistributionFixedFee } : {}),
-      ...(typeof privatePortFixedFee === "number" ? { privatePortFixedFee } : {}),
-      ...(typeof renewalComplianceMinorPenalty === "number" ? { renewalComplianceMinorPenalty } : {}),
-      ...(typeof renewalComplianceMajorPenalty === "number" ? { renewalComplianceMajorPenalty } : {}),
-      ...(typeof renewalComplianceSeverePenalty === "number" ? { renewalComplianceSeverePenalty } : {}),
+      ...parsed.value,
       updatedById: session.user.id,
     });
     // Audit: Penalties/system fees updated
@@ -94,16 +46,7 @@ export async function PUT(req: Request) {
       "default",
       "UPDATED",
       "System fee settings updated",
-      {
-        renewalSurchargePercent,
-        monthlyInterestPercent,
-        liquorTobaccoAddOnPercent,
-        ...(typeof powerDistributionFixedFee === "number" ? { powerDistributionFixedFee } : {}),
-        ...(typeof privatePortFixedFee === "number" ? { privatePortFixedFee } : {}),
-        ...(typeof renewalComplianceMinorPenalty === "number" ? { renewalComplianceMinorPenalty } : {}),
-        ...(typeof renewalComplianceMajorPenalty === "number" ? { renewalComplianceMajorPenalty } : {}),
-        ...(typeof renewalComplianceSeverePenalty === "number" ? { renewalComplianceSeverePenalty } : {}),
-      }
+      { ...parsed.value }
     );
 
     return NextResponse.json({ success: true, penalties });

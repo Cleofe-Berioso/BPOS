@@ -45,7 +45,10 @@ export async function loginAction(
     let existing;
     try {
       existing = await getUserByEmail(normalizedEmail);
-    } catch {
+    } catch (error) {
+      if (process.env.E2E_BLACKBOX === "1" || process.env.NODE_ENV !== "production") {
+        console.error("[loginAction] getUserByEmail failed", error);
+      }
       existing = null;
     }
 

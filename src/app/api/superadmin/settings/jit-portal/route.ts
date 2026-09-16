@@ -7,6 +7,7 @@ import {
   type JitPortalEnforcementResult,
   type JitUninspectedSummary,
 } from "@/lib/jit-settings";
+import { parseJitPortalEnabled } from "@/lib/superadmin-settings-policies";
 
 export interface JitPortalResponse {
   jitPortalEnabled: boolean;
@@ -62,17 +63,14 @@ export async function PUT(req: Request) {
   }
 
   const { jitPortalEnabled } = body as Record<string, unknown>;
-
-  if (typeof jitPortalEnabled !== "boolean") {
-    return NextResponse.json(
-      { error: "jitPortalEnabled must be a boolean." },
-      { status: 400 }
-    );
+  const parsed = parseJitPortalEnabled(jitPortalEnabled);
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 });
   }
 
   try {
     const result = await updateJitPortalEnabled({
-      enabled: jitPortalEnabled,
+      enabled: parsed.value,
       changedById: session.user.id,
       changedByName: session.user.name ?? session.user.email ?? null,
       changedByRole: session.user.role,

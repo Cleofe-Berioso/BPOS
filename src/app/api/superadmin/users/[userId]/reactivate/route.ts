@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireSuperAdminSession } from "@/lib/superadmin-api";
 import { prisma } from "@/lib/prisma";
 import { createAuditLog, logUserManagementAction } from "@/lib/audit-log";
+import { decideReactivateUser } from "@/lib/superadmin-user-policies";
 
 export async function POST(
   _req: Request,
@@ -13,20 +14,25 @@ export async function POST(
   }
 
   const { userId } = await params;
-  if (!userId) {
-    return NextResponse.json({ error: "User ID is required." }, { status: 400 });
-  }
 
-  const target = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true, name: true, email: true, role: true, isActive: true },
+  const target = userId
+    ? await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, name: true, email: true, role: true, isActive: true },
+      })
+    : null;
+
+  const decision = decideReactivateUser({
+    targetId: userId,
+    targetExists: Boolean(target),
+    targetIsActive: target?.isActive ?? false,
   });
 
-  if (!target) {
-    return NextResponse.json({ error: "User not found." }, { status: 404 });
+  if (decision.action === "reject") {
+    return NextResponse.json({ error: decision.error }, { status: decision.status });
   }
 
-  if (target.isActive) {
+  if (decision.action === "already_active") {
     return NextResponse.json({ success: true, message: "User is already active." });
   }
 
@@ -35,7 +41,7 @@ export async function POST(
     data: { isActive: true },
   });
 
-  if (target.role === "JIT") {
+  if (target!.role === "JIT") {
     void createAuditLog({
       actorId: session.user.id,
       actorName: session.user.name ?? session.user.email ?? null,
@@ -43,18 +49,17 @@ export async function POST(
       action: "SUPERADMIN_ENABLED_JIT_INSPECTOR",
       module: "USER_MANAGEMENT",
       entityType: "USER",
-      entityId: target.email,
+      entityId: target!.email,
       description: "IT Administrator enabled JIT inspector account",
       metadata: {
-        targetUserId: target.id,
-        targetName: target.name,
-        targetEmail: target.email,
-        targetRole: target.role,
+        targetUserId: target!.id,
+        targetName: target!.name,
+        targetEmail: target!.email,
+        targetRole: target!.role,
       },
     });
   }
 
-  // Audit: User reactivated
   void logUserManagementAction(
     session.user.id,
     session.user.name ?? session.user.email ?? null,
@@ -65,7 +70,7 @@ export async function POST(
     "INACTIVE",
     "ACTIVE",
     `User reactivated`,
-    { role: target.role, targetName: target.name, targetEmail: target.email }
+    { role: target!.role, targetName: target!.name, targetEmail: target!.email }
   );
 
   return NextResponse.json({ success: true });

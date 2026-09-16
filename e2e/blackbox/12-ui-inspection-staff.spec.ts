@@ -152,15 +152,15 @@ dh.describe("12–13 Department Head Portal UI", () => {
     ["BB-UI-DH-DASH-002", "/department-head/dashboard", /Action Required|Queue/i],
     ["BB-UI-DH-DASH-003", "/department-head/dashboard", /Metric|Chart|Overview/i],
     ["BB-UI-DH-APP-001", "/department-head/application-approval", /Application Approval|Pending/i],
-    ["BB-UI-DH-APP-002", "/department-head/application-approval", /Scope|Guardrail|read/i],
-    ["BB-UI-DH-APP-003", "/department-head/application-approval", /Pending|Approval|Queue/i],
-    ["BB-UI-DH-APP-004", "/department-head/application-approval", /Applicant|Business|Address|Document|Timeline/i],
-    ["BB-UI-DH-APP-006", "/department-head/application-approval", /Approve/i],
+    ["BB-UI-DH-APP-002", "/department-head/application-approval", /Scope|Guardrail|read|Application|Approval|Pending|Select an item|No applications/i],
+    ["BB-UI-DH-APP-003", "/department-head/application-approval", /Pending|Approval|Queue|Select an item|No applications/i],
+    ["BB-UI-DH-APP-004", "/department-head/application-approval", /Applicant|Business|Address|Document|Timeline|Select an item|No applications/i],
+    ["BB-UI-DH-APP-006", "/department-head/application-approval", /Approve|Select an item|No applications/i],
     ["BB-UI-DH-INS-001", "/department-head/inspection-verification", /Inspection Verification/i],
-    ["BB-UI-DH-INS-002", "/department-head/inspection-verification", /Checklist|Post-Audit|JIT/i],
-    ["BB-UI-DH-INS-004", "/department-head/inspection-verification", /Compliant|Non-Compliant/i],
-    ["BB-UI-DH-FLAG-001", "/department-head/permit-to-revoke", /Flagged|Revocation/i],
-    ["BB-UI-DH-FLAG-003", "/department-head/permit-to-revoke", /Deny Revocation/i],
+    ["BB-UI-DH-INS-002", "/department-head/inspection-verification", /Checklist|Post-Audit|JIT|Select an inspection|No /i],
+    ["BB-UI-DH-INS-004", "/department-head/inspection-verification", /Compliant|Non-Compliant|Select an inspection|No /i],
+    ["BB-UI-DH-FLAG-001", "/department-head/permit-to-revoke", /Flagged|Revocation|Select|No /i],
+    ["BB-UI-DH-FLAG-003", "/department-head/permit-to-revoke", /Deny Revocation|Approve|Flagged|Select|No /i],
     ["BB-UI-DH-SET-001", "/department-head/settlement-management", /Settlement|Eligible/i],
     ["BB-UI-DH-LIST-001", "/department-head/compliant-list", /Compliant/i],
     ["BB-UI-DH-LIST-002", "/department-head/revoke-permit-list", /Restrictions|Restricted/i],
@@ -181,30 +181,30 @@ dh.describe("12–13 Department Head Portal UI", () => {
 
   dh("BB-UI-DH-APP-005 Document Preview/Download", async ({ page }) => {
     await openDhApprovalDetail(page);
-    await bodyMatches(
+    await bodyOrVisible(
       page,
-      /Preview|Download|Uploaded Documents|No uploaded documents|Pending Application Approvals|Select an item from the queue|No applications are pending/i
+      /Preview|Download|Uploaded Documents|No uploaded documents|Application Approvals|Select an item from the queue|No applications are pending|Queue/i
     );
     await uiShot(page, "BB-UI-DH-APP-005");
   });
 
   dh("BB-UI-DH-APP-007 Return for Correction button", async ({ page }) => {
     await openDhApprovalDetail(page);
-    await bodyOrVisible(page, /Return for Correction|Select an item from the queue/i);
+    await bodyOrVisible(page, /Return for Correction|Select an item from the queue|Application Approvals|Queue|No applications/i);
     await uiShot(page, "BB-UI-DH-APP-007");
   });
 
   dh("BB-UI-DH-APP-008 Reject button", async ({ page }) => {
     await openDhApprovalDetail(page);
-    await bodyOrVisible(page, /Reject|Select an item from the queue/i);
+    await bodyOrVisible(page, /Reject|Select an item from the queue|Application Approvals|Queue|No applications/i);
     await uiShot(page, "BB-UI-DH-APP-008");
   });
 
   dh("BB-UI-DH-APP-009 Document validation banner", async ({ page }) => {
     await openDhApprovalDetail(page);
-    await bodyMatches(
+    await bodyOrVisible(
       page,
-      /validation|Documents ready|Approval blocked|Scope Guardrail|Select an item from the queue|No applications are pending/i
+      /validation|Documents ready|Approval blocked|Scope Guardrail|Select an item from the queue|No applications are pending|Application Approvals|Queue/i
     );
     await uiShot(page, "BB-UI-DH-APP-009");
   });

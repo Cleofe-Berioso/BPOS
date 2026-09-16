@@ -42,7 +42,8 @@ function trimMessageForSms(text: string): string {
   return clean.length > 480 ? `${clean.slice(0, 477)}...` : clean;
 }
 
-function buildReleaseSmsMessage(input: {
+/** Pure SMS body builder for FOR_RELEASE permit/certificate notices (unit-testable). */
+export function buildReleaseSmsMessage(input: {
   applicantName: string;
   businessName: string;
   applicationNumber: string;

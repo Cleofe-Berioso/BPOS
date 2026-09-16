@@ -32,11 +32,13 @@ export default defineConfig({
   webServer: {
     command: "npm run start -- --port 3000",
     url: "http://127.0.0.1:3000/login",
-    reuseExistingServer: true,
+    // Local: reuse whatever is already on :3000. CI: always spawn a fresh server.
+    reuseExistingServer: !process.env.CI,
     timeout: 180_000,
     env: {
       ...process.env,
       E2E_BLACKBOX: "1",
+      ALLOW_E2E_OTP_CAPTURE: "1",
     },
   },
   outputDir: path.join(BLACKBOX_OUT, "test-results"),

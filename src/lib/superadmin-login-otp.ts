@@ -1,6 +1,7 @@
 import { generateOtp, hashOtp, verifyOtp } from "@/lib/password-reset";
 import { prisma } from "@/lib/prisma";
 import { generateSuperAdminLoginOtpEmailHtml, sendEmail } from "@/lib/mail";
+import { captureE2eOtp } from "@/lib/e2e-otp-capture";
 
 /** Namespace PasswordResetOtp.email so login OTPs never collide with reset/register OTPs. */
 export function superAdminLoginOtpEmailKey(email: string): string {
@@ -15,7 +16,9 @@ function otpExpirationMinutes(): number {
  * Issue a login OTP for a verified Super Admin email/password challenge.
  * Returns whether a new email was sent (false on cooldown).
  */
-export async function issueSuperAdminLoginOtp(email: string): Promise<{ sent: boolean; cooldown: boolean }> {
+export async function issueSuperAdminLoginOtp(
+  email: string
+): Promise<{ sent: boolean; cooldown: boolean; otp?: string }> {
   const normalizedEmail = email.trim().toLowerCase();
   const storageEmail = superAdminLoginOtpEmailKey(normalizedEmail);
   const expiresMinutes = otpExpirationMinutes();
@@ -29,7 +32,8 @@ export async function issueSuperAdminLoginOtp(email: string): Promise<{ sent: bo
     orderBy: { createdAt: "desc" },
   });
 
-  if (recentOtp) {
+  // Blackbox needs a fresh plaintext OTP every login attempt.
+  if (recentOtp && process.env.E2E_BLACKBOX !== "1") {
     return { sent: false, cooldown: true };
   }
 
@@ -55,19 +59,36 @@ export async function issueSuperAdminLoginOtp(email: string): Promise<{ sent: bo
     },
   });
 
-  const emailHtml = generateSuperAdminLoginOtpEmailHtml(plainOtp, expiresMinutes);
-  await sendEmail({
-    to: normalizedEmail,
-    subject: "Business Permit Online System — IT Administrator Login OTP",
-    html: emailHtml,
-    text: `Your IT Administrator login OTP is ${plainOtp}. It expires in ${expiresMinutes} minutes.`,
-  });
+  // Capture before mail so Playwright can proceed even if SMTP/Resend is unavailable.
+  captureE2eOtp("sa-login", normalizedEmail, plainOtp);
+
+  try {
+    const emailHtml = generateSuperAdminLoginOtpEmailHtml(plainOtp, expiresMinutes);
+    await sendEmail({
+      to: normalizedEmail,
+      subject: "Business Permit Online System — IT Administrator Login OTP",
+      html: emailHtml,
+      text: `Your IT Administrator login OTP is ${plainOtp}. It expires in ${expiresMinutes} minutes.`,
+    });
+  } catch (error) {
+    if (process.env.E2E_BLACKBOX === "1") {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[superadmin-login] E2E_BLACKBOX: skipping email send failure", error);
+      }
+    } else {
+      throw error;
+    }
+  }
 
   if (process.env.NODE_ENV !== "production") {
     console.log(`[superadmin-login] OTP sent to: ${normalizedEmail}`);
   }
 
-  return { sent: true, cooldown: false };
+  return {
+    sent: true,
+    cooldown: false,
+    ...(process.env.E2E_BLACKBOX === "1" ? { otp: plainOtp } : {}),
+  };
 }
 
 /**

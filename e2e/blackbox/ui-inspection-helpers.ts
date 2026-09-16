@@ -66,10 +66,10 @@ export async function openDhApprovalDetail(page: Page) {
     urlPattern: /\/application-approval/,
   });
   await waitForLoadingDone(page);
-  await expect(page.getByRole("heading", { name: /Pending Application Approvals/i })).toBeVisible({
+  await expect(page.getByText(/Application Approvals/i).first()).toBeVisible({
     timeout: 30_000,
   });
-  await clickFirstQueueCard(page);
+  return clickFirstQueueCard(page);
 }
 
 export async function openDhInspectionDetail(page: Page) {

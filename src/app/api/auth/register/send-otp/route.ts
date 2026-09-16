@@ -8,6 +8,7 @@ import {
   OTP_REQUEST_IP_RATE_LIMIT,
 } from "@/lib/rate-limit";
 import { getClientIp } from "@/lib/request-client-ip";
+import { captureE2eOtp } from "@/lib/e2e-otp-capture";
 
 export async function POST(request: NextRequest) {
   const ipLimit = checkRateLimit(
@@ -82,13 +83,21 @@ export async function POST(request: NextRequest) {
         data: { email, otpHash, expiresAt },
       });
 
-      // Send OTP email
-      const emailHtml = generateRegistrationOtpEmailHtml(plainOtp, otpExpirationMinutes);
-      await sendEmail({
-        to: email,
-        subject: "Business Permit Online System — Email Verification OTP",
-        html: emailHtml,
-      });
+      // Capture before mail so blackbox can proceed without SMTP/Resend.
+      captureE2eOtp("register", email, plainOtp);
+
+      try {
+        const emailHtml = generateRegistrationOtpEmailHtml(plainOtp, otpExpirationMinutes);
+        await sendEmail({
+          to: email,
+          subject: "Business Permit Online System — Email Verification OTP",
+          html: emailHtml,
+        });
+      } catch (error) {
+        if (process.env.E2E_BLACKBOX !== "1") {
+          throw error;
+        }
+      }
 
       if (process.env.NODE_ENV !== "production") {
         console.log(`[register] OTP sent to: ${email}`);

@@ -47,6 +47,7 @@ import {
   resolveInspectingOfficeLabel,
 } from "@/lib/jit-no-permit-ticket-copy";
 import { buildRenewalEmailSubject, buildRenewalEmailPlainText } from "@/lib/renewal-email-copy";
+import { buildReleaseSmsMessage } from "@/lib/sms";
 
 describe("WB-COPY — reports, narratives, notifications, resubmit", () => {
   it("WB-RPT-01 printable report date/currency/label helpers", () => {
@@ -177,7 +178,7 @@ describe("WB-COPY — reports, narratives, notifications, resubmit", () => {
     expect(monthly.bullets.some((b) => /returned for correction/i.test(b))).toBe(true);
   });
 
-  it("WB-RESUB-01 resubmission copy helpers", () => {
+  it("WB-RESUB-01 / TC-RESUB-01 resubmission copy helpers", () => {
     expect(
       isReturnedCorrectionResubmission({ editId: "x", applicationStatus: "Returned for Correction" })
     ).toBe(true);
@@ -186,9 +187,13 @@ describe("WB-COPY — reports, narratives, notifications, resubmit", () => {
     );
     expect(getApplicationSubmitButtonLabel("NEW", true)).toBe("Resubmit Application");
     expect(getApplicationSubmitButtonLabel("RENEWAL", false)).toBe("Submit Renewal");
+    expect(getApplicationSubmitButtonLabel("CLOSURE", false)).toBe("Submit Closure");
     expect(getApplicationSubmitSuccessMessage("NEW", false, "APP-1")).toContain("APP-1");
+    expect(getApplicationSubmitSuccessMessage("RENEWAL", true, "APP-1")).toMatch(/resubmitted/i);
     expect(getApplicationSubmitSuccessMessage("CLOSURE", true, "APP-1")).toMatch(/resubmitted/i);
     expect(getResubmissionConfirmMessage("NEW")).toMatch(/resubmit/i);
+    expect(getResubmissionConfirmMessage("RENEWAL")).toMatch(/resubmit/i);
+    expect(getResubmissionConfirmMessage("CLOSURE")).toMatch(/resubmit/i);
   });
 
   it("WB-NOTIF-01 revocation / no-permit / renewal copy", () => {
@@ -241,5 +246,16 @@ describe("WB-COPY — reports, narratives, notifications, resubmit", () => {
         supportEmail: "support@bplo.gov.ph",
       })
     ).toMatch(/Not available/);
+
+    // TC-SMS-RELEASE-01 (copy contract): FOR_RELEASE SMS body includes applicant, business, ref.
+    const releaseSms = buildReleaseSmsMessage({
+      applicantName: "Juan Dela Cruz",
+      businessName: "Juan Store",
+      applicationNumber: "APP-2026-001",
+      status: "FOR_RELEASE",
+    });
+    expect(releaseSms).toContain("APP-2026-001");
+    expect(releaseSms).toContain("FOR_RELEASE");
+    expect(releaseSms).toMatch(/BPLO release instructions/i);
   });
 });

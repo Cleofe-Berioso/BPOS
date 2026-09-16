@@ -9,13 +9,15 @@ import { EDITABLE_APPLICATION_STATUSES, isEditableStatus } from "@/lib/applicati
 import { canPerformWorkflowAction } from "@/lib/rbac";
 
 /**
- * White-box E2E process inventory derived from actual status writers in:
+ * Workflow / process-contract inventory (WB-E2E-*).
+ *
+ * Preserved outside the thesis white-box suite (96-case unit/logic count).
+ * Run: npm run test:workflow
+ *
+ * Derived from actual status writers in:
  * applications.ts, bplo-applications.ts, department-head-api.ts,
  * bplo-assessment.ts, bplo-payment-verification.ts, bplo-permit-issuance.ts,
  * jit-inspections.ts, request-reassessment route.
- *
- * These tests assert the coded process contracts (transitions + actors + map gaps),
- * not invented workflows.
  */
 
 type ProcessEdge = {

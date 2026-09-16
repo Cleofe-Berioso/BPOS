@@ -6,7 +6,9 @@ const srcPath = fileURLToPath(new URL("./src", import.meta.url));
 const whiteboxOut = path.join(__dirname, "..", "whitebox");
 
 /**
- * White-box suite — sources in EBPLS, reports under ../whitebox.
+ * Thesis white-box suite — exactly the unit/logic cases counted for QA thesis.
+ * Excludes workflow (WB-E2E) and unit-extended supplemental coverage.
+ * Reports under ../whitebox.
  */
 export default defineConfig({
   resolve: {
@@ -18,7 +20,14 @@ export default defineConfig({
     setupFiles: [path.join(__dirname, "vitest.whitebox.setup.ts")],
     include: [
       "src/lib/__tests__/whitebox/**/*.test.ts",
-      "src/lib/__tests__/*.test.ts",
+      "src/lib/__tests__/money.test.ts",
+      "src/lib/__tests__/fee-computation.test.ts",
+      "src/lib/__tests__/bplo-assessment.test.ts",
+    ],
+    exclude: [
+      "**/node_modules/**",
+      "src/lib/__tests__/workflow/**",
+      "src/lib/__tests__/unit-extended/**",
     ],
     reporters: [
       "default",

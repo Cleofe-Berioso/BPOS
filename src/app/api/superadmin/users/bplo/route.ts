@@ -1,11 +1,9 @@
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { createAuditLog } from "@/lib/audit-log";
-import { formatPersonName } from "@/lib/person-name";
 import { requireSuperAdminSession } from "@/lib/superadmin-api";
+import { parseCreateBploAccountInput, mapUserActiveStatus } from "@/lib/superadmin-user-policies";
 import { prisma } from "@/lib/prisma";
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(req: Request) {
   const session = await requireSuperAdminSession();
@@ -20,58 +18,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
+  const parsed = parseCreateBploAccountInput(body as Record<string, unknown>);
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: parsed.status });
+  }
+
   const {
-    name,
     firstName,
     middleName,
     lastName,
     suffix,
-    email,
+    name: computedName,
+    email: normalizedEmail,
     password,
-    confirmPassword,
-  } = body as Record<string, unknown>;
-
-  const normalizedFirstName = typeof firstName === "string" ? firstName.trim() : "";
-  const normalizedMiddleName = typeof middleName === "string" ? middleName.trim() : "";
-  const normalizedLastName = typeof lastName === "string" ? lastName.trim() : "";
-  const normalizedSuffix = typeof suffix === "string" ? suffix.trim() : "";
-
-  if (!normalizedFirstName) {
-    return NextResponse.json({ error: "First name is required." }, { status: 400 });
-  }
-
-  if (!normalizedLastName) {
-    return NextResponse.json({ error: "Last name is required." }, { status: 400 });
-  }
-
-  const computedName = formatPersonName({
-    firstName: normalizedFirstName,
-    middleName: normalizedMiddleName,
-    lastName: normalizedLastName,
-    suffix: normalizedSuffix,
-    fallbackName: typeof name === "string" ? name.trim() : "",
-  });
-
-  if (!computedName) {
-    return NextResponse.json({ error: "Full name is required." }, { status: 400 });
-  }
-
-  if (!email || typeof email !== "string" || email.trim().length === 0) {
-    return NextResponse.json({ error: "Email address is required." }, { status: 400 });
-  }
-
-  const normalizedEmail = email.trim().toLowerCase();
-  if (!EMAIL_REGEX.test(normalizedEmail)) {
-    return NextResponse.json({ error: "Invalid email address format." }, { status: 400 });
-  }
-
-  if (!password || typeof password !== "string" || password.length < 8) {
-    return NextResponse.json({ error: "Temporary password must be at least 8 characters." }, { status: 400 });
-  }
-
-  if (confirmPassword !== password) {
-    return NextResponse.json({ error: "Passwords do not match." }, { status: 400 });
-  }
+  } = parsed.value;
 
   const existing = await prisma.user.findUnique({ where: { email: normalizedEmail }, select: { id: true } });
   if (existing) {
@@ -82,10 +42,10 @@ export async function POST(req: Request) {
   const user = await prisma.user.create({
     data: {
       name: computedName,
-      firstName: normalizedFirstName,
-      middleName: normalizedMiddleName || null,
-      lastName: normalizedLastName,
-      suffix: normalizedSuffix || null,
+      firstName,
+      middleName: middleName || null,
+      lastName,
+      suffix: suffix || null,
       email: normalizedEmail,
       passwordHash,
       role: "BPLO",
@@ -123,7 +83,7 @@ export async function POST(req: Request) {
       success: true,
       user: {
         ...user,
-        status: user.isActive ? "ACTIVE" : "DISABLED",
+        status: mapUserActiveStatus(user.isActive),
       },
     },
     { status: 201 }
