@@ -50,7 +50,7 @@ function CardShell({ subtitle, title, children }: { subtitle: string; title: str
               alt="Municipality of Enrique B. Magalona Logo"
               width={40}
               height={40}
-              className="h-10 w-10 object-contain mix-blend-multiply"
+              className="h-10 w-10 object-contain drop-shadow"
             />
           </div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--accent-soft)]">

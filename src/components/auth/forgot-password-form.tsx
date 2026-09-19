@@ -118,7 +118,7 @@ export function ForgotPasswordForm() {
               alt="Municipality of Enrique B. Magalona Logo"
               width={64}
               height={64}
-              className="h-16 w-16 object-contain mix-blend-multiply"
+              className="h-16 w-16 object-contain drop-shadow"
             />
           </div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--accent-soft)]">Municipality of Enrique B. Magalona</p>
