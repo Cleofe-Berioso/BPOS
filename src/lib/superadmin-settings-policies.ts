@@ -137,6 +137,16 @@ export type RenewalExtensionCreateParsed = {
 
 function parseDate(value: unknown): Date | null {
   if (typeof value !== "string" || !value.trim()) return null;
+  // `new Date("YYYY-MM-DD")` parses as UTC midnight, which shifts the date
+  // one day back in UTC+8 timezones (e.g. Jan 1 → Dec 31).
+  // Parse as local time by splitting the ISO date string manually.
+  const parts = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (parts) {
+    const [, y, m, d] = parts;
+    const local = new Date(Number(y), Number(m) - 1, Number(d));
+    return Number.isNaN(local.getTime()) ? null : local;
+  }
+  // Fallback for full ISO timestamps (e.g. from edit flows).
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }

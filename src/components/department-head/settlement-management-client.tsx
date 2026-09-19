@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { actionButtonStyles } from "@/components/ui/action-button";
 import { LoadingState } from "@/components/ui/loading-state";
 import {
@@ -16,6 +16,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { InfoBanner } from "@/components/ui/info-banner";
 import { SectionCard } from "@/components/ui/section-card";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { DEFAULT_PAGE_SIZE, type PaginationPageSize } from "@/lib/pagination";
 
 type SettlementRow = {
   inspectionId: string;
@@ -55,41 +57,72 @@ export function SettlementManagementClient() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [remarksInput, setRemarksInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<PaginationPageSize>(DEFAULT_PAGE_SIZE);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   const selected = useMemo(() => rows.find((row) => row.inspectionId === selectedId) ?? null, [rows, selectedId]);
 
-  async function loadRows() {
+  const loadRows = useCallback(async (nextPage = page, nextPageSize = pageSize) => {
     try {
       setLoading(true);
-      const response = await fetch("/api/department-head/settlement-management", { cache: "no-store" });
-      const data = (await response.json()) as { rows?: SettlementRow[]; error?: string };
+      const params = new URLSearchParams({
+        page: String(nextPage),
+        pageSize: String(nextPageSize),
+      });
+      const response = await fetch(`/api/department-head/settlement-management?${params.toString()}`, { cache: "no-store" });
+      const data = (await response.json()) as {
+        rows?: SettlementRow[];
+        totalCount?: number;
+        page?: number;
+        pageSize?: PaginationPageSize;
+        totalPages?: number;
+        error?: string;
+      };
 
       if (!response.ok) {
         setMessage({ type: "error", text: data.error ?? "Unable to load settlement cases." });
         setRows([]);
         setSelectedId(null);
-        setLoading(false);
+        setTotalCount(0);
+        setTotalPages(1);
         return;
       }
 
       const nextRows = data.rows ?? [];
+      const nextTotalCount = data.totalCount ?? nextRows.length;
+      const resolvedPage = data.page ?? nextPage;
+
+      if (nextRows.length === 0 && resolvedPage > 1 && nextTotalCount > 0) {
+        setPage(resolvedPage - 1);
+        return;
+      }
+
       setRows(nextRows);
+      setTotalCount(nextTotalCount);
+      setPage(resolvedPage);
+      setPageSize(data.pageSize ?? nextPageSize);
+      setTotalPages(data.totalPages ?? 1);
       setSelectedId((current) => {
         if (current && nextRows.some((row) => row.inspectionId === current)) return current;
         return nextRows[0]?.inspectionId ?? null;
       });
-    } catch (err) {
+      setMessage(null);
+    } catch {
       setMessage({ type: "error", text: "Unable to load settlement cases." });
       setRows([]);
       setSelectedId(null);
+      setTotalCount(0);
+      setTotalPages(1);
     } finally {
       setLoading(false);
     }
-  }
+  }, [page, pageSize]);
 
   useEffect(() => {
-    void loadRows();
-  }, []);
+    void loadRows(page, pageSize);
+  }, [page, pageSize, loadRows]);
 
   return (
     <div className="ui-split-workspace">
@@ -126,6 +159,24 @@ export function SettlementManagementClient() {
             })}
           </div>
         )}
+        <div className="mt-3">
+          <PaginationControls
+            basePath="/department-head/settlement-management"
+            queryParams={{}}
+            mode="client"
+            isLoading={loading}
+            page={page}
+            pageSize={pageSize}
+            totalCount={totalCount}
+            totalPages={totalPages}
+            recordLabel="settlement cases"
+            onPageChange={setPage}
+            onPageSizeChange={(nextSize) => {
+              setPageSize(nextSize);
+              setPage(1);
+            }}
+          />
+        </div>
       </SectionCard>
 
       <SectionCard
