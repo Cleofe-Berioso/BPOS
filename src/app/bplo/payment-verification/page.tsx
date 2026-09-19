@@ -397,54 +397,70 @@ export default function BploPaymentVerificationPage() {
   }
 
   return (
-    <section className="ui-page-stack" aria-busy={loading || detailLoading}>
-      <PageHeader
-        eyebrow="BPLO"
-        title="Payment Verification"
-        description="Verify applicant-submitted payment references for applications in Approved for Payment status."
-        badge={<RoleBadge roleType="BPLO" />}
-      />
+    <section className="flex h-[calc(100dvh-var(--header-height,4rem))] flex-col gap-3 p-3 sm:p-4 overflow-hidden" aria-busy={loading || detailLoading}>
+      <div className="shrink-0">
+        <PageHeader
+          eyebrow="BPLO"
+          title="Payment Verification"
+          description="Verify applicant-submitted payment references for applications in Approved for Payment status."
+          badge={<RoleBadge roleType="BPLO" />}
+        />
+      </div>
 
-      <SectionCard
-        title="Verification Buckets"
-        description="Separate queues for pending, verified, and returned-for-correction payment references."
-      >
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab("PENDING");
-              setPage(1);
-            }}
-            className={activeTab === "PENDING" ? actionButtonStyles("warning", "sm") : actionButtonStyles("secondary", "sm")}
-          >
-            Pending Verification ({tabCounts.PENDING})
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab("VERIFIED");
-              setPage(1);
-            }}
-            className={activeTab === "VERIFIED" ? actionButtonStyles("primary", "sm") : actionButtonStyles("secondary", "sm")}
-          >
-            Verified Payments ({tabCounts.VERIFIED})
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab("REJECTED");
-              setPage(1);
-            }}
-            className={activeTab === "REJECTED" ? actionButtonStyles("warning", "sm") : actionButtonStyles("secondary", "sm")}
-          >
-            Returned for Correction ({tabCounts.REJECTED})
-          </button>
-        </div>
-      </SectionCard>
+      {/* Tabs + status banner — fixed, never scroll away */}
+      <div className="shrink-0 space-y-2">
+        <SectionCard
+          title="Verification Buckets"
+          description="Separate queues for pending, verified, and returned-for-correction payment references."
+        >
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("PENDING");
+                setPage(1);
+              }}
+              className={activeTab === "PENDING" ? actionButtonStyles("warning", "sm") : actionButtonStyles("secondary", "sm")}
+            >
+              Pending Verification ({tabCounts.PENDING})
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("VERIFIED");
+                setPage(1);
+              }}
+              className={activeTab === "VERIFIED" ? actionButtonStyles("primary", "sm") : actionButtonStyles("secondary", "sm")}
+            >
+              Verified Payments ({tabCounts.VERIFIED})
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("REJECTED");
+                setPage(1);
+              }}
+              className={activeTab === "REJECTED" ? actionButtonStyles("warning", "sm") : actionButtonStyles("secondary", "sm")}
+            >
+              Returned for Correction ({tabCounts.REJECTED})
+            </button>
+          </div>
+        </SectionCard>
 
-      <div className="grid gap-4 xl:grid-cols-[1.25fr_0.95fr]">
-        <div className="space-y-4">
+        {statusMessage ? (
+          <InfoBanner
+            title={statusMessage.kind === "error" ? "Verification error" : "Verification update"}
+            description={statusMessage.text}
+            variant={statusMessage.kind === "error" ? "danger" : "success"}
+          />
+        ) : null}
+      </div>
+
+      {/* Split pane — takes all remaining vertical space */}
+      <div className="flex min-h-0 flex-1 gap-4 xl:grid xl:grid-cols-[1.25fr_0.95fr]">
+        {/* Left pane: queue table + pagination — scrolls independently */}
+        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
+        <div className="min-h-0 flex-1 overflow-y-auto">
         <ResponsiveDataTable
           title="Payment Queue"
           description={loading ? "Loading submitted payment references..." : `${totalCount} record${totalCount === 1 ? "" : "s"} in the selected section.`}
@@ -533,6 +549,7 @@ export default function BploPaymentVerificationPage() {
             )
           }
         />
+        </div>
 
         <PaginationControls
           basePath="/bplo/payment-verification"
@@ -552,7 +569,13 @@ export default function BploPaymentVerificationPage() {
         />
         </div>
 
-        <SectionCard title="Payment Detail" description="Review payment reference details and apply BPLO verification actions using existing workflow rules.">
+        {/* Right pane: detail — scrolls independently */}
+        <SectionCard
+          title="Payment Detail"
+          description="Review payment reference details and apply BPLO verification actions using existing workflow rules."
+          fill
+          contentClassName="overflow-y-auto"
+        >
           {!selectedRefId ? (
             <div className="text-sm text-[var(--ink-muted)]">Select a payment reference from the queue to review the TOP, applicant details, and BPLO action area.</div>
           ) : detailLoading ? (
@@ -762,14 +785,6 @@ export default function BploPaymentVerificationPage() {
           )}
         </SectionCard>
       </div>
-
-      {statusMessage ? (
-        <InfoBanner
-          title={statusMessage.kind === "error" ? "Verification error" : "Verification update"}
-          description={statusMessage.text}
-          variant={statusMessage.kind === "error" ? "danger" : "success"}
-        />
-      ) : null}
 
       <Modal
         open={proofModal.open}

@@ -113,15 +113,13 @@ export function ForgotPasswordForm() {
         {/* Header */}
         <div className="bg-[var(--primary)] px-8 py-8 text-center text-white">
           <div className="mb-4 flex justify-center">
-            <div className="rounded-full bg-white p-2 shadow-sm">
-              <Image
-                src="/images/logo.png"
-                alt="Municipality of Enrique B. Magalona Logo"
-                width={64}
-                height={64}
-                className="h-16 w-16 object-contain"
-              />
-            </div>
+            <Image
+              src="/images/logo.png"
+              alt="Municipality of Enrique B. Magalona Logo"
+              width={64}
+              height={64}
+              className="h-16 w-16 object-contain mix-blend-multiply"
+            />
           </div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--accent-soft)]">Municipality of Enrique B. Magalona</p>
           <h1 className="mt-2 text-2xl font-bold text-white">Reset Password</h1>

@@ -9,8 +9,10 @@ import { FilterBar } from "@/components/ui/filter-bar";
 import { InfoBanner } from "@/components/ui/info-banner";
 import { MapLegendCard } from "@/components/ui/map-legend-card";
 import { SectionCard } from "@/components/ui/section-card";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 import { DASHBOARD_CHART_COLORS } from "@/components/ui/dashboard-chart-card";
 import { EB_MAGALONA_CENTER } from "@/lib/eb-magalona";
+import type { PaginationPageSize } from "@/lib/pagination";
 
 const LeafletBusinessMap = dynamic(
   () => import("@/components/maps/leaflet-business-map").then((mod) => mod.LeafletBusinessMap),
@@ -91,6 +93,8 @@ export function JitBusinessMapClient() {
   const [searchFilter, setSearchFilter] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<PaginationPageSize>(10);
 
   useEffect(() => {
     async function loadRows() {
@@ -113,6 +117,11 @@ export function JitBusinessMapClient() {
     void loadRows();
   }, []);
 
+  // Reset pagination to page 1 whenever any filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [typeFilter, ownerFilter, searchFilter]);
+
   const visibleRows = useMemo(
     () =>
       rows.filter((row) => {
@@ -132,6 +141,15 @@ export function JitBusinessMapClient() {
       }),
     [ownerFilter, rows, searchFilter, typeFilter]
   );
+
+  const totalCount = visibleRows.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const currentPage = Math.min(Math.max(1, page), totalPages);
+
+  const paginatedRows = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return visibleRows.slice(startIndex, startIndex + pageSize);
+  }, [visibleRows, currentPage, pageSize]);
 
   const markers = useMemo(
     () =>
@@ -190,6 +208,7 @@ export function JitBusinessMapClient() {
             <label className="space-y-1 text-sm">
               <span className="font-medium text-[var(--ink-muted)]">Application Type</span>
               <select
+                aria-label="Application Type"
                 value={typeFilter}
                 onChange={(event) => setTypeFilter(event.target.value as ApplicationTypeFilter)}
                 className="w-full rounded-xl border border-[var(--border-color)] bg-white px-3 py-2 text-[var(--ink-muted)]"
@@ -203,6 +222,7 @@ export function JitBusinessMapClient() {
             <label className="space-y-1 text-sm">
               <span className="font-medium text-[var(--ink-muted)]">Owner / Operator</span>
               <input
+                aria-label="Owner / Operator"
                 value={ownerFilter}
                 onChange={(event) => setOwnerFilter(event.target.value)}
                 placeholder="Search by owner name"
@@ -213,6 +233,7 @@ export function JitBusinessMapClient() {
             <label className="space-y-1 text-sm">
               <span className="font-medium text-[var(--ink-muted)]">Business Name</span>
               <input
+                aria-label="Business Name"
                 value={searchFilter}
                 onChange={(event) => setSearchFilter(event.target.value)}
                 placeholder="Search by business name"
@@ -239,36 +260,66 @@ export function JitBusinessMapClient() {
         }
       >
         <div className="space-y-3">
-          {visibleRows.map((row) => (
-            <article key={row.locationId} className="rounded-2xl border border-[var(--border-color)] bg-white p-4">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <p className="text-base font-semibold text-[var(--foreground)]">{row.businessName}</p>
-                  <p className="text-sm text-[var(--ink-muted)]">Owner: {row.ownerName}</p>
+          {isLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="h-28 animate-pulse rounded-2xl border border-[var(--border-color)] bg-[var(--muted-surface)]"
+                />
+              ))}
+            </div>
+          ) : paginatedRows.length > 0 ? (
+            paginatedRows.map((row) => (
+              <article key={row.locationId} className="rounded-2xl border border-[var(--border-color)] bg-white p-4">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <p className="text-base font-semibold text-[var(--foreground)]">{row.businessName}</p>
+                    <p className="text-sm text-[var(--ink-muted)]">Owner: {row.ownerName}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${inspectionStatusTone(row.mapMarkerStatus)}`}>
+                      {inspectionStatusLabel(row.mapMarkerStatus)}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${inspectionStatusTone(row.mapMarkerStatus)}`}>
-                    {inspectionStatusLabel(row.mapMarkerStatus)}
-                  </span>
+                <div className="mt-3 grid gap-2 text-sm text-[var(--ink-muted)] md:grid-cols-2 xl:grid-cols-4">
+                  <p><span className="font-semibold">Line of Business:</span> {row.lineOfBusiness ?? "N/A"}</p>
+                  <p><span className="font-semibold">Permit Number:</span> {row.permitOrCertificateNumber ?? "N/A"}</p>
+                  <p><span className="font-semibold">Permit Valid Until:</span> {toShortDate(row.permitValidUntil)}</p>
+                  <p><span className="font-semibold">Current Status:</span> {row.applicationStatus}</p>
+                  <p className="md:col-span-2 xl:col-span-2"><span className="font-semibold">Business Address:</span> {row.address ?? "N/A"}</p>
+                  <p><span className="font-semibold">Coordinates:</span> {row.latitude.toFixed(6)}, {row.longitude.toFixed(6)}</p>
+                  <p><span className="font-semibold">Application No:</span> {row.applicationNumber}</p>
                 </div>
-              </div>
-              <div className="mt-3 grid gap-2 text-sm text-[var(--ink-muted)] md:grid-cols-2 xl:grid-cols-4">
-                <p><span className="font-semibold">Line of Business:</span> {row.lineOfBusiness ?? "N/A"}</p>
-                <p><span className="font-semibold">Permit Number:</span> {row.permitOrCertificateNumber ?? "N/A"}</p>
-                <p><span className="font-semibold">Permit Valid Until:</span> {toShortDate(row.permitValidUntil)}</p>
-                <p><span className="font-semibold">Current Status:</span> {row.applicationStatus}</p>
-                <p className="md:col-span-2 xl:col-span-2"><span className="font-semibold">Business Address:</span> {row.address ?? "N/A"}</p>
-                <p><span className="font-semibold">Coordinates:</span> {row.latitude.toFixed(6)}, {row.longitude.toFixed(6)}</p>
-                <p><span className="font-semibold">Application No:</span> {row.applicationNumber}</p>
-              </div>
-            </article>
-          ))}
-
-          {!isLoading && visibleRows.length === 0 ? (
+              </article>
+            ))
+          ) : (
             <EmptyState
               title="No rows matched current filters"
               description="Try resetting filters or wait for newly released permits with pinned locations."
             />
+          )}
+
+          {!isLoading && totalCount > 0 ? (
+            <div className="pt-2">
+              <PaginationControls
+                basePath="/jit/business-map"
+                queryParams={{}}
+                mode="client"
+                isLoading={isLoading}
+                page={currentPage}
+                pageSize={pageSize}
+                totalCount={totalCount}
+                totalPages={totalPages}
+                recordLabel="released businesses"
+                onPageChange={(nextPage) => setPage(nextPage)}
+                onPageSizeChange={(nextSize) => {
+                  setPageSize(nextSize);
+                  setPage(1);
+                }}
+              />
+            </div>
           ) : null}
         </div>
       </SectionCard>

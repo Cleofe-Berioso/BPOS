@@ -45,15 +45,13 @@ function CardShell({ subtitle, title, children }: { subtitle: string; title: str
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/20 bg-white shadow-2xl backdrop-blur-md">
         <div className="shrink-0 bg-[var(--primary)] px-5 py-3 text-center text-white sm:px-6 sm:py-3.5">
           <div className="mb-2 flex justify-center">
-            <div className="rounded-full bg-white p-1 shadow-sm">
-              <Image
-                src="/images/logo.png"
-                alt="Municipality of Enrique B. Magalona Logo"
-                width={40}
-                height={40}
-                className="h-10 w-10 object-contain"
-              />
-            </div>
+            <Image
+              src="/images/logo.png"
+              alt="Municipality of Enrique B. Magalona Logo"
+              width={40}
+              height={40}
+              className="h-10 w-10 object-contain mix-blend-multiply"
+            />
           </div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--accent-soft)]">
             Municipality of Enrique B. Magalona
