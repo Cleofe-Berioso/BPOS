@@ -98,7 +98,7 @@ export async function PATCH(req: Request) {
   }
 
   const parsed = parseBploProfileNameUpdate(body as Record<string, unknown>);
-  if (!parsed.ok) {
+  if (parsed.ok === false) {
     return NextResponse.json({ error: parsed.error }, { status: parsed.status });
   }
 

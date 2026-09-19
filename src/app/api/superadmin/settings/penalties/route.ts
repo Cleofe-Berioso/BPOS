@@ -28,7 +28,7 @@ export async function PUT(req: Request) {
   }
 
   const parsed = parseSystemPenaltySettings(body as Record<string, unknown>);
-  if (!parsed.ok) {
+  if (parsed.ok === false) {
     return NextResponse.json({ error: parsed.error }, { status: 400 });
   }
 

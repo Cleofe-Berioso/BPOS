@@ -19,7 +19,7 @@ export async function POST(req: Request) {
   }
 
   const parsed = parseCreateBploAccountInput(body as Record<string, unknown>);
-  if (!parsed.ok) {
+  if (parsed.ok === false) {
     return NextResponse.json({ error: parsed.error }, { status: parsed.status });
   }
 

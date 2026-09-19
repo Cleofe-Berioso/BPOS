@@ -32,8 +32,8 @@ function formatSeverityLabel(severity: string | null | undefined): string | null
 }
 
 export function buildViolationBasis(input: {
-  recommendationRemarks: string | null;
-  inspectionComment: string | null;
+  recommendationRemarks?: string | null;
+  inspectionComment?: string | null;
   nonComplianceType?: string | null;
   violationSeverity?: string | null;
   departmentHeadRemarks?: string | null;

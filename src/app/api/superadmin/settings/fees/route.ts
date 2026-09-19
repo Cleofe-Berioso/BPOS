@@ -56,7 +56,7 @@ export async function POST(req: Request) {
   }
 
   const amountCheck = validateFeeAmount(amount);
-  if (!amountCheck.ok) {
+  if (amountCheck.ok === false) {
     return NextResponse.json({ error: amountCheck.error }, { status: 400 });
   }
 
@@ -107,7 +107,7 @@ export async function PATCH(req: Request) {
 
   if (typeof amount !== "undefined") {
     const amountCheck = validateFeeAmount(amount);
-    if (!amountCheck.ok) {
+    if (amountCheck.ok === false) {
       return NextResponse.json({ error: amountCheck.error }, { status: 400 });
     }
   }
