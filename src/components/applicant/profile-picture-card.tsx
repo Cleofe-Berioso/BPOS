@@ -315,11 +315,14 @@ export function ProfilePictureCard({ userName }: ProfilePictureCardProps) {
 
           {cameraActive ? (
             <div className="overflow-hidden rounded-2xl border border-[var(--border-color)] bg-black">
+              {/* autoPlay intentionally omitted – playback is initiated
+                  programmatically by the hook after srcObject is set,
+                  preventing the "black screen" race where the browser tries
+                  to play before the stream is attached. */}
               <video
                 ref={videoRef}
                 aria-label="Camera preview"
                 className="h-auto max-h-[360px] w-full object-contain scale-x-[-1]"
-                autoPlay
                 playsInline
                 muted
               />
