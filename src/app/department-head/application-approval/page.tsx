@@ -23,7 +23,15 @@ import {
   dhSummaryValueClass,
   dhSurfacePanelClass,
 } from "@/components/department-head/department-head-ui-styles";
-import { validationStatusBadgeClass, evaluateRequiredDocumentsValidation, mapDocumentValidationStatusToDb } from "@/lib/document-validation";
+import {
+  DOCUMENT_VALIDATION_UI_STATUSES,
+  type DocumentValidationUiStatus,
+  evaluateRequiredDocumentsValidation,
+  mapDocumentValidationStatusToDb,
+  mapDocumentValidationStatusToUi,
+  remarksRequiredForValidationStatus,
+  validationStatusBadgeClass,
+} from "@/lib/document-validation";
 import type { BusinessInfo } from "@/lib/applicant-types";
 import { DEFAULT_PAGE_SIZE, type PaginationPageSize } from "@/lib/pagination";
 
@@ -98,6 +106,127 @@ function formatBirthDate(value: string): string {
     dateStyle: "medium",
     timeZone: "Asia/Manila",
   }).format(parsed);
+}
+
+function DepartmentHeadDocumentValidationEditor({
+  applicationId,
+  document,
+  onSaved,
+}: {
+  applicationId: string;
+  document: ApprovalRow["documents"][number];
+  onSaved: (updated: ApprovalRow["documents"][number]) => void;
+}) {
+  const initialStatus = mapDocumentValidationStatusToUi(document.validationStatus);
+  const [status, setStatus] = useState<DocumentValidationUiStatus>(initialStatus);
+  const [remarks, setRemarks] = useState(document.validationRemarks ?? "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setStatus(mapDocumentValidationStatusToUi(document.validationStatus));
+    setRemarks(document.validationRemarks ?? "");
+  }, [document.validationStatus, document.validationRemarks]);
+
+  const remarksRequired = remarksRequiredForValidationStatus(status);
+
+  async function saveValidation() {
+    if (remarksRequired && !remarks.trim()) {
+      setError("Remarks are required for this validation status.");
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+
+    try {
+      const response = await fetch(
+        `/api/department-head/application-approval/${applicationId}/documents/${document.id}/validation`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "ngrok-skip-browser-warning": "true",
+          },
+          credentials: "same-origin",
+          body: JSON.stringify({
+            status,
+            remarks: remarks.trim() || undefined,
+          }),
+        }
+      );
+
+      const data = (await response.json()) as {
+        error?: string;
+        document?: ApprovalRow["documents"][number];
+      };
+
+      if (!response.ok || !data.document) {
+        throw new Error(data.error ?? "Unable to save validation status.");
+      }
+
+      onSaved(data.document);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to save validation status.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="mt-2 space-y-2 rounded-[var(--radius-card)] border border-[var(--border-color)] bg-[var(--muted-surface)] p-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <label
+          htmlFor={`dh-val-status-${document.id}`}
+          className="text-xs font-medium uppercase tracking-wide text-[var(--ink-muted)]"
+        >
+          Validation Status
+        </label>
+        <span className={`ui-badge ${validationStatusBadgeClass(status)}`}>
+          {status}
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          id={`dh-val-status-${document.id}`}
+          value={status}
+          onChange={(e) => setStatus(e.target.value as DocumentValidationUiStatus)}
+          className={`flex-1 ${dhFormControlClass}`}
+        >
+          {DOCUMENT_VALIDATION_UI_STATUSES.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => void saveValidation()}
+          className={actionButtonStyles("primary", "sm")}
+        >
+          {saving ? "Saving..." : "Save Status"}
+        </button>
+      </div>
+      <div>
+        <label
+          htmlFor={`dh-val-remarks-${document.id}`}
+          className="text-xs text-[var(--ink-muted)]"
+        >
+          Validation Remarks {remarksRequired ? "(required)" : "(optional)"}
+        </label>
+        <textarea
+          id={`dh-val-remarks-${document.id}`}
+          rows={1}
+          value={remarks}
+          onChange={(e) => setRemarks(e.target.value)}
+          className={`mt-1 ${dhFormControlClass}`}
+          placeholder={remarksRequired ? "Explain why this document requires correction." : "Optional reviewer notes."}
+        />
+      </div>
+      {error ? <p className="ui-inline-error text-xs">{error}</p> : null}
+    </div>
+  );
 }
 
 export default function DepartmentHeadApplicationApprovalPage() {
@@ -279,6 +408,20 @@ export default function DepartmentHeadApplicationApprovalPage() {
     } finally {
       setPendingAction(null);
     }
+  }
+
+  function handleDocumentSaved(updatedDoc: ApprovalRow["documents"][number]) {
+    setRows((prevRows) =>
+      prevRows.map((row) => {
+        if (row.id !== selectedId) return row;
+        return {
+          ...row,
+          documents: row.documents.map((doc) =>
+            doc.id === updatedDoc.id ? { ...doc, ...updatedDoc } : doc
+          ),
+        };
+      })
+    );
   }
 
   return (
@@ -549,37 +692,46 @@ export default function DepartmentHeadApplicationApprovalPage() {
                       {selected.documents.length === 0 ? (
                         <div className="text-sm text-[var(--ink-muted)]">No uploaded documents.</div>
                       ) : (
-                        <ul className="space-y-1.5 text-sm">
+                        <ul className="space-y-2 text-sm">
                           {selected.documents.map((doc) => {
-                            const validationStatus = doc.validationStatus ?? "Pending Review";
+                            const validationStatus = mapDocumentValidationStatusToUi(doc.validationStatus);
                             return (
                               <li key={doc.id} className={dhDocumentListItemClass}>
-                                <p className="font-medium text-[var(--foreground)]">{doc.documentName}: {doc.fileName}</p>
-                                <p className="ui-caption">Uploaded: {formatDateTime(doc.uploadedAt)}</p>
-                                <p className="mt-1">
-                                  <span className={`ui-badge ${validationStatusBadgeClass(validationStatus as "Pending Review")}`}>
-                                    {validationStatus}
-                                  </span>
-                                </p>
-                                {doc.validationRemarks ? (
-                                  <p className="mt-1 ui-caption">
-                                    <span className="font-semibold text-[var(--foreground)]">Validation remarks:</span> {doc.validationRemarks}
-                                  </p>
-                                ) : null}
-                                <div className="mt-1.5 flex flex-wrap gap-2">
-                                  <a
-                                    href={`/api/department-head/application-approval/${selected.id}/documents/${doc.id}/download`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className={`${actionButtonStyles("secondary", "sm")} inline-flex`}
-                                  >
-                                    Preview
-                                  </a>
-                                  <DocumentDownloadButton
-                                    url={`/api/department-head/application-approval/${selected.id}/documents/${doc.id}/download?download=1`}
-                                    fileName={doc.fileName || doc.documentName || "document"}
-                                  />
+                                <div className="flex flex-wrap items-start justify-between gap-2">
+                                  <div className="min-w-0 flex-1">
+                                    <p className="font-medium text-[var(--foreground)]">{doc.documentName}: {doc.fileName}</p>
+                                    <p className="ui-caption">Uploaded: {formatDateTime(doc.uploadedAt)}</p>
+                                    <p className="mt-1">
+                                      <span className={`ui-badge ${validationStatusBadgeClass(validationStatus)}`}>
+                                        {validationStatus}
+                                      </span>
+                                    </p>
+                                    {doc.validationRemarks ? (
+                                      <p className="mt-1 ui-caption">
+                                        <span className="font-semibold text-[var(--foreground)]">Validation remarks:</span> {doc.validationRemarks}
+                                      </p>
+                                    ) : null}
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <a
+                                      href={`/api/department-head/application-approval/${selected.id}/documents/${doc.id}/download`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className={`${actionButtonStyles("secondary", "sm")} inline-flex`}
+                                    >
+                                      Preview
+                                    </a>
+                                    <DocumentDownloadButton
+                                      url={`/api/department-head/application-approval/${selected.id}/documents/${doc.id}/download?download=1`}
+                                      fileName={doc.fileName || doc.documentName || "document"}
+                                    />
+                                  </div>
                                 </div>
+                                <DepartmentHeadDocumentValidationEditor
+                                  applicationId={selected.id}
+                                  document={doc}
+                                  onSaved={handleDocumentSaved}
+                                />
                               </li>
                             );
                           })}

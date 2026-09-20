@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { validationStatusBadgeClass } from "@/lib/document-validation";
+import {
+  mapDocumentValidationStatusToUi,
+  validationStatusBadgeClass,
+} from "@/lib/document-validation";
 import type { JitDeclaredInputsPayload } from "@/lib/jit-declared-inputs";
 import {
   jitSummaryLabelClass,
@@ -40,9 +43,10 @@ function formatLabel(key: string): string {
 }
 
 function ValidationBadge({ status }: { status: string }) {
+  const uiStatus = mapDocumentValidationStatusToUi(status);
   return (
-    <span className={`ui-badge ${validationStatusBadgeClass(status as "Pending Review")}`}>
-      {status}
+    <span className={`ui-badge ${validationStatusBadgeClass(uiStatus)}`}>
+      {uiStatus}
     </span>
   );
 }

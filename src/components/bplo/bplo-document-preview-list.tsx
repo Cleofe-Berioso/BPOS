@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DocumentValidationStatus } from "@prisma/client";
 import {
@@ -99,6 +99,11 @@ function DocumentValidationEditor({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    setStatus(mapDocumentValidationStatusToUi(document.validationStatus));
+    setRemarks(document.validationRemarks ?? "");
+  }, [document.validationStatus, document.validationRemarks]);
+
   const remarksRequired = remarksRequiredForValidationStatus(status);
 
   async function saveValidation() {
@@ -194,6 +199,10 @@ export function BploDocumentPreviewList({
   onDocumentsChange,
 }: BploDocumentPreviewListProps) {
   const [documents, setDocuments] = useState(initialDocuments);
+
+  useEffect(() => {
+    setDocuments(initialDocuments);
+  }, [initialDocuments]);
 
   function updateDocuments(next: BploDocumentListItem[] | ((current: BploDocumentListItem[]) => BploDocumentListItem[])) {
     setDocuments((current) => {

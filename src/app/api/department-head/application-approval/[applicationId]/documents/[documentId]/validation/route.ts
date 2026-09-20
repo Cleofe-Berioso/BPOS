@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import type { DocumentValidationStatus } from "@prisma/client";
 import { safeApiErrorMessage } from "@/lib/api-errors";
-import { requireBploSession } from "@/lib/bplo-api";
-import { updateBploDocumentValidation } from "@/lib/bplo-applications";
+import {
+  requireDepartmentHeadSession,
+  updateDepartmentHeadDocumentValidation,
+} from "@/lib/department-head-api";
 import { mapDocumentValidationStatusToDb } from "@/lib/document-validation";
 
 interface RouteContext {
@@ -10,7 +12,7 @@ interface RouteContext {
 }
 
 export async function PATCH(req: Request, context: RouteContext) {
-  const session = await requireBploSession();
+  const session = await requireDepartmentHeadSession();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -27,10 +29,15 @@ export async function PATCH(req: Request, context: RouteContext) {
       return NextResponse.json({ error: "Invalid validation status" }, { status: 400 });
     }
 
-    const document = await updateBploDocumentValidation(applicationId, documentId, session.user.id, {
-      status: dbStatus,
-      remarks: body.remarks,
-    });
+    const document = await updateDepartmentHeadDocumentValidation(
+      applicationId,
+      documentId,
+      session.user.id,
+      {
+        status: dbStatus,
+        remarks: body.remarks,
+      }
+    );
 
     return NextResponse.json({ document });
   } catch (error) {
@@ -38,7 +45,7 @@ export async function PATCH(req: Request, context: RouteContext) {
     const status =
       message === "Application not found" || message === "Document not found"
         ? 404
-        : message === "Application is not available for BPLO review" ||
+        : message === "Application is not available for Department Head review" ||
             message === "Document does not belong to the requested application"
           ? 403
           : message === "Remarks are required for this validation status"

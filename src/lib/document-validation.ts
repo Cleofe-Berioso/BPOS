@@ -37,11 +37,17 @@ const UI_TO_DB: Record<DocumentValidationUiStatus, PrismaDocumentValidationStatu
   "Requires Resubmission": "REQUIRES_RESUBMISSION",
 };
 
+const UI_STATUS_SET = new Set<string>(DOCUMENT_VALIDATION_UI_STATUSES);
+
 export function mapDocumentValidationStatusToUi(
   status: PrismaDocumentValidationStatus | string | null | undefined
 ): DocumentValidationUiStatus {
   if (!status) return "Pending Review";
-  const key = status as PrismaDocumentValidationStatus;
+  const trimmed = status.trim();
+  if (UI_STATUS_SET.has(trimmed)) {
+    return trimmed as DocumentValidationUiStatus;
+  }
+  const key = trimmed.toUpperCase().replace(/\s+/g, "_") as PrismaDocumentValidationStatus;
   return DB_TO_UI[key] ?? "Pending Review";
 }
 
@@ -52,32 +58,25 @@ export function mapDocumentValidationStatusToDb(
   if (UI_TO_DB[normalized as DocumentValidationUiStatus]) {
     return UI_TO_DB[normalized as DocumentValidationUiStatus];
   }
-  if (DB_TO_UI[normalized as PrismaDocumentValidationStatus]) {
-    return normalized as PrismaDocumentValidationStatus;
+  const upper = normalized.toUpperCase().replace(/\s+/g, "_") as PrismaDocumentValidationStatus;
+  if (DB_TO_UI[upper]) {
+    return upper;
   }
   throw new Error("Invalid document validation status");
 }
 
 export function remarksRequiredForValidationStatus(
-  status: PrismaDocumentValidationStatus | DocumentValidationUiStatus
+  status: PrismaDocumentValidationStatus | DocumentValidationUiStatus | string
 ): boolean {
-  const ui =
-    typeof status === "string" && status.includes(" ")
-      ? (status as DocumentValidationUiStatus)
-      : mapDocumentValidationStatusToUi(status as PrismaDocumentValidationStatus);
+  const ui = mapDocumentValidationStatusToUi(status);
   return ui === "Invalid" || ui === "Incomplete" || ui === "Requires Resubmission";
 }
 
 export function isDocumentApprovalReady(
-  status: PrismaDocumentValidationStatus | DocumentValidationUiStatus | null | undefined
+  status: PrismaDocumentValidationStatus | DocumentValidationUiStatus | string | null | undefined
 ): boolean {
   if (!status) return false;
-  if (status === "Valid" || status === "VALID") return true;
-  const ui =
-    typeof status === "string" && status.includes(" ")
-      ? (status as DocumentValidationUiStatus)
-      : mapDocumentValidationStatusToUi(status as PrismaDocumentValidationStatus);
-  return ui === "Valid";
+  return mapDocumentValidationStatusToUi(status) === "Valid";
 }
 
 export interface DocumentValidationBlocker {
@@ -97,7 +96,7 @@ export function evaluateRequiredDocumentsValidation(input: {
   formData: BusinessInfo;
   documents: Array<{
     documentName: string;
-    validationStatus: PrismaDocumentValidationStatus;
+    validationStatus: PrismaDocumentValidationStatus | DocumentValidationUiStatus | string;
     validationRemarks?: string | null;
   }>;
 }): RequiredDocumentsValidationResult {

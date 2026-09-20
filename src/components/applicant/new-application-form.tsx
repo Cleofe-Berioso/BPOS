@@ -38,6 +38,7 @@ import {
   DOCUMENT_FILE_INPUT_ACCEPT,
   MAX_DOCUMENT_FILE_SIZE_BYTES,
   validateDocumentFileUpload,
+  validateTotalPendingUploadSize,
 } from "@/lib/document-upload-rules";
 import { useLineOfBusinessOptions } from "@/hooks/use-line-of-business-options";
 import { resolveBusinessBarangayFromFormState } from "@/lib/business-rules";
@@ -655,13 +656,25 @@ const READ_ONLY_LOCKED_FIELDS: Array<keyof BusinessInfo> = [
 ];
 
 async function parseApiResponseSafely(response: Response): Promise<Record<string, unknown>> {
+  if (response.status === 413) {
+    return {
+      error:
+        "The uploaded files exceeded the server limit (4.5 MB on Vercel). Please compress your documents or upload smaller copies.",
+    };
+  }
+
   const responseText = await response.text();
 
   try {
     return responseText ? (JSON.parse(responseText) as Record<string, unknown>) : {};
   } catch {
     return {
-      error: "The server returned a non-JSON error response. Please check the server logs.",
+      error:
+        response.status === 413
+          ? "The uploaded files exceeded the server upload limit. Please compress your files."
+          : response.status >= 500
+            ? `The server encountered an error (HTTP ${response.status}). Please try again later.`
+            : "The server returned an unexpected response. Please check your connection or contact support.",
       rawResponse: responseText.slice(0, 300),
     };
   }
@@ -1296,6 +1309,18 @@ export function NewApplicationForm() {
     }
 
     const hasPendingFiles = Object.keys(pendingDocuments).length > 0;
+    if (mode === "SUBMIT" && hasPendingFiles) {
+      const totalSizeError = validateTotalPendingUploadSize(Object.values(pendingDocuments));
+      if (totalSizeError) {
+        setStatusMessage({
+          kind: "error",
+          text: totalSizeError,
+        });
+        setSubmitting(false);
+        return;
+      }
+    }
+
     const draftTargetUrl = applicationId ? `/api/applicant/applications/${applicationId}` : "/api/applicant/applications";
     const draftTargetMethod = applicationId ? "PATCH" : "POST";
     const saveUrl = mode === "SUBMIT" ? "/api/applicant/applications" : draftTargetUrl;

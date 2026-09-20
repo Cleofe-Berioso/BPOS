@@ -1,6 +1,10 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { mapDocumentValidationStatusToUi } from "@/lib/document-validation";
+import type { DocumentValidationStatus } from "@prisma/client";
+import {
+  mapDocumentValidationStatusToUi,
+  remarksRequiredForValidationStatus,
+} from "@/lib/document-validation";
 import { assertRequiredDocumentsReadyForApproval } from "@/lib/document-validation-server";
 import { assertStatusTransition } from "@/lib/application-status";
 import { mapDbStatusToUi } from "@/lib/application-mappers";
@@ -346,6 +350,64 @@ export async function applyDepartmentHeadAction(
     },
     { timeout: 60_000, maxWait: 10_000 }
   );
+}
+
+export async function updateDepartmentHeadDocumentValidation(
+  applicationId: string,
+  documentId: string,
+  departmentHeadUserId: string,
+  input: {
+    status: DocumentValidationStatus;
+    remarks?: string;
+  }
+) {
+  const application = await prisma.businessApplication.findFirst({
+    where: { id: applicationId },
+    select: { id: true, status: true },
+  });
+
+  if (!application) {
+    throw new Error("Application not found");
+  }
+
+  if (application.status !== "DEPARTMENT_HEAD_REVIEW") {
+    throw new Error("Application is not available for Department Head review");
+  }
+
+  const document = await prisma.applicationDocument.findFirst({
+    where: { id: documentId, applicationId },
+  });
+
+  if (!document) {
+    throw new Error("Document not found");
+  }
+
+  const normalizedRemarks = input.remarks?.trim() ?? "";
+  if (remarksRequiredForValidationStatus(input.status) && !normalizedRemarks) {
+    throw new Error("Remarks are required for this validation status");
+  }
+
+  const updated = await prisma.applicationDocument.update({
+    where: { id: document.id },
+    data: {
+      validationStatus: input.status,
+      validationRemarks: normalizedRemarks || null,
+      validatedAt: new Date(),
+      validatedById: departmentHeadUserId,
+    },
+  });
+
+  return {
+    id: updated.id,
+    documentName: updated.documentName,
+    fileName: updated.fileName,
+    mimeType: updated.mimeType,
+    sizeBytes: updated.sizeBytes,
+    uploadedAt: updated.uploadedAt.toISOString(),
+    validationStatus: mapDocumentValidationStatusToUi(updated.validationStatus),
+    validationRemarks: updated.validationRemarks,
+    validatedAt: updated.validatedAt ? updated.validatedAt.toISOString() : null,
+  };
 }
 
 export async function listDepartmentHeadRevocationQueue(): Promise<DepartmentHeadPermitToRevokeRow[]> {

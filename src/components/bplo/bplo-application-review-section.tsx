@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ApplicationType, BusinessInfo } from "@/lib/applicant-types";
 import {
   evaluateRequiredDocumentsValidation,
@@ -42,6 +42,10 @@ export function BploApplicationReviewSection({
   documents: initialDocuments,
 }: BploApplicationReviewSectionProps) {
   const [documents, setDocuments] = useState(initialDocuments);
+
+  useEffect(() => {
+    setDocuments(initialDocuments);
+  }, [initialDocuments]);
 
   const documentValidation = useMemo(
     () =>

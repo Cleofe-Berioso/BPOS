@@ -37,3 +37,15 @@ export function validateDocumentFileUpload(file: File): string | null {
 }
 
 export const DOCUMENT_FILE_INPUT_ACCEPT = ALLOWED_DOCUMENT_MIME_TYPES.join(",");
+
+export const MAX_TOTAL_SUBMIT_UPLOAD_BYTES = 4.2 * 1024 * 1024;
+export const MAX_TOTAL_SUBMIT_UPLOAD_LABEL = "4.2 MB";
+
+export function validateTotalPendingUploadSize(files: File[]): string | null {
+  const total = files.reduce((sum, f) => sum + f.size, 0);
+  if (total > MAX_TOTAL_SUBMIT_UPLOAD_BYTES) {
+    const totalMb = (total / (1024 * 1024)).toFixed(1);
+    return `The combined size of all uploaded documents (${totalMb} MB) exceeds the ${MAX_TOTAL_SUBMIT_UPLOAD_LABEL} limit. Please compress your files before submitting.`;
+  }
+  return null;
+}
