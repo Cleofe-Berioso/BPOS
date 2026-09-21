@@ -24,31 +24,31 @@ export async function POST(
   }
 
   try {
-    const inspection = await (prisma.inspection as any).findUnique({
-      where: { id: inspectionId },
+    const inspection = await prisma.inspection.findUnique({
+      where: { inspectionId },
       select: {
-        id: true,
+        inspectionId: true,
         status: true,
         revocationSettledAt: true,
         businessRecordId: true,
         application: {
           select: {
-            id: true,
+            businessApplicationId: true,
             applicationNumber: true,
           },
         },
         businessRecord: {
           select: {
-            id: true,
+            businessRecordId: true,
             businessName: true,
           },
         },
       },
     });
 
-    const settledAt = (inspection as any)?.revocationSettledAt ?? null;
-    const application = (inspection as any)?.application ?? null;
-    const businessRecord = (inspection as any)?.businessRecord ?? null;
+    const settledAt = inspection?.revocationSettledAt ?? null;
+    const application = inspection?.application ?? null;
+    const businessRecord = inspection?.businessRecord ?? null;
 
     if (!inspection) {
       return NextResponse.json(
@@ -72,8 +72,8 @@ export async function POST(
     }
 
     // Update inspection to mark settlement
-    await (prisma.inspection as any).update({
-      where: { id: inspection.id },
+    await prisma.inspection.update({
+      where: { inspectionId: inspection.inspectionId },
       data: {
         revocationSettledAt: new Date(),
         revocationSettlementRemarks: remarks,
@@ -90,9 +90,9 @@ export async function POST(
         action: "MARKED_REVOCATION_SETTLED",
         module: "REVOCATION",
         entityType: "INSPECTION",
-        entityId: inspection.id,
+        entityId: inspection.inspectionId,
         businessRecordId: inspection.businessRecordId,
-        applicationId: application?.id ?? null,
+        applicationId: application?.businessApplicationId ?? null,
         description: `Marked revocation as settled for business: ${businessRecord?.businessName ?? inspection.businessRecordId}`,
         metadata: {
           remarks,
@@ -104,7 +104,7 @@ export async function POST(
       // Don't throw - audit logging is non-blocking
     }
 
-    return NextResponse.json({ success: true, inspectionId: inspection.id });
+    return NextResponse.json({ success: true, inspectionId: inspection.inspectionId });
   } catch (error) {
     console.error("Error marking revoked permit as settled:", error);
     return NextResponse.json(

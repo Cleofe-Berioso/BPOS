@@ -68,21 +68,21 @@ export async function finalizeComplianceRelatedClosure(
   const completionStatus = input.completionStatus ?? CLOSURE_COMPLETED_STATUS;
 
   const application = await tx.businessApplication.findUnique({
-    where: { id: input.closureApplicationId },
+    where: { businessApplicationId: input.closureApplicationId },
     select: {
-      id: true,
+      businessApplicationId: true,
       status: true,
       applicationType: true,
       closureType: true,
       businessRecordId: true,
       businessRecord: {
         select: {
-          id: true,
+          businessRecordId: true,
           businessStatus: true,
           inspections: {
             where: { nonComplianceType: "GOVERNMENT_AGENCY_RELATED" },
             select: {
-              id: true,
+              inspectionId: true,
               complianceCaseStatus: true,
               forcedClosure: true,
               isSettled: true,
@@ -160,25 +160,25 @@ export async function finalizeComplianceRelatedClosure(
     .filter((inspection: { complianceCaseStatus: string }) =>
       CLOSURE_UPDATABLE_STATUSES.has(inspection.complianceCaseStatus)
     )
-    .map((inspection: { id: string; complianceCaseStatus: string }) => ({
-      id: inspection.id,
+    .map((inspection: { inspectionId: string; complianceCaseStatus: string }) => ({
+      id: inspection.inspectionId,
       previousComplianceCaseStatus: inspection.complianceCaseStatus,
       nextComplianceCaseStatus: "CLOSED_NON_COMPLIANT",
     }));
 
   await tx.businessRecord.update({
-    where: { id: application.businessRecordId },
+    where: { businessRecordId: application.businessRecordId },
     data: {
       businessStatus: "CLOSED",
       closedAt: new Date(),
-      closureApplicationId: application.id,
+      closureApplicationId: application.businessApplicationId,
     },
   });
 
   if (affectedInspections.length > 0) {
     await tx.inspection.updateMany({
       where: {
-        id: { in: affectedInspections.map((inspection) => inspection.id) },
+        inspectionId: { in: affectedInspections.map((inspection) => inspection.id) },
       },
       data: {
         complianceCaseStatus: "CLOSED_NON_COMPLIANT",

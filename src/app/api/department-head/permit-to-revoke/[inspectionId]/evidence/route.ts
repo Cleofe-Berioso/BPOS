@@ -48,41 +48,40 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ inspectionId: string }> }
 ) {
-  const session = await requireDepartmentHeadSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { inspectionId } = await params;
-  const inspectionModel = (prisma as any).inspection;
-  const inspection = await inspectionModel.findUnique({
-    where: { id: inspectionId },
-    select: {
-      evidenceStoragePath: true,
-      evidenceBucket: true,
-      evidenceMimeType: true,
-      evidenceFileName: true,
-      status: true,
-    },
-  });
-
-  if (!inspection) {
-    return NextResponse.json({ error: "Inspection not found" }, { status: 404 });
-  }
-
-  if (!inspection.evidenceStoragePath) {
-    return NextResponse.json({ error: "No evidence uploaded." }, { status: 404 });
-  }
-
-  if (!isSafeStoragePath(inspection.evidenceStoragePath)) {
-    return NextResponse.json({ error: "Invalid evidence path" }, { status: 400 });
-  }
-
-  if (!new Set(["VERIFIED_NON_COMPLIANT", "REVOCATION_REVIEW", "REVOCATION_DENIED", "REVOKED"]).has(inspection.status)) {
-    return NextResponse.json({ error: "Inspection evidence not available" }, { status: 403 });
-  }
-
   try {
+    const session = await requireDepartmentHeadSession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { inspectionId } = await params;
+    const inspection = await prisma.inspection.findUnique({
+      where: { inspectionId },
+      select: {
+        evidenceStoragePath: true,
+        evidenceBucket: true,
+        evidenceMimeType: true,
+        evidenceFileName: true,
+        status: true,
+      },
+    });
+
+    if (!inspection) {
+      return NextResponse.json({ error: "Inspection not found" }, { status: 404 });
+    }
+
+    if (!inspection.evidenceStoragePath) {
+      return NextResponse.json({ error: "No evidence uploaded." }, { status: 404 });
+    }
+
+    if (!isSafeStoragePath(inspection.evidenceStoragePath)) {
+      return NextResponse.json({ error: "Invalid evidence path" }, { status: 400 });
+    }
+
+    if (!new Set(["VERIFIED_NON_COMPLIANT", "REVOCATION_REVIEW", "REVOCATION_DENIED", "REVOKED"]).has(inspection.status)) {
+      return NextResponse.json({ error: "Inspection evidence not available" }, { status: 403 });
+    }
+
     const contentType = inferMimeType(inspection.evidenceStoragePath, inspection.evidenceMimeType);
     const headers = new Headers({
       "Content-Type": contentType,
@@ -107,7 +106,8 @@ export async function GET(
 
     const fileBuffer = await result.data.arrayBuffer();
     return new NextResponse(Buffer.from(fileBuffer), { status: 200, headers });
-  } catch {
+  } catch (error) {
+    console.error("Failed to retrieve inspection evidence:", error);
     return NextResponse.json({ error: "Inspection evidence file was not found in storage." }, { status: 404 });
   }
 }
