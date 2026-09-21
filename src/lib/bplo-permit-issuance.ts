@@ -198,7 +198,7 @@ async function generateDocumentNumber(
       const candidate = `${year}-${String(nextSeq).padStart(6, "0")}`;
       const dup = await dbClient.permitIssuance.findFirst({
         where: { documentNumber: candidate },
-        select: { id: true },
+        select: { permitIssuanceId: true },
       });
       if (!dup) return candidate;
       nextSeq++;
@@ -231,11 +231,15 @@ function findPaidDate(history: Array<{ toStatus: DbApplicationStatus; createdAt:
 function toListRow(app: any): PermitIssuanceRow {
   const latestRef = app.paymentReferences?.[0] ?? null;
   const requiredReleasePayment = toMoneyNumber(app.feeAssessment?.releasePaymentAmount);
-  const amountPaid = toMoneyNumber(app.feeAssessment?.amountPaid);
-  const remainingBalance = toMoneyNumber(app.feeAssessment?.remainingBalance);
+  const amountPaid =
+    app.feeAssessment?.paymentStatus === "PAID"
+      ? toMoneyNumber(app.feeAssessment?.releasePaymentAmount ?? app.feeAssessment?.totalAmount)
+      : 0;
+  const totalAmount = toMoneyNumber(app.feeAssessment?.totalAmount);
+  const remainingBalance = Math.max(0, totalAmount - amountPaid);
 
   return {
-    applicationId: app.id,
+    applicationId: app.businessApplicationId,
     applicationNumber: app.applicationNumber,
     businessName: resolveBusinessName(app.formData, app.businessRecord?.businessName ?? null),
     applicantName: app.applicant.name,
@@ -277,8 +281,8 @@ const permitIssuanceInclude = {
     select: {
       assessmentNumber: true,
       releasePaymentAmount: true,
-      amountPaid: true,
-      remainingBalance: true,
+      totalAmount: true,
+      paymentStatus: true,
     },
   },
   paymentReferences: {
@@ -311,8 +315,8 @@ export async function listPermitIssuanceEntries(): Promise<PermitIssuanceLists> 
         select: {
           assessmentNumber: true,
           releasePaymentAmount: true,
-          amountPaid: true,
-          remainingBalance: true,
+          totalAmount: true,
+          paymentStatus: true,
         },
       },
       paymentReferences: {
@@ -372,15 +376,16 @@ export async function listPermitIssuanceBucketPaginated(
 
 export async function getPermitIssuanceDetail(applicationId: string): Promise<PermitIssuanceDetail | null> {
   const app = await prisma.businessApplication.findUnique({
-    where: { id: applicationId },
+    where: { businessApplicationId: applicationId },
     include: {
       applicant: { select: { name: true, email: true } },
       businessRecord: { select: { businessName: true } },
       feeAssessment: {
         select: {
           assessmentNumber: true,
-          amountPaid: true,
+          totalAmount: true,
           releasePaymentAmount: true,
+          paymentStatus: true,
         },
       },
       paymentReferences: {
@@ -419,7 +424,7 @@ export async function getPermitIssuanceDetail(applicationId: string): Promise<Pe
 
   return {
     application: {
-      id: app.id,
+      id: app.businessApplicationId,
       applicationNumber: app.applicationNumber,
       applicationType: app.applicationType as ApplicationType,
       status: mapDbStatusToUi(app.status),
@@ -439,7 +444,10 @@ export async function getPermitIssuanceDetail(applicationId: string): Promise<Pe
     },
     paymentSummary: {
       topNumber: app.feeAssessment?.assessmentNumber ?? null,
-      totalAmountPaid: toMoneyNumber(app.feeAssessment?.amountPaid),
+      totalAmountPaid:
+        app.feeAssessment?.paymentStatus === "PAID"
+          ? toMoneyNumber(app.feeAssessment?.releasePaymentAmount ?? app.feeAssessment?.totalAmount)
+          : 0,
       paymentReferenceNumber: latestRef?.transactionNumber ?? null,
       paymentVerificationStatus: latestRef?.status ?? null,
     },
@@ -451,7 +459,7 @@ export async function getPermitIssuanceDetail(applicationId: string): Promise<Pe
           : "Current business permit output view",
     },
     issuance: {
-      id: app.permitIssuance?.id ?? null,
+      id: app.permitIssuance?.permitIssuanceId ?? null,
       documentType: (app.permitIssuance?.documentType as IssuanceDocumentType | undefined) ?? null,
       documentNumber: app.permitIssuance?.documentNumber ?? null,
       issueDate: dateIsoOrNull(app.permitIssuance?.issuedAt),
@@ -556,7 +564,7 @@ async function upsertBusinessRecordOnRelease(tx: any, app: any): Promise<string 
 
   if (app.businessRecordId) {
     await tx.businessRecord.update({
-      where: { id: app.businessRecordId },
+      where: { businessRecordId: app.businessRecordId },
       data: payload,
     });
     return app.businessRecordId;
@@ -566,15 +574,15 @@ async function upsertBusinessRecordOnRelease(tx: any, app: any): Promise<string 
     where: { registrationNumber: payload.registrationNumber },
     create: payload,
     update: payload,
-    select: { id: true },
+    select: { businessRecordId: true },
   });
 
   await tx.businessApplication.update({
-    where: { id: app.id },
-    data: { businessRecordId: record.id },
+    where: { businessApplicationId: app.businessApplicationId },
+    data: { businessRecordId: record.businessRecordId },
   });
 
-  return record.id;
+  return record.businessRecordId;
 }
 
 export async function preparePermitIssuance(
@@ -584,21 +592,22 @@ export async function preparePermitIssuance(
 ) {
   const result = await prisma.$transaction(async (tx: any) => {
     const app = await tx.businessApplication.findUnique({
-      where: { id: applicationId },
+      where: { businessApplicationId: applicationId },
       include: {
         applicant: { select: { name: true, email: true } },
         businessRecord: { select: { businessName: true, phone: true } },
         feeAssessment: {
           select: {
             releasePaymentAmount: true,
-            amountPaid: true,
+            totalAmount: true,
+            paymentStatus: true,
           },
         },
         paymentReferences: {
           where: { status: "VERIFIED" },
           orderBy: { submittedAt: "desc" },
           take: 1,
-          select: { id: true },
+          select: { paymentReferenceId: true },
         },
         permitIssuance: true,
       },
@@ -614,7 +623,10 @@ export async function preparePermitIssuance(
     }
 
     const requiredReleasePayment = toMoneyNumber(app.feeAssessment?.releasePaymentAmount);
-    const amountPaid = toMoneyNumber(app.feeAssessment?.amountPaid);
+    const amountPaid =
+      app.feeAssessment?.paymentStatus === "PAID"
+        ? toMoneyNumber(app.feeAssessment?.releasePaymentAmount ?? app.feeAssessment?.totalAmount)
+        : 0;
     if (requiredReleasePayment > 0 && amountPaid < requiredReleasePayment) {
       throw new Error("Required release payment has not been completed");
     }
@@ -648,7 +660,7 @@ export async function preparePermitIssuance(
     assertStatusTransition(app.status, "FOR_RELEASE");
 
     await tx.businessApplication.update({
-      where: { id: applicationId },
+      where: { businessApplicationId: applicationId },
       data: { status: "FOR_RELEASE" },
     });
 
@@ -706,7 +718,7 @@ export async function releasePermitIssuance(
 ) {
   const result = await prisma.$transaction(async (tx: any) => {
     const app = await tx.businessApplication.findUnique({
-      where: { id: applicationId },
+      where: { businessApplicationId: applicationId },
       include: {
         applicant: { select: { name: true, email: true } },
         businessRecord: { select: { businessName: true, phone: true } },
@@ -735,7 +747,7 @@ export async function releasePermitIssuance(
     assertStatusTransition(app.status, "RELEASED");
 
     await tx.businessApplication.update({
-      where: { id: applicationId },
+      where: { businessApplicationId: applicationId },
       data: { status: "RELEASED" },
     });
 
@@ -751,11 +763,11 @@ export async function releasePermitIssuance(
 
       if (!complianceClosureResult.applied && businessRecordId) {
         await tx.businessRecord.update({
-          where: { id: businessRecordId },
+          where: { businessRecordId },
           data: {
             businessStatus: "CLOSED",
             closedAt: new Date(),
-            closureApplicationId: app.id,
+            closureApplicationId: app.businessApplicationId,
           },
         });
       }

@@ -53,9 +53,9 @@ export async function GET() {
   }
 
   const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
+    where: { userId: session.user.id },
     select: {
-      id: true,
+      userId: true,
       role: true,
       profileImageStoragePath: true,
       profileImageBucket: true,
@@ -113,7 +113,7 @@ export async function POST(req: Request) {
   }
 
   const existingUser = await prisma.user.findUnique({
-    where: { id: session.user.id },
+    where: { userId: session.user.id },
     select: {
       role: true,
       profileImageStoragePath: true,
@@ -138,7 +138,7 @@ export async function POST(req: Request) {
 
   try {
     const updated = await prisma.user.update({
-      where: { id: session.user.id },
+      where: { userId: session.user.id },
       data: {
         profileImageStoragePath: uploaded.storagePath,
         profileImageBucket: uploaded.bucket,

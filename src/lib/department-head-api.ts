@@ -9,12 +9,22 @@ import { assertRequiredDocumentsReadyForApproval } from "@/lib/document-validati
 import { assertStatusTransition } from "@/lib/application-status";
 import { mapDbStatusToUi } from "@/lib/application-mappers";
 import { createAuditLog } from "@/lib/audit-log";
-import {
-  buildRevocationContextFromParts,
-  buildRevocationHistoryRemarksForEvent,
-} from "@/lib/revocation-notifications";
 import { getJitInspectionChecklist } from "@/lib/jit-declared-inputs";
 import { buildPaginatedResult, resolvePagination, type PaginatedResult } from "@/lib/pagination";
+
+function formatRevocationHistoryRemarks(
+  eventType: "REVOCATION_REVIEW_ENTERED" | "REVOCATION_APPROVED" | "REVOCATION_DENIED",
+  officerName: string,
+  remarks?: string | null
+): string {
+  const prefix =
+    eventType === "REVOCATION_REVIEW_ENTERED"
+      ? "Revocation review initiated by"
+      : eventType === "REVOCATION_APPROVED"
+        ? "Revocation approved by"
+        : "Revocation denied by";
+  return remarks ? `${prefix} ${officerName}. Remarks: ${remarks}` : `${prefix} ${officerName}.`;
+}
 
 type DepartmentHeadAction = "APPROVE" | "RETURN" | "REJECT";
 type RevocationDecisionAction = "APPROVE" | "DENY";
@@ -237,7 +247,7 @@ export async function listDepartmentHeadApprovalQueuePaginated(options?: {
   ]);
 
   const records = rows.map((row: any) => ({
-    id: row.id,
+    id: row.businessApplicationId ?? row.id,
     applicationNumber: row.applicationNumber,
     applicationType: row.applicationType,
     closureType: row.closureType ?? null,
@@ -258,7 +268,7 @@ export async function listDepartmentHeadApprovalQueuePaginated(options?: {
       row.history.find((item: any) => item.actorRole === "BPLO" && typeof item.remarks === "string" && item.remarks.trim().length > 0)?.remarks?.trim() || null,
     formData: (row.formData ?? {}) as Record<string, unknown>,
     history: row.history.map((item: any) => ({
-      id: item.id,
+      id: item.applicationHistoryId ?? item.id,
       fromStatus: item.fromStatus ? mapDbStatusToUi(item.fromStatus) : null,
       toStatus: mapDbStatusToUi(item.toStatus),
       actorRole: item.actorRole,
@@ -266,7 +276,7 @@ export async function listDepartmentHeadApprovalQueuePaginated(options?: {
       createdAt: item.createdAt.toISOString(),
     })),
     documents: row.documents.map((doc: any) => ({
-      id: doc.id,
+      id: doc.applicationDocumentId ?? doc.id,
       documentName: doc.documentName,
       fileName: doc.fileName,
       uploadedAt: doc.uploadedAt.toISOString(),
@@ -294,8 +304,8 @@ export async function applyDepartmentHeadAction(
   // interactive transaction so we do not hold a 5s txn open for extra queries.
   if (action === "APPROVE") {
     const precheck = await prisma.businessApplication.findUnique({
-      where: { id: applicationId },
-      select: { id: true, status: true },
+      where: { businessApplicationId: applicationId },
+      select: { businessApplicationId: true, status: true },
     });
     if (!precheck) {
       throw new Error("Application not found");
@@ -309,8 +319,8 @@ export async function applyDepartmentHeadAction(
   return prisma.$transaction(
     async (tx: any) => {
       const current = await tx.businessApplication.findUnique({
-        where: { id: applicationId },
-        select: { id: true, status: true, applicationNumber: true, applicationType: true },
+        where: { businessApplicationId: applicationId },
+        select: { businessApplicationId: true, status: true, applicationNumber: true, applicationType: true },
       });
 
       if (!current) {
@@ -325,14 +335,14 @@ export async function applyDepartmentHeadAction(
       assertStatusTransition(current.status, nextStatus);
 
       const updated = await tx.businessApplication.update({
-        where: { id: current.id },
+        where: { businessApplicationId: current.businessApplicationId },
         data: { status: nextStatus },
-        select: { id: true, applicationNumber: true, status: true },
+        select: { businessApplicationId: true, applicationNumber: true, status: true },
       });
 
       await tx.applicationHistory.create({
         data: {
-          applicationId: current.id,
+          applicationId: current.businessApplicationId,
           actorId: departmentHeadUserId,
           actorRole: "DEPARTMENT_HEAD",
           fromStatus: current.status,
@@ -342,7 +352,7 @@ export async function applyDepartmentHeadAction(
       });
 
       return {
-        id: updated.id,
+        id: updated.businessApplicationId,
         applicationNumber: updated.applicationNumber,
         applicationType: current.applicationType,
         status: mapDbStatusToUi(updated.status),
@@ -362,8 +372,8 @@ export async function updateDepartmentHeadDocumentValidation(
   }
 ) {
   const application = await prisma.businessApplication.findFirst({
-    where: { id: applicationId },
-    select: { id: true, status: true },
+    where: { businessApplicationId: applicationId },
+    select: { businessApplicationId: true, status: true },
   });
 
   if (!application) {
@@ -375,7 +385,7 @@ export async function updateDepartmentHeadDocumentValidation(
   }
 
   const document = await prisma.applicationDocument.findFirst({
-    where: { id: documentId, applicationId },
+    where: { applicationDocumentId: documentId, applicationId },
   });
 
   if (!document) {
@@ -388,7 +398,7 @@ export async function updateDepartmentHeadDocumentValidation(
   }
 
   const updated = await prisma.applicationDocument.update({
-    where: { id: document.id },
+    where: { applicationDocumentId: document.applicationDocumentId },
     data: {
       validationStatus: input.status,
       validationRemarks: normalizedRemarks || null,
@@ -398,7 +408,7 @@ export async function updateDepartmentHeadDocumentValidation(
   });
 
   return {
-    id: updated.id,
+    id: updated.applicationDocumentId,
     documentName: updated.documentName,
     fileName: updated.fileName,
     mimeType: updated.mimeType,
@@ -438,7 +448,7 @@ export async function listDepartmentHeadRevocationQueuePaginated(options?: {
         revocationSettledBy: { select: { name: true } },
         application: {
           select: {
-            id: true,
+            businessApplicationId: true,
             applicationNumber: true,
             status: true,
             permitIssuance: { select: { documentNumber: true } },
@@ -466,9 +476,9 @@ export async function listDepartmentHeadRevocationQueuePaginated(options?: {
   const records = rows
     .filter((row: any) => Boolean(row.application))
     .map((row: any) => ({
-      inspectionId: row.id,
+      inspectionId: row.inspectionId ?? row.id,
       businessRecordId: row.businessRecordId,
-      applicationId: row.applicationId,
+      applicationId: row.applicationId ?? row.application?.businessApplicationId,
       applicationNumber: row.application.applicationNumber,
       permitOrCertificateNumber: row.application.permitIssuance?.documentNumber ?? null,
       businessName: row.businessRecord.businessName,
@@ -523,7 +533,7 @@ export async function listDepartmentHeadInspectionVerificationQueuePaginated(opt
         inspector: { select: { name: true } },
         application: {
           select: {
-            id: true,
+            businessApplicationId: true,
             applicationNumber: true,
             status: true,
             applicationType: true,
@@ -552,9 +562,9 @@ export async function listDepartmentHeadInspectionVerificationQueuePaginated(opt
   const records = rows
     .filter((row: any) => Boolean(row.application))
     .map((row: any) => ({
-      inspectionId: row.id,
+      inspectionId: row.inspectionId ?? row.id,
       businessRecordId: row.businessRecordId,
-      applicationId: row.applicationId,
+      applicationId: row.applicationId ?? row.application?.businessApplicationId,
       applicationNumber: row.application.applicationNumber,
       permitOrCertificateNumber: row.application.permitIssuance?.documentNumber ?? null,
       businessName: row.businessRecord.businessName,
@@ -581,10 +591,10 @@ export async function listDepartmentHeadInspectionVerificationQueuePaginated(opt
 export async function getDepartmentHeadInspectionChecklistForVerification(inspectionId: string) {
   const inspection = await prisma.inspection.findFirst({
     where: {
-      id: inspectionId,
+      inspectionId,
       status: "DH_VERIFICATION_PENDING",
     },
-    select: { id: true },
+    select: { inspectionId: true },
   });
 
   if (!inspection) {
@@ -629,14 +639,14 @@ export async function listDepartmentHeadSettlementCases(): Promise<DepartmentHea
     },
     include: {
       decidedBy: { select: { name: true } },
-      application: { select: { id: true, applicationNumber: true, permitIssuance: { select: { documentNumber: true } } } },
-      businessRecord: { select: { businessName: true, tradeName: true, ownerName: true, businessAddress: true, lineOfBusiness: true, applicant: { select: { name: true, id: true } }, phone: true } },
+      application: { select: { businessApplicationId: true, applicationNumber: true, permitIssuance: { select: { documentNumber: true } } } },
+      businessRecord: { select: { businessRecordId: true, businessName: true, tradeName: true, ownerName: true, businessAddress: true, lineOfBusiness: true, applicant: { select: { name: true, userId: true } }, phone: true } },
     },
     orderBy: [{ createdAt: "asc" }],
   });
 
   return rows.map((row: any) => ({
-    inspectionId: row.id,
+    inspectionId: row.inspectionId ?? row.id,
     businessRecordId: row.businessRecordId,
     applicationId: row.applicationId ?? null,
     applicationNumber: row.application?.applicationNumber ?? null,
@@ -671,15 +681,15 @@ export async function applyDepartmentHeadSettlement(
   return prisma.$transaction(
     async (tx: any) => {
       const inspection = await tx.inspection.findUnique({
-        where: { id: inspectionId },
+        where: { inspectionId },
         include: {
-          application: { select: { id: true, applicationNumber: true, status: true } },
+          application: { select: { businessApplicationId: true, applicationNumber: true, status: true } },
           businessRecord: {
             select: {
-              id: true,
+              businessRecordId: true,
               businessName: true,
               ownerName: true,
-              applicant: { select: { id: true, name: true } },
+              applicant: { select: { userId: true, name: true } },
               phone: true,
             },
           },
@@ -713,7 +723,7 @@ export async function applyDepartmentHeadSettlement(
       let restoredApplicationStatus: string | null = null;
 
       const updated = await tx.inspection.update({
-        where: { id: inspection.id },
+        where: { inspectionId: inspection.inspectionId },
         data: {
           isSettled: true,
           settledAt: new Date(),
@@ -724,17 +734,17 @@ export async function applyDepartmentHeadSettlement(
       });
 
       // Settled minor/major government cases leave the revocation track so renewal can proceed.
-      if (inspection.application?.id && inspection.application.status === "REVOCATION_REVIEW") {
+      if (inspection.application?.businessApplicationId && inspection.application.status === "REVOCATION_REVIEW") {
         assertStatusTransition(inspection.application.status, "RELEASED");
         await tx.businessApplication.update({
-          where: { id: inspection.application.id },
+          where: { businessApplicationId: inspection.application.businessApplicationId },
           data: { status: "RELEASED" },
         });
         restoredApplicationStatus = "RELEASED";
 
         await tx.applicationHistory.create({
           data: {
-            applicationId: inspection.application.id,
+            applicationId: inspection.application.businessApplicationId,
             actorId: departmentHeadUserId,
             actorRole: "DEPARTMENT_HEAD",
             fromStatus: previousApplicationStatus,
@@ -742,10 +752,10 @@ export async function applyDepartmentHeadSettlement(
             remarks: `Department Head marked flagged case as SETTLED and restored the permit for renewal. Remarks: ${normalizedRemarks}`,
           },
         });
-      } else if (inspection.application?.id) {
+      } else if (inspection.application?.businessApplicationId) {
         await tx.applicationHistory.create({
           data: {
-            applicationId: inspection.application.id,
+            applicationId: inspection.application.businessApplicationId,
             actorId: departmentHeadUserId,
             actorRole: "DEPARTMENT_HEAD",
             fromStatus: inspection.application.status,
@@ -762,9 +772,9 @@ export async function applyDepartmentHeadSettlement(
           action: "SETTLED",
           module: "INSPECTION",
           entityType: "INSPECTION",
-          entityId: inspection.id,
-          inspectionId: inspection.id,
-          applicationId: inspection.application?.id ?? null,
+          entityId: inspection.inspectionId,
+          inspectionId: inspection.inspectionId,
+          applicationId: inspection.application?.businessApplicationId ?? null,
           businessRecordId: inspection.businessRecordId,
           beforeStatus: previousStatus,
           afterStatus: "SETTLED",
@@ -779,12 +789,12 @@ export async function applyDepartmentHeadSettlement(
       }
 
       try {
-        if (inspection.application?.id) {
+        if (inspection.application?.businessApplicationId) {
           const phone = inspection.businessRecord?.phone ?? null;
           await tx.smsDeliveryLog.create({
             data: {
-              applicationId: inspection.application.id,
-              applicantId: inspection.businessRecord?.applicant?.id ?? null,
+              applicationId: inspection.application.businessApplicationId,
+              applicantId: inspection.businessRecord?.applicant?.userId ?? null,
               phoneNumber: phone,
               provider: "none",
               status: "SKIPPED",
@@ -798,8 +808,8 @@ export async function applyDepartmentHeadSettlement(
       }
 
       return {
-        inspectionId: updated.id,
-        applicationId: inspection.application?.id ?? null,
+        inspectionId: updated.inspectionId,
+        applicationId: inspection.application?.businessApplicationId ?? null,
         businessRecordId: inspection.businessRecordId,
         complianceCaseStatus: updated.complianceCaseStatus,
         settledAt: updated.settledAt,
@@ -826,12 +836,12 @@ export async function applyDepartmentHeadInspectionVerification(
 
   return prisma.$transaction(async (tx: any) => {
     const inspection = await tx.inspection.findUnique({
-      where: { id: inspectionId },
+      where: { inspectionId },
       include: {
         inspector: { select: { name: true } },
         application: {
           select: {
-            id: true,
+            businessApplicationId: true,
             status: true,
             applicationNumber: true,
             applicantId: true,
@@ -841,7 +851,7 @@ export async function applyDepartmentHeadInspectionVerification(
         },
         businessRecord: {
           select: {
-            id: true,
+            businessRecordId: true,
             businessStatus: true,
             businessName: true,
           },
@@ -871,7 +881,7 @@ export async function applyDepartmentHeadInspectionVerification(
 
     if (inspection.complianceStatus === "COMPLIANT" || (inspection.complianceStatus === "PENDING_REVIEW" && complianceDecision === "COMPLIANT")) {
       await tx.inspection.update({
-        where: { id: inspection.id },
+        where: { inspectionId: inspection.inspectionId },
         data: {
           status: "VERIFIED_COMPLIANT",
           complianceStatus: "COMPLIANT",
@@ -882,7 +892,7 @@ export async function applyDepartmentHeadInspectionVerification(
 
       await tx.applicationHistory.create({
         data: {
-          applicationId: inspection.application.id,
+          applicationId: inspection.application.businessApplicationId,
           actorId: departmentHeadUserId,
           actorRole: "DEPARTMENT_HEAD",
           fromStatus: "RELEASED",
@@ -892,8 +902,8 @@ export async function applyDepartmentHeadInspectionVerification(
       });
 
       return {
-        inspectionId: inspection.id,
-        applicationId: inspection.application.id,
+        inspectionId: inspection.inspectionId,
+        applicationId: inspection.application.businessApplicationId,
         applicationNumber: inspection.application.applicationNumber,
         inspectionStatus: "VERIFIED_COMPLIANT",
         applicationStatus: mapDbStatusToUi(inspection.application.status),
@@ -930,12 +940,12 @@ export async function applyDepartmentHeadInspectionVerification(
     assertStatusTransition(inspection.application.status, "REVOCATION_REVIEW");
 
     await tx.businessApplication.update({
-      where: { id: inspection.application.id },
+      where: { businessApplicationId: inspection.application.businessApplicationId },
       data: { status: "REVOCATION_REVIEW" },
     });
 
     await tx.inspection.update({
-      where: { id: inspection.id },
+      where: { inspectionId: inspection.inspectionId },
       data: {
         status: "VERIFIED_NON_COMPLIANT",
         complianceStatus: "NON_COMPLIANT",
@@ -952,42 +962,28 @@ export async function applyDepartmentHeadInspectionVerification(
     });
 
     const departmentHeadUser = await tx.user.findUnique({
-      where: { id: departmentHeadUserId },
+      where: { userId: departmentHeadUserId },
       select: { name: true },
-    });
-
-    const revocationContext = buildRevocationContextFromParts({
-      applicationId: inspection.application.id,
-      applicationNumber: inspection.application.applicationNumber,
-      applicantId: inspection.application.applicantId,
-      applicantEmail: inspection.application.applicant.email,
-      inspectionId: inspection.id,
-      businessName: inspection.businessRecord.businessName,
-      permitNumber: inspection.application.permitIssuance?.documentNumber ?? null,
-      recommendationRemarks: inspection.revocationRecommendationRemarks ?? inspection.revocationRemarks,
-      inspectionComment: inspection.comment,
-      nonComplianceType,
-      violationSeverity,
-      departmentHeadRemarks: normalizedRemarks,
-      eventDate: new Date(),
-      departmentOfficerLabel: departmentHeadUser?.name ?? "Department Head",
-      eventType: "REVOCATION_REVIEW_ENTERED",
     });
 
     await tx.applicationHistory.create({
       data: {
-        applicationId: inspection.application.id,
+        applicationId: inspection.application.businessApplicationId,
         actorId: departmentHeadUserId,
         actorRole: "DEPARTMENT_HEAD",
         fromStatus: "RELEASED",
         toStatus: "REVOCATION_REVIEW",
-        remarks: buildRevocationHistoryRemarksForEvent("REVOCATION_REVIEW_ENTERED", revocationContext),
+        remarks: formatRevocationHistoryRemarks(
+          "REVOCATION_REVIEW_ENTERED",
+          departmentHeadUser?.name ?? "Department Head",
+          normalizedRemarks
+        ),
       },
     });
 
     return {
-      inspectionId: inspection.id,
-      applicationId: inspection.application.id,
+      inspectionId: inspection.inspectionId,
+      applicationId: inspection.application.businessApplicationId,
       applicationNumber: inspection.application.applicationNumber,
       inspectionStatus: "VERIFIED_NON_COMPLIANT",
       applicationStatus: mapDbStatusToUi("REVOCATION_REVIEW"),
@@ -1016,7 +1012,7 @@ export async function listDepartmentHeadCompliantList(): Promise<DepartmentHeadC
       decidedBy: { select: { name: true } },
       application: {
         select: {
-          id: true,
+          businessApplicationId: true,
           applicationNumber: true,
           permitIssuance: { select: { documentNumber: true } },
         },
@@ -1039,9 +1035,9 @@ export async function listDepartmentHeadCompliantList(): Promise<DepartmentHeadC
   return rows
     .filter((row: any) => Boolean(row.application) && Boolean(row.decidedAt) && Boolean(row.decidedBy))
     .map((row: any) => ({
-      inspectionId: row.id,
+      inspectionId: row.inspectionId ?? row.id,
       businessRecordId: row.businessRecordId,
-      applicationId: row.applicationId,
+      applicationId: row.applicationId ?? row.application?.businessApplicationId,
       applicationNumber: row.application.applicationNumber,
       permitOrCertificateNumber: row.application.permitIssuance?.documentNumber ?? null,
       businessName: row.businessRecord.businessName,
@@ -1094,7 +1090,7 @@ export async function listDepartmentHeadRevokedPermitListPaginated(options?: {
         revocationSettledBy: { select: { name: true } },
         application: {
           select: {
-            id: true,
+            businessApplicationId: true,
             applicationNumber: true,
             status: true,
             permitIssuance: { select: { documentNumber: true } },
@@ -1121,9 +1117,9 @@ export async function listDepartmentHeadRevokedPermitListPaginated(options?: {
   const records = rows
     .filter((row: any) => Boolean(row.application) && Boolean(row.decidedAt))
     .map((row: any) => ({
-      inspectionId: row.id,
+      inspectionId: row.inspectionId ?? row.id,
       businessRecordId: row.businessRecordId,
-      applicationId: row.applicationId,
+      applicationId: row.applicationId ?? row.application?.businessApplicationId,
       applicationNumber: row.application.applicationNumber,
       permitOrCertificateNumber: row.application.permitIssuance?.documentNumber ?? null,
       businessName: row.businessRecord.businessName,
@@ -1166,12 +1162,12 @@ export async function applyDepartmentHeadRevocationDecision(
 
   return prisma.$transaction(async (tx: any) => {
     const inspection = await tx.inspection.findUnique({
-      where: { id: inspectionId },
+      where: { inspectionId },
       include: {
         inspector: { select: { name: true } },
         application: {
           select: {
-            id: true,
+            businessApplicationId: true,
             status: true,
             applicationNumber: true,
             applicantId: true,
@@ -1181,7 +1177,7 @@ export async function applyDepartmentHeadRevocationDecision(
         },
         businessRecord: {
           select: {
-            id: true,
+            businessRecordId: true,
             businessName: true,
           },
         },
@@ -1225,7 +1221,7 @@ export async function applyDepartmentHeadRevocationDecision(
     }
 
     const departmentHeadUser = await tx.user.findUnique({
-      where: { id: departmentHeadUserId },
+      where: { userId: departmentHeadUserId },
       select: { name: true },
     });
 
@@ -1235,17 +1231,17 @@ export async function applyDepartmentHeadRevocationDecision(
       assertStatusTransition(inspection.application.status, "REVOKED");
 
       await tx.businessApplication.update({
-        where: { id: inspection.application.id },
+        where: { businessApplicationId: inspection.application.businessApplicationId },
         data: { status: "REVOKED" },
       });
 
       await tx.businessRecord.update({
-        where: { id: inspection.businessRecord.id },
+        where: { businessRecordId: inspection.businessRecord.businessRecordId },
         data: { businessStatus: "INACTIVE" },
       });
 
       await tx.inspection.update({
-        where: { id: inspection.id },
+        where: { inspectionId: inspection.inspectionId },
         data: {
           status: toRevocationInspectionStatus(action),
           revocationDecision: "APPROVED",
@@ -1257,31 +1253,15 @@ export async function applyDepartmentHeadRevocationDecision(
 
       await tx.applicationHistory.create({
         data: {
-          applicationId: inspection.application.id,
+          applicationId: inspection.application.businessApplicationId,
           actorId: departmentHeadUserId,
           actorRole: "DEPARTMENT_HEAD",
           fromStatus: "REVOCATION_REVIEW",
           toStatus: "REVOKED",
-          remarks: buildRevocationHistoryRemarksForEvent(
+          remarks: formatRevocationHistoryRemarks(
             "REVOCATION_APPROVED",
-            buildRevocationContextFromParts({
-              applicationId: inspection.application.id,
-              applicationNumber: inspection.application.applicationNumber,
-              applicantId: inspection.application.applicantId,
-              applicantEmail: inspection.application.applicant.email,
-              inspectionId: inspection.id,
-              businessName: inspection.businessRecord.businessName,
-              permitNumber: inspection.application.permitIssuance?.documentNumber ?? null,
-              recommendationRemarks: inspection.revocationRecommendationRemarks ?? inspection.revocationRemarks,
-              inspectionComment: inspection.comment,
-              nonComplianceType: inspection.nonComplianceType,
-              violationSeverity: inspection.violationSeverity,
-              departmentHeadRemarks: null,
-              decisionRemarks: normalizedRemarks,
-              eventDate: decisionDate,
-              departmentOfficerLabel: departmentHeadUser?.name ?? "Department Head",
-              eventType: "REVOCATION_APPROVED",
-            })
+            departmentHeadUser?.name ?? "Department Head",
+            normalizedRemarks
           ),
         },
       });
@@ -1289,17 +1269,17 @@ export async function applyDepartmentHeadRevocationDecision(
       assertStatusTransition(inspection.application.status, "RELEASED");
 
       await tx.businessApplication.update({
-        where: { id: inspection.application.id },
+        where: { businessApplicationId: inspection.application.businessApplicationId },
         data: { status: "RELEASED" },
       });
 
       await tx.businessRecord.update({
-        where: { id: inspection.businessRecord.id },
+        where: { businessRecordId: inspection.businessRecord.businessRecordId },
         data: { businessStatus: "ACTIVE" },
       });
 
       await tx.inspection.update({
-        where: { id: inspection.id },
+        where: { inspectionId: inspection.inspectionId },
         data: {
           status: toRevocationInspectionStatus(action),
           revocationDecision: "DENIED",
@@ -1311,39 +1291,23 @@ export async function applyDepartmentHeadRevocationDecision(
 
       await tx.applicationHistory.create({
         data: {
-          applicationId: inspection.application.id,
+          applicationId: inspection.application.businessApplicationId,
           actorId: departmentHeadUserId,
           actorRole: "DEPARTMENT_HEAD",
           fromStatus: "REVOCATION_REVIEW",
           toStatus: "RELEASED",
-          remarks: buildRevocationHistoryRemarksForEvent(
+          remarks: formatRevocationHistoryRemarks(
             "REVOCATION_DENIED",
-            buildRevocationContextFromParts({
-              applicationId: inspection.application.id,
-              applicationNumber: inspection.application.applicationNumber,
-              applicantId: inspection.application.applicantId,
-              applicantEmail: inspection.application.applicant.email,
-              inspectionId: inspection.id,
-              businessName: inspection.businessRecord.businessName,
-              permitNumber: inspection.application.permitIssuance?.documentNumber ?? null,
-              recommendationRemarks: inspection.revocationRecommendationRemarks ?? inspection.revocationRemarks,
-              inspectionComment: inspection.comment,
-              nonComplianceType: inspection.nonComplianceType,
-              violationSeverity: inspection.violationSeverity,
-              departmentHeadRemarks: null,
-              decisionRemarks: normalizedRemarks,
-              eventDate: decisionDate,
-              departmentOfficerLabel: departmentHeadUser?.name ?? "Department Head",
-              eventType: "REVOCATION_DENIED",
-            })
+            departmentHeadUser?.name ?? "Department Head",
+            normalizedRemarks
           ),
         },
       });
     }
 
     return {
-      inspectionId: inspection.id,
-      applicationId: inspection.application.id,
+      inspectionId: inspection.inspectionId,
+      applicationId: inspection.application.businessApplicationId,
       applicationNumber: inspection.application.applicationNumber,
       inspectionStatus: toRevocationInspectionStatus(action),
       applicationStatus: action === "APPROVE" ? mapDbStatusToUi("REVOKED") : mapDbStatusToUi("RELEASED"),
@@ -1363,8 +1327,8 @@ export async function requireDepartmentHeadSession() {
   // immediately — not after JWT expiry. Mirrors requireBploSession and
   // requireSuperAdminSession which were hardened in security pass 1.
   const dbUser = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { id: true, role: true, isActive: true },
+    where: { userId: session.user.id },
+    select: { userId: true, role: true, isActive: true },
   });
 
   if (!dbUser || dbUser.role !== "DEPARTMENT_HEAD" || !dbUser.isActive) {
@@ -1376,8 +1340,8 @@ export async function requireDepartmentHeadSession() {
 
 export async function getDepartmentHeadApprovalDocument(applicationId: string, documentId: string) {
   const application = await prisma.businessApplication.findUnique({
-    where: { id: applicationId },
-    select: { id: true, status: true },
+    where: { businessApplicationId: applicationId },
+    select: { businessApplicationId: true, status: true },
   });
 
   if (!application) {
@@ -1390,7 +1354,7 @@ export async function getDepartmentHeadApprovalDocument(applicationId: string, d
 
   const document = await prisma.applicationDocument.findFirst({
     where: {
-      id: documentId,
+      applicationDocumentId: documentId,
       applicationId,
     },
   });

@@ -623,11 +623,11 @@ const META: Record<string, RowMeta> = {
     actual: "resubmit true/false; success contains APP-1 / resubmitted",
   },
   "WB-NOTIF-01": {
-    segment: "src/lib/revocation-notification-copy.ts / jit-no-permit-ticket-copy.ts / renewal-email-copy.ts",
-    description: "revocation / no-permit / renewal copy",
-    input: "remarks Fix signage + MAJOR; ticket T-1; renewal UPCOMING/OVERDUE/DUE + My Biz",
+    segment: "src/lib/jit-no-permit-ticket-copy.ts / sms.ts",
+    description: "no-permit / sms copy",
+    input: "ticket T-1; release sms Juan Dela Cruz",
     expected: "copy strings match patterns",
-    actual: "SMS/email contain T-1; renewal plain text patterns pass",
+    actual: "SMS/email contain T-1; release SMS contains ref and instructions",
   },
 
   // Eligibility

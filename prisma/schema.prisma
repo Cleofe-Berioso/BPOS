@@ -76,98 +76,93 @@ enum DocumentValidationStatus {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  name         String
-  firstName    String?
-  middleName   String?
-  lastName     String?
-  suffix       String?
+  userId                  String                 @id @default(cuid())
+  email                   String                 @unique
+  name                    String
+  firstName               String?
+  middleName              String?
+  lastName                String?
+  suffix                  String?
   profileImageStoragePath String?
-  profileImageBucket String?
-  profileImageMimeType String?
-  profileImageSizeBytes Int?
-  profileImageUploadedAt DateTime?
-  passwordHash String
-  role         Role     @default(APPLICANT)
-  isActive     Boolean  @default(true)
-  applications BusinessApplication[] @relation("ApplicantApplications")
-  businessRecords BusinessRecord[]
-  submittedLocations BusinessLocation[] @relation("LocationSubmittedBy")
-  verifiedLocations  BusinessLocation[] @relation("LocationVerifiedBy")
-  historyEntries ApplicationHistory[] @relation("HistoryActor")
-  assessmentsComputed FeeAssessment[] @relation("AssessmentComputedBy")
-  reviewedPaymentReferences PaymentReference[] @relation("PaymentReviewedBy")
-  permitsPrepared PermitIssuance[] @relation("PermitPreparedBy")
-  permitsReleased PermitIssuance[] @relation("PermitReleasedBy")
-  inspections      Inspection[]     @relation("InspectionInspector")
-  inspectionDecisions Inspection[]  @relation("InspectionDecider")
-  revocationSettlementRecords Inspection[] @relation("InspectionRevocationSettledBy")
-  complianceSettlementRecords Inspection[] @relation("InspectionSettledBy")
-  forcedClosureRecords Inspection[] @relation("InspectionForcedClosureBy")
-  bploComplianceReviewRecords Inspection[] @relation("InspectionBploComplianceReviewer")
+  profileImageBucket      String?
+  profileImageMimeType    String?
+  profileImageSizeBytes   Int?
+  profileImageUploadedAt  DateTime?
+  passwordHash            String
+  role                    Role                   @default(APPLICANT)
+  isActive                Boolean                @default(true)
+  applications            BusinessApplication[]  @relation("ApplicantApplications")
+  businessRecords         BusinessRecord[]
+  submittedLocations      BusinessLocation[]     @relation("LocationSubmittedBy")
+  verifiedLocations       BusinessLocation[]     @relation("LocationVerifiedBy")
+  historyEntries          ApplicationHistory[]   @relation("HistoryActor")
+  assessmentsComputed     FeeAssessment[]        @relation("AssessmentComputedBy")
+  reviewedPaymentReferences PaymentReference[]   @relation("PaymentReviewedBy")
+  permitsPrepared         PermitIssuance[]       @relation("PermitPreparedBy")
+  permitsReleased         PermitIssuance[]       @relation("PermitReleasedBy")
+  inspections             Inspection[]           @relation("InspectionInspector")
+  inspectionDecisions     Inspection[]           @relation("InspectionDecider")
+  revocationSettlementRecords Inspection[]       @relation("InspectionRevocationSettledBy")
+  complianceSettlementRecords Inspection[]       @relation("InspectionSettledBy")
+  forcedClosureRecords    Inspection[]           @relation("InspectionForcedClosureBy")
   feeConfigurationUpdates FeeConfigurationItem[] @relation("FeeConfigUpdatedBy")
-  feeConfigurationCategoryUpdates FeeConfigurationCategory[] @relation("FeeConfigCategoryUpdatedBy")
-  systemFeeSettingUpdates SystemFeeSetting[] @relation("SystemFeeSettingUpdatedBy")
-  renewalExtensionUpdates RenewalExtension[] @relation("RenewalExtensionUpdatedBy")
-  smsDeliveryLogs SmsDeliveryLog[] @relation("SmsDeliveryLogApplicant")
-  renewalEmailLogs RenewalEmailLog[] @relation("RenewalEmailLogApplicant")
-  revocationNotificationLogs RevocationNotificationLog[] @relation("RevocationNotificationLogApplicant")
-  reassessmentRequests FeeAssessment[] @relation("FeeAssessmentReassessmentRequestedBy")
-  jitNoPermitRecords JitNoPermitRecord[] @relation("JitNoPermitRecordCreatedBy")
-  validatedDocuments ApplicationDocument[] @relation("DocumentValidatedBy")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  systemFeeSettingUpdates SystemFeeSetting[]     @relation("SystemFeeSettingUpdatedBy")
+  renewalExtensionUpdates RenewalExtension[]     @relation("RenewalExtensionUpdatedBy")
+  smsDeliveryLogs         SmsDeliveryLog[]       @relation("SmsDeliveryLogApplicant")
+  reassessmentRequests    FeeAssessment[]        @relation("FeeAssessmentReassessmentRequestedBy")
+  jitNoPermitRecords      JitNoPermitRecord[]    @relation("JitNoPermitRecordCreatedBy")
+  validatedDocuments      ApplicationDocument[]  @relation("DocumentValidatedBy")
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
 }
   
 model BusinessRecord {
-  id                 String   @id @default(cuid())
-  applicantId        String
-  businessType       String
-  registrationNumber String   @unique
-  tin                BigInt
-  businessName       String
-  tradeName          String
-  ownerName          String
-  ownerFirstName     String?
-  ownerMiddleName    String?
-  ownerLastName      String?
-  ownerSuffix        String?
-  sex                String?
-  nationality        String
-  email              String
-  phone              String
-  mainOfficeAddress  String
-  businessAddress    String
-  sameAsMainOffice   Boolean  @default(true)
-  businessArea       Decimal? @db.Decimal(10, 2)
-  totalFloorArea     Decimal? @db.Decimal(10, 2)
-  totalEmployees     Int?
-  maleEmployees      Int?
-  femaleEmployees    Int?
+  businessRecordId            String               @id @default(cuid())
+  applicantId                 String
+  businessType                String
+  registrationNumber          String               @unique
+  tin                         BigInt
+  businessName                String
+  tradeName                   String
+  ownerName                   String
+  ownerFirstName              String?
+  ownerMiddleName             String?
+  ownerLastName               String?
+  ownerSuffix                 String?
+  sex                         String?
+  nationality                 String
+  email                       String
+  phone                       String
+  mainOfficeAddress           String
+  businessAddress             String
+  sameAsMainOffice            Boolean              @default(true)
+  businessArea                Decimal?             @db.Decimal(10, 2)
+  totalFloorArea              Decimal?             @db.Decimal(10, 2)
+  totalEmployees              Int?
+  maleEmployees               Int?
+  femaleEmployees             Int?
   employeesWithinMunicipality Int?
-  deliveryVehicles   Int?
-  propertyOwnership  String?
-  taxDeclarationNumber String?
+  deliveryVehicles            Int?
+  propertyOwnership           String?
+  taxDeclarationNumber        String?
   propertyIdentificationNumber String?
-  taxIncentives      String?
-  businessActivity   String?
-  lineOfBusiness     String?
-  assetSize          Decimal? @db.Decimal(10, 3)
-  isMarket           Boolean  @default(false)
-  isAgriculture      Boolean  @default(false)
-  permitExpirationDate DateTime?
-  businessStatus     BusinessRecordStatus @default(ACTIVE)
-  closedAt           DateTime?
-  closureApplicationId String?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  taxIncentives               String?
+  businessActivity            String?
+  lineOfBusiness              String?
+  assetSize                   Decimal?             @db.Decimal(10, 3)
+  isMarket                    Boolean              @default(false)
+  isAgriculture               Boolean              @default(false)
+  permitExpirationDate        DateTime?
+  businessStatus              BusinessRecordStatus @default(ACTIVE)
+  closedAt                    DateTime?
+  closureApplicationId        String?
+  createdAt                   DateTime             @default(now())
+  updatedAt                   DateTime             @updatedAt
 
-  applicant    User                 @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  applicant    User                  @relation(fields: [applicantId], references: [userId], onDelete: Cascade)
   applications BusinessApplication[]
   location     BusinessLocation?
   inspections  Inspection[]
-  renewalEmailLogs RenewalEmailLog[]
 
   @@index([applicantId])
 }
@@ -185,22 +180,22 @@ enum BusinessLocationStatus {
 }
 
 model BusinessLocation {
-  id               String                 @id @default(cuid())
-  businessRecordId String                 @unique
-  latitude         Float
-  longitude        Float
-  address          String?
-  barangay         String?
-  status           BusinessLocationStatus @default(PENDING)
-  submittedById    String
-  verifiedById     String?
-  remarks          String?
-  createdAt        DateTime               @default(now())
-  updatedAt        DateTime               @updatedAt
+  businessLocationId String                 @id @default(cuid())
+  businessRecordId   String                 @unique
+  latitude           Float
+  longitude          Float
+  address            String?
+  barangay           String?
+  status             BusinessLocationStatus @default(PENDING)
+  submittedById      String
+  verifiedById       String?
+  remarks            String?
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
 
-  businessRecord BusinessRecord @relation(fields: [businessRecordId], references: [id], onDelete: Cascade)
-  submittedBy   User           @relation("LocationSubmittedBy", fields: [submittedById], references: [id], onDelete: Restrict)
-  verifiedBy    User?          @relation("LocationVerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
+  businessRecord BusinessRecord @relation(fields: [businessRecordId], references: [businessRecordId], onDelete: Cascade)
+  submittedBy    User           @relation("LocationSubmittedBy", fields: [submittedById], references: [userId], onDelete: Restrict)
+  verifiedBy     User?          @relation("LocationVerifiedBy", fields: [verifiedById], references: [userId], onDelete: SetNull)
 
   @@index([status])
   @@index([submittedById])
@@ -208,30 +203,28 @@ model BusinessLocation {
 }
 
 model BusinessApplication {
-  id                String            @id @default(cuid())
-  applicationNumber String            @unique
-  applicantId       String
-  businessRecordId  String?
-  applicationType   ApplicationType
-  status            ApplicationStatus @default(DRAFT)
-  formData          Json
-  closureType       ClosureType?
+  businessApplicationId  String            @id @default(cuid())
+  applicationNumber      String            @unique
+  applicantId            String
+  businessRecordId       String?
+  applicationType        ApplicationType
+  status                 ApplicationStatus @default(DRAFT)
+  formData               Json
+  closureType            ClosureType?
   closureTypeOtherReason String?
-  submittedAt       DateTime?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  submittedAt            DateTime?
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
 
-  applicant     User                @relation("ApplicantApplications", fields: [applicantId], references: [id], onDelete: Cascade)
-  businessRecord BusinessRecord?    @relation(fields: [businessRecordId], references: [id], onDelete: SetNull)
-  documents     ApplicationDocument[]
+  applicant         User                  @relation("ApplicantApplications", fields: [applicantId], references: [userId], onDelete: Cascade)
+  businessRecord    BusinessRecord?       @relation(fields: [businessRecordId], references: [businessRecordId], onDelete: SetNull)
+  documents         ApplicationDocument[]
   paymentReferences PaymentReference[]
-  history       ApplicationHistory[]
-  feeAssessment FeeAssessment?
-  permitIssuance PermitIssuance?
-  smsDeliveryLogs SmsDeliveryLog[]
-  renewalEmailLogs RenewalEmailLog[]
-  revocationNotificationLogs RevocationNotificationLog[]
-  inspections   Inspection[]
+  history           ApplicationHistory[]
+  feeAssessment     FeeAssessment?
+  permitIssuance    PermitIssuance?
+  smsDeliveryLogs   SmsDeliveryLog[]
+  inspections       Inspection[]
 
   @@index([applicantId, createdAt])
   @@index([applicantId, status])
@@ -284,57 +277,49 @@ enum JitChecklistDepartment {
 }
 
 model Inspection {
-  id                         String                     @id @default(cuid())
-  businessRecordId           String
-  applicationId              String?
-  inspectorId                String
-  complianceStatus           InspectionComplianceStatus
-  status                     InspectionStatus
-  comment                    String?
-  evidenceFileName           String?
-  evidenceStoragePath        String?
-  evidenceBucket             String?
-  evidenceMimeType           String?
-  evidenceSizeBytes          Int?
-  revocationDecision         RevocationDecision?
+  inspectionId                    String                     @id @default(cuid())
+  businessRecordId                String
+  applicationId                   String?
+  inspectorId                     String
+  complianceStatus                InspectionComplianceStatus
+  status                          InspectionStatus
+  comment                         String?
+  evidenceFileName                String?
+  evidenceStoragePath             String?
+  evidenceBucket                  String?
+  evidenceMimeType                String?
+  evidenceSizeBytes               Int?
+  revocationDecision              RevocationDecision?
   revocationRecommendationRemarks String?
-  revocationRemarks          String?
-  decidedById                String?
-  decidedAt                  DateTime?
-  revocationSettledAt        DateTime?
-  revocationSettlementRemarks String?
-  revocationSettledById      String?
-  nonComplianceType          NonComplianceType?
-  violationSeverity          ViolationSeverity?
-  isSettled                  Boolean            @default(false)
-  settledAt                  DateTime?
-  settlementRemarks          String?
-  settledById                String?
-  deadlineAt                 DateTime?
-  autoClosed                 Boolean            @default(false)
-  forcedClosure              Boolean            @default(false)
-  forcedClosureAt            DateTime?
-  forcedClosureById          String?
-  complianceCaseStatus       ComplianceCaseStatus @default(NONE)
-  referToBplo                Boolean            @default(false)
-  referralReason             String?
-  referralRemarks            String?
-  bploComplianceReviewedById String?
-  bploComplianceReviewedAt   DateTime?
-  bploComplianceRemarks      String?
-  createdAt                  DateTime                   @default(now())
-  updatedAt                  DateTime                   @updatedAt
+  revocationRemarks               String?
+  decidedById                     String?
+  decidedAt                       DateTime?
+  revocationSettledAt             DateTime?
+  revocationSettlementRemarks     String?
+  revocationSettledById           String?
+  nonComplianceType               NonComplianceType?
+  violationSeverity               ViolationSeverity?
+  isSettled                       Boolean                    @default(false)
+  settledAt                       DateTime?
+  settlementRemarks               String?
+  settledById                     String?
+  deadlineAt                      DateTime?
+  autoClosed                      Boolean                    @default(false)
+  forcedClosure                   Boolean                    @default(false)
+  forcedClosureAt                 DateTime?
+  forcedClosureById               String?
+  complianceCaseStatus            ComplianceCaseStatus       @default(NONE)
+  createdAt                       DateTime                   @default(now())
+  updatedAt                       DateTime                   @updatedAt
 
-  businessRecord BusinessRecord       @relation(fields: [businessRecordId], references: [id], onDelete: Cascade)
-  application    BusinessApplication? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
-  inspector      User                 @relation("InspectionInspector", fields: [inspectorId], references: [id], onDelete: Restrict)
-  decidedBy      User?                @relation("InspectionDecider", fields: [decidedById], references: [id], onDelete: SetNull)
-  revocationSettledBy User?           @relation("InspectionRevocationSettledBy", fields: [revocationSettledById], references: [id], onDelete: SetNull)
-  settledBy      User?                @relation("InspectionSettledBy", fields: [settledById], references: [id], onDelete: SetNull)
-  forcedClosureBy User?               @relation("InspectionForcedClosureBy", fields: [forcedClosureById], references: [id], onDelete: SetNull)
-  bploComplianceReviewedBy User?      @relation("InspectionBploComplianceReviewer", fields: [bploComplianceReviewedById], references: [id], onDelete: SetNull)
-  checklistItems InspectionChecklistItem[]
-  revocationNotificationLogs RevocationNotificationLog[]
+  businessRecord      BusinessRecord            @relation(fields: [businessRecordId], references: [businessRecordId], onDelete: Cascade)
+  application         BusinessApplication?      @relation(fields: [applicationId], references: [businessApplicationId], onDelete: SetNull)
+  inspector           User                      @relation("InspectionInspector", fields: [inspectorId], references: [userId], onDelete: Restrict)
+  decidedBy           User?                     @relation("InspectionDecider", fields: [decidedById], references: [userId], onDelete: SetNull)
+  revocationSettledBy User?                     @relation("InspectionRevocationSettledBy", fields: [revocationSettledById], references: [userId], onDelete: SetNull)
+  settledBy           User?                     @relation("InspectionSettledBy", fields: [settledById], references: [userId], onDelete: SetNull)
+  forcedClosureBy     User?                     @relation("InspectionForcedClosureBy", fields: [forcedClosureById], references: [userId], onDelete: SetNull)
+  checklistItems      InspectionChecklistItem[]
 
   @@index([businessRecordId, createdAt])
   @@index([applicationId, createdAt])
@@ -348,21 +333,21 @@ model Inspection {
 }
 
 model InspectionChecklistItem {
-  id                   String                 @id @default(cuid())
-  inspectionId         String
-  departmentKey        JitChecklistDepartment
-  question             String
-  response             JitChecklistResponse
-  remarks              String?
-  evidenceFileName     String?
-  evidenceStoragePath  String?
-  evidenceBucket       String?
-  evidenceMimeType     String?
-  evidenceSizeBytes    Int?
-  createdAt            DateTime               @default(now())
-  updatedAt            DateTime               @updatedAt
+  inspectionChecklistItemId String                 @id @default(cuid())
+  inspectionId              String
+  departmentKey             JitChecklistDepartment
+  question                  String
+  response                  JitChecklistResponse
+  remarks                   String?
+  evidenceFileName          String?
+  evidenceStoragePath       String?
+  evidenceBucket            String?
+  evidenceMimeType          String?
+  evidenceSizeBytes         Int?
+  createdAt                 DateTime               @default(now())
+  updatedAt                 DateTime               @updatedAt
 
-  inspection Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  inspection Inspection @relation(fields: [inspectionId], references: [inspectionId], onDelete: Cascade)
 
   @@unique([inspectionId, departmentKey])
   @@index([inspectionId])
@@ -375,64 +360,64 @@ enum PermitIssuanceStatus {
 }
 
 model PermitIssuance {
-  id            String               @id @default(cuid())
-  applicationId String               @unique
-  documentNumber String              @unique
-  documentType  PermitDocumentType
-  status        PermitIssuanceStatus @default(PREPARED)
-  issuedAt      DateTime             @default(now())
-  releasedAt    DateTime?
-  preparedById  String
-  releasedById  String?
-  documentPath  String?
-  remarks       String?
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
+  permitIssuanceId String               @id @default(cuid())
+  applicationId    String               @unique
+  documentNumber   String               @unique
+  documentType     PermitDocumentType
+  status           PermitIssuanceStatus @default(PREPARED)
+  issuedAt         DateTime             @default(now())
+  releasedAt       DateTime?
+  preparedById     String
+  releasedById     String?
+  documentPath     String?
+  remarks          String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
 
-  application BusinessApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  preparedBy  User                @relation("PermitPreparedBy", fields: [preparedById], references: [id], onDelete: Restrict)
-  releasedBy  User?               @relation("PermitReleasedBy", fields: [releasedById], references: [id], onDelete: SetNull)
+  application BusinessApplication @relation(fields: [applicationId], references: [businessApplicationId], onDelete: Cascade)
+  preparedBy  User                @relation("PermitPreparedBy", fields: [preparedById], references: [userId], onDelete: Restrict)
+  releasedBy  User?               @relation("PermitReleasedBy", fields: [releasedById], references: [userId], onDelete: SetNull)
 
   @@index([status])
   @@index([applicationId, status])
 }
 
 model ApplicationDocument {
-  id            String   @id @default(cuid())
-  applicationId String
-  documentName  String
-  fileName      String
-  storagePath   String
-  bucket        String?
-  filePath      String?
-  originalName  String?
-  mimeType      String
-  sizeBytes     Int
-  fileSize      Int?
-  uploadedAt    DateTime @default(now())
-  validationStatus DocumentValidationStatus @default(PENDING_REVIEW)
-  validationRemarks String?
-  validatedAt   DateTime?
-  validatedById String?
+  applicationDocumentId String                   @id @default(cuid())
+  applicationId         String
+  documentName          String
+  fileName              String
+  storagePath           String
+  bucket                String?
+  filePath              String?
+  originalName          String?
+  mimeType              String
+  sizeBytes             Int
+  fileSize              Int?
+  uploadedAt            DateTime                 @default(now())
+  validationStatus      DocumentValidationStatus @default(PENDING_REVIEW)
+  validationRemarks     String?
+  validatedAt           DateTime?
+  validatedById         String?
 
-  application BusinessApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  validatedBy User? @relation("DocumentValidatedBy", fields: [validatedById], references: [id], onDelete: SetNull)
+  application BusinessApplication @relation(fields: [applicationId], references: [businessApplicationId], onDelete: Cascade)
+  validatedBy User?               @relation("DocumentValidatedBy", fields: [validatedById], references: [userId], onDelete: SetNull)
 
   @@index([applicationId])
 }
 
 model ApplicationHistory {
-  id            String            @id @default(cuid())
-  applicationId String
-  actorId       String?
-  actorRole     Role?
-  fromStatus    ApplicationStatus?
-  toStatus      ApplicationStatus
-  remarks       String?
-  createdAt     DateTime          @default(now())
+  applicationHistoryId String             @id @default(cuid())
+  applicationId        String
+  actorId              String?
+  actorRole            Role?
+  fromStatus           ApplicationStatus?
+  toStatus             ApplicationStatus
+  remarks              String?
+  createdAt            DateTime           @default(now())
 
-  application BusinessApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  actor       User?               @relation("HistoryActor", fields: [actorId], references: [id], onDelete: SetNull)
+  application BusinessApplication @relation(fields: [applicationId], references: [businessApplicationId], onDelete: Cascade)
+  actor       User?               @relation("HistoryActor", fields: [actorId], references: [userId], onDelete: SetNull)
 
   @@index([applicationId, createdAt])
 }
@@ -467,7 +452,7 @@ enum SmsDeliveryStatus {
 }
 
 model SmsDeliveryLog {
-  id               String            @id @default(cuid())
+  smsDeliveryLogId String            @id @default(cuid())
   applicationId    String
   applicantId      String?
   phoneNumber      String?
@@ -477,232 +462,135 @@ model SmsDeliveryLog {
   providerResponse String?
   createdAt        DateTime          @default(now())
 
-  application BusinessApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  applicant   User?               @relation("SmsDeliveryLogApplicant", fields: [applicantId], references: [id], onDelete: SetNull)
+  application BusinessApplication @relation(fields: [applicationId], references: [businessApplicationId], onDelete: Cascade)
+  applicant   User?               @relation("SmsDeliveryLogApplicant", fields: [applicantId], references: [userId], onDelete: SetNull)
 
   @@index([applicationId, createdAt])
   @@index([applicantId, createdAt])
   @@index([status, createdAt])
 }
 
-enum RenewalEmailNotificationType {
-  UPCOMING
-  DUE
-  OVERDUE
-}
-
-enum RenewalEmailDeliveryStatus {
-  SKIPPED
-  SENT
-  FAILED
-}
-
-model RenewalEmailLog {
-  id                   String                       @id @default(cuid())
-  businessRecordId     String
-  applicantId          String?
-  applicationId        String?
-  recipientEmail       String
-  notificationType     RenewalEmailNotificationType
-  permitExpirationDate DateTime
-  permitNumber         String?
-  businessName         String
-  status               RenewalEmailDeliveryStatus
-  subject              String
-  messageBody          String
-  skipReason           String?
-  providerResponse     String?
-  createdAt            DateTime                     @default(now())
-
-  businessRecord BusinessRecord       @relation(fields: [businessRecordId], references: [id], onDelete: Cascade)
-  applicant      User?                @relation("RenewalEmailLogApplicant", fields: [applicantId], references: [id], onDelete: SetNull)
-  application    BusinessApplication? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
-
-  @@unique([businessRecordId, permitExpirationDate, notificationType])
-  @@index([status, createdAt])
-  @@index([applicantId, createdAt])
-  @@index([businessRecordId, createdAt])
-}
-
-enum RevocationNotificationEventType {
-  REVOCATION_REVIEW_ENTERED
-  REVOCATION_APPROVED
-  REVOCATION_DENIED
-}
-
-enum RevocationNotificationDeliveryStatus {
-  SKIPPED
-  SENT
-  FAILED
-}
-
-model RevocationNotificationLog {
-  id               String                             @id @default(cuid())
-  applicationId    String
-  applicantId      String?
-  inspectionId     String?
-  eventType        RevocationNotificationEventType
-  recipientEmail   String
-  status           RevocationNotificationDeliveryStatus
-  subject          String
-  messageBody      String
-  skipReason       String?
-  providerResponse String?
-  createdAt        DateTime                           @default(now())
-
-  application BusinessApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  applicant   User?               @relation("RevocationNotificationLogApplicant", fields: [applicantId], references: [id], onDelete: SetNull)
-  inspection  Inspection?         @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
-
-  @@unique([applicationId, eventType])
-  @@index([status, createdAt])
-  @@index([applicantId, createdAt])
-}
-
 model FeeAssessment {
-  id                    String              @id @default(cuid())
-  applicationId         String              @unique
-  assessmentNumber      String              @unique
-  status                FeeAssessmentStatus @default(DRAFT)
-  paymentFrequency      PaymentFrequency    @default(ANNUAL)
-  annualAssessedAmount  Decimal             @default(0)
-  releasePaymentAmount  Decimal             @default(0)
-  amountPaid            Decimal             @default(0)
-  remainingBalance      Decimal             @default(0)
-  paymentStatus         PaymentSettlementStatus @default(UNPAID)
-  mayorsPermitFee       Decimal             @default(0)
-  regulatoryFees        Decimal             @default(0)
-  additionalCharges     Decimal             @default(0)
-  penalties             Decimal             @default(0)
-  surcharge             Decimal             @default(0)
-  interest              Decimal             @default(0)
-  closurePaymentDues    Decimal             @default(0)
-  closureCertificateFee Decimal             @default(0)
-  arrears               Decimal             @default(0)
-  otherCharges          Decimal             @default(0)
-  totalAmount           Decimal             @default(0)
-  remarks               String?
-  computedById          String?
-  generatedAt           DateTime?
-  reassessmentRequestedAt DateTime?
+  feeAssessmentId           String                  @id @default(cuid())
+  applicationId             String                  @unique
+  assessmentNumber          String                  @unique
+  status                    FeeAssessmentStatus     @default(DRAFT)
+  paymentFrequency          PaymentFrequency        @default(ANNUAL)
+  annualAssessedAmount      Decimal                 @default(0)
+  releasePaymentAmount      Decimal                 @default(0)
+  paymentStatus             PaymentSettlementStatus @default(UNPAID)
+  mayorsPermitFee           Decimal                 @default(0)
+  regulatoryFees            Decimal                 @default(0)
+  additionalCharges         Decimal                 @default(0)
+  penalties                 Decimal                 @default(0)
+  surcharge                 Decimal                 @default(0)
+  interest                  Decimal                 @default(0)
+  closurePaymentDues        Decimal                 @default(0)
+  closureCertificateFee     Decimal                 @default(0)
+  otherCharges              Decimal                 @default(0)
+  totalAmount               Decimal                 @default(0)
+  remarks                   String?
+  computedById              String?
+  generatedAt               DateTime?
+  reassessmentRequestedAt   DateTime?
   reassessmentRequestedById String?
-  createdAt             DateTime            @default(now())
-  updatedAt             DateTime            @updatedAt
+  createdAt                 DateTime                @default(now())
+  updatedAt                 DateTime                @updatedAt
 
-  application  BusinessApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  computedBy   User?               @relation("AssessmentComputedBy", fields: [computedById], references: [id], onDelete: SetNull)
-  reassessmentRequestedBy User?    @relation("FeeAssessmentReassessmentRequestedBy", fields: [reassessmentRequestedById], references: [id], onDelete: SetNull)
-  lineItems    FeeAssessmentLineItem[]
+  application             BusinessApplication     @relation(fields: [applicationId], references: [businessApplicationId], onDelete: Cascade)
+  computedBy              User?                   @relation("AssessmentComputedBy", fields: [computedById], references: [userId], onDelete: SetNull)
+  reassessmentRequestedBy User?                   @relation("FeeAssessmentReassessmentRequestedBy", fields: [reassessmentRequestedById], references: [userId], onDelete: SetNull)
+  lineItems               FeeAssessmentLineItem[]
 
   @@index([applicationId])
   @@index([reassessmentRequestedAt])
 }
 
 model FeeAssessmentLineItem {
-  id               String        @id @default(cuid())
-  feeAssessmentId  String
-  description      String
-  amount           Decimal       @default(0)
-  sortOrder        Int           @default(0)
-  isSystemGenerated Boolean      @default(false)
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  feeAssessmentLineItemId String        @id @default(cuid())
+  feeAssessmentId         String
+  description             String
+  amount                  Decimal       @default(0)
+  sortOrder               Int           @default(0)
+  isSystemGenerated       Boolean       @default(false)
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
 
-  feeAssessment FeeAssessment @relation(fields: [feeAssessmentId], references: [id], onDelete: Cascade)
+  feeAssessment FeeAssessment @relation(fields: [feeAssessmentId], references: [feeAssessmentId], onDelete: Cascade)
 
   @@index([feeAssessmentId, sortOrder])
 }
 
 model PaymentReference {
-  id                String               @id @default(cuid())
-  applicationId     String
-  transactionNumber String               @unique
-  amountPaid        Decimal              @default(0)
-  paymentDate       DateTime
-  proofFileName     String
-  proofStoragePath  String
-  proofBucket       String?
-  proofMimeType     String
-  proofSizeBytes    Int
-  status            PaymentReferenceStatus @default(PENDING)
-  reviewerRemarks   String?
-  submittedAt       DateTime             @default(now())
-  reviewedAt        DateTime?
-  reviewedById      String?
-  createdAt         DateTime             @default(now())
-  updatedAt         DateTime             @updatedAt
+  paymentReferenceId String                 @id @default(cuid())
+  applicationId      String
+  transactionNumber  String                 @unique
+  paymentDate        DateTime
+  proofFileName      String
+  proofStoragePath   String
+  proofBucket        String?
+  proofMimeType      String
+  proofSizeBytes     Int
+  status             PaymentReferenceStatus @default(PENDING)
+  reviewerRemarks    String?
+  submittedAt        DateTime               @default(now())
+  reviewedAt         DateTime?
+  reviewedById       String?
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
 
-  application BusinessApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  reviewedBy  User?               @relation("PaymentReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  application BusinessApplication @relation(fields: [applicationId], references: [businessApplicationId], onDelete: Cascade)
+  reviewedBy  User?               @relation("PaymentReviewedBy", fields: [reviewedById], references: [userId], onDelete: SetNull)
 
   @@index([applicationId, submittedAt])
   @@index([status, submittedAt])
 }
 
 model FeeConfigurationItem {
-  id             String   @id @default(cuid())
-  category       String
-  classification String
-  amount         Decimal  @default(0)
-  isActive       Boolean  @default(true)
-  updatedById    String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  feeConfigurationItemId String   @id @default(cuid())
+  category               String
+  classification         String
+  amount                 Decimal  @default(0)
+  isActive               Boolean  @default(true)
+  updatedById            String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 
-  updatedBy User? @relation("FeeConfigUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  updatedBy User? @relation("FeeConfigUpdatedBy", fields: [updatedById], references: [userId], onDelete: SetNull)
 
   @@unique([category, classification])
   @@index([category, isActive])
 }
 
-model FeeConfigurationCategory {
-  id              String   @id @default(cuid())
-  key             String   @unique
-  label           String
-  classifications Json
-  isActive        Boolean  @default(true)
-  updatedById     String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  updatedBy User? @relation("FeeConfigCategoryUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-
-  @@index([isActive, label])
-}
-
 model SystemFeeSetting {
-  id                              String   @id @default(cuid())
-  renewalSurchargePercent         Float    @default(25)
-  monthlyInterestPercent          Float    @default(2)
-  liquorTobaccoAddOnPercent       Float    @default(25)
-  powerDistributionFixedFee       Decimal  @default(10000)
-  privatePortFixedFee             Decimal  @default(50000)
-  jitPortalEnabled                Boolean  @default(true)
-  jitInspectionCycleStartedAt     DateTime?
-  renewalComplianceMinorPenalty   Decimal  @default(0)
-  renewalComplianceMajorPenalty   Decimal  @default(0)
-  renewalComplianceSeverePenalty  Decimal  @default(0)
-  updatedById                     String?
-  createdAt                       DateTime @default(now())
-  updatedAt                       DateTime @updatedAt
+  systemFeeSettingId          String    @id @default(cuid())
+  renewalSurchargePercent     Float     @default(25)
+  monthlyInterestPercent      Float     @default(2)
+  liquorTobaccoAddOnPercent   Float     @default(25)
+  powerDistributionFixedFee   Decimal   @default(10000)
+  privatePortFixedFee         Decimal   @default(50000)
+  jitPortalEnabled            Boolean   @default(true)
+  jitInspectionCycleStartedAt DateTime?
+  updatedById                 String?
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
 
-  updatedBy User? @relation("SystemFeeSettingUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  updatedBy User? @relation("SystemFeeSettingUpdatedBy", fields: [updatedById], references: [userId], onDelete: SetNull)
 }
 
 model RenewalExtension {
-  id             String   @id @default(cuid())
-  title          String
-  startDate      DateTime
-  endDate        DateTime
-  isActive       Boolean  @default(true)
-  waiveSurcharge Boolean  @default(true)
-  waiveInterest  Boolean  @default(false)
-  remarks        String?
-  updatedById    String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  renewalExtensionId String   @id @default(cuid())
+  startDate          DateTime
+  endDate            DateTime
+  isActive           Boolean  @default(true)
+  waiveSurcharge     Boolean  @default(true)
+  waiveInterest      Boolean  @default(false)
+  remarks            String?
+  updatedById        String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  updatedBy User? @relation("RenewalExtensionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  updatedBy User? @relation("RenewalExtensionUpdatedBy", fields: [updatedById], references: [userId], onDelete: SetNull)
 
   @@index([isActive, startDate, endDate])
 }
@@ -713,7 +601,7 @@ enum JitNoPermitTicketStatus {
 }
 
 model JitNoPermitRecord {
-  id                  String                  @id @default(cuid())
+  jitNoPermitRecordId String                  @id @default(cuid())
   ticketNumber        String                  @unique
   ticketStatus        JitNoPermitTicketStatus @default(OPEN)
   businessName        String
@@ -735,7 +623,7 @@ model JitNoPermitRecord {
   createdAt           DateTime                @default(now())
   updatedAt           DateTime                @updatedAt
 
-  createdBy User @relation("JitNoPermitRecordCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdBy User @relation("JitNoPermitRecordCreatedBy", fields: [createdById], references: [userId], onDelete: Restrict)
 
   @@index([createdById, createdAt])
   @@index([businessName])
@@ -745,7 +633,7 @@ model JitNoPermitRecord {
 }
 
 model AuditLog {
-  id                 String    @id @default(cuid())
+  auditLogId         String   @id @default(cuid())
   actorId            String?
   actorName          String?
   actorRole          String?
@@ -764,7 +652,7 @@ model AuditLog {
   metadata           Json?
   ipAddress          String?
   userAgent          String?
-  createdAt          DateTime  @default(now())
+  createdAt          DateTime @default(now())
 
   @@index([actorId, createdAt])
   @@index([applicationId, createdAt])
@@ -776,14 +664,14 @@ model AuditLog {
 }
 
 model PasswordResetOtp {
-  id         String    @id @default(cuid())
-  email      String
-  otpHash    String
-  expiresAt  DateTime
-  verifiedAt DateTime?
-  usedAt     DateTime?
-  attempts   Int       @default(0)
-  createdAt  DateTime  @default(now())
+  passwordResetOtpId String    @id @default(cuid())
+  email              String
+  otpHash            String
+  expiresAt          DateTime
+  verifiedAt         DateTime?
+  usedAt             DateTime?
+  attempts           Int       @default(0)
+  createdAt          DateTime  @default(now())
 
   @@index([email])
   @@index([expiresAt])

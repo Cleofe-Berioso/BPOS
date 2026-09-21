@@ -9,7 +9,7 @@ export async function getRequiredDocumentsValidationForApplication(
   applicationId: string
 ): Promise<RequiredDocumentsValidationResult> {
   const application = await prisma.businessApplication.findUnique({
-    where: { id: applicationId },
+    where: { businessApplicationId: applicationId },
     select: {
       applicationType: true,
       formData: true,

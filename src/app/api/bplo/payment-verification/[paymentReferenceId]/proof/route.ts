@@ -25,7 +25,7 @@ export async function GET(
 
   const { paymentReferenceId } = await params;
   const reference = await prisma.paymentReference.findUnique({
-    where: { id: paymentReferenceId },
+    where: { paymentReferenceId },
     select: {
       proofStoragePath: true,
       proofBucket: true,

@@ -692,15 +692,6 @@ const USE_CASES: UseCaseDef[] = [
     evidence: "none",
   },
 
-  // ── System (1) ────────────────────────────────────────────────────────────
-  {
-    id: "UC-SYS-01",
-    name: "Send Renewal Reminder Emails (cron)",
-    actor: "System",
-    pages: [],
-    apis: ["src/app/api/cron/renewal-emails/route.ts"],
-    evidence: "cron_route_only",
-  },
 ];
 
 /** Smoke cases keyed by Application Name (business name). */

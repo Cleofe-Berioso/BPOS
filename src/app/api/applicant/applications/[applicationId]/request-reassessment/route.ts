@@ -13,7 +13,7 @@ export async function POST(_req: Request, context: { params: Promise<{ applicati
   const { applicationId } = await context.params;
 
   const app = await prisma.businessApplication.findFirst({
-    where: { id: applicationId, applicantId: session.user.id },
+    where: { businessApplicationId: applicationId, applicantId: session.user.id },
     include: { feeAssessment: true, paymentReferences: true },
   });
 
@@ -43,7 +43,7 @@ export async function POST(_req: Request, context: { params: Promise<{ applicati
   const now = new Date();
   await prisma.$transaction(async (tx: any) => {
     await tx.feeAssessment.update({
-      where: { applicationId: app.id },
+      where: { applicationId: app.businessApplicationId },
       data: {
         reassessmentRequestedAt: now,
         reassessmentRequestedById: session.user.id,
@@ -53,14 +53,14 @@ export async function POST(_req: Request, context: { params: Promise<{ applicati
     if (app.status === "APPROVED_FOR_PAYMENT") {
       assertStatusTransition(app.status, "ASSESSED");
       await tx.businessApplication.update({
-        where: { id: app.id },
+        where: { businessApplicationId: app.businessApplicationId },
         data: { status: "ASSESSED" },
       });
     }
 
     await tx.applicationHistory.create({
       data: {
-        applicationId: app.id,
+        applicationId: app.businessApplicationId,
         actorId: session.user.id,
         actorRole: "APPLICANT",
         fromStatus: app.status,
@@ -79,7 +79,7 @@ export async function POST(_req: Request, context: { params: Promise<{ applicati
     module: "ASSESSMENT",
     entityType: "FEE_ASSESSMENT",
     entityId: app.feeAssessment.assessmentNumber ?? null,
-    applicationId: app.id,
+    applicationId: app.businessApplicationId,
     description: "Applicant requested reassessment of TOP",
   });
 

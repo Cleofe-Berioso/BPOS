@@ -33,20 +33,11 @@ import {
   getResubmissionConfirmMessage,
 } from "@/lib/resubmission-copy";
 import {
-  buildViolationBasis,
-  resolveRevocationNextAction,
-  resolveRevocationNotificationTitle,
-  buildRevocationHistoryRemarks,
-  isRevocationHistoryRemarks,
-  REVOCATION_HISTORY_MARKER,
-} from "@/lib/revocation-notification-copy";
-import {
   buildDefaultFindings,
   buildNoPermitSmsMessage,
   buildNoPermitEmailSubject,
   resolveInspectingOfficeLabel,
 } from "@/lib/jit-no-permit-ticket-copy";
-import { buildRenewalEmailSubject, buildRenewalEmailPlainText } from "@/lib/renewal-email-copy";
 import { buildReleaseSmsMessage } from "@/lib/sms";
 
 describe("WB-COPY — reports, narratives, notifications, resubmit", () => {
@@ -196,56 +187,11 @@ describe("WB-COPY — reports, narratives, notifications, resubmit", () => {
     expect(getResubmissionConfirmMessage("CLOSURE")).toMatch(/resubmit/i);
   });
 
-  it("WB-NOTIF-01 revocation / no-permit / renewal copy", () => {
-    expect(buildViolationBasis({})).toMatch(/non-compliance/i);
-    expect(
-      buildViolationBasis({
-        recommendationRemarks: "Fix signage",
-        inspectionComment: "Missing BFP",
-        nonComplianceType: "RENEWAL_RELATED",
-        violationSeverity: "MAJOR",
-      })
-    ).toContain("JIT recommendation");
-    expect(resolveRevocationNotificationTitle("REVOCATION_APPROVED")).toMatch(/Revoked/i);
-    expect(resolveRevocationNextAction("REVOCATION_DENIED")).toMatch(/restored/i);
-
-    const remarks = buildRevocationHistoryRemarks("REVOCATION_REVIEW_ENTERED", {
-      applicationId: "a",
-      applicationNumber: "APP-1",
-      applicantId: "u",
-      applicantEmail: "a@b.com",
-      inspectionId: "i",
-      businessName: "Store",
-      permitNumber: "P-1",
-      violationBasis: "basis",
-      eventDateLabel: "Aug 27, 2026",
-      departmentOfficerLabel: "DH",
-      nextAction: "Wait",
-    });
-    expect(isRevocationHistoryRemarks(remarks)).toBe(true);
-    expect(remarks).toContain(REVOCATION_HISTORY_MARKER);
-
+  it("WB-NOTIF-01 no-permit / sms copy", () => {
     expect(buildDefaultFindings({ lineOfBusiness: "Retail" })).toContain("Retail");
     expect(buildNoPermitSmsMessage({ ticketNumber: "T-1", businessName: "Store" })).toContain("T-1");
     expect(buildNoPermitEmailSubject("T-1")).toContain("T-1");
     expect(resolveInspectingOfficeLabel()).toMatch(/Magalona/);
-
-    expect(buildRenewalEmailSubject({ notificationType: "UPCOMING", businessName: "My Biz" })).toContain(
-      "My Biz"
-    );
-    expect(buildRenewalEmailSubject({ notificationType: "OVERDUE", businessName: "My Biz" })).toMatch(
-      /Overdue/
-    );
-    expect(
-      buildRenewalEmailPlainText({
-        notificationType: "DUE",
-        businessName: "My Biz",
-        permitNumber: null,
-        expirationDateLabel: "Sep 1, 2026",
-        appUrl: "https://example.com",
-        supportEmail: "support@bplo.gov.ph",
-      })
-    ).toMatch(/Not available/);
 
     // TC-SMS-RELEASE-01 (copy contract): FOR_RELEASE SMS body includes applicant, business, ref.
     const releaseSms = buildReleaseSmsMessage({

@@ -33,8 +33,8 @@ export async function requireJitSession(pathname = "/jit") {
   }
 
   const activeJit = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { id: true, role: true, isActive: true },
+    where: { userId: session.user.id },
+    select: { userId: true, role: true, isActive: true },
   });
 
   if (!activeJit || activeJit.role !== "JIT" || !activeJit.isActive) {

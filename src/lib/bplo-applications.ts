@@ -177,7 +177,7 @@ function buildBploQueueWhere(filters: BploQueueFilters) {
 
 function mapBploQueueRow(row: any): BploQueueRow {
   return {
-    id: row.id,
+    id: row.businessApplicationId ?? row.id,
     applicationNumber: row.applicationNumber,
     businessName: resolveBusinessName(row.formData, row.businessRecord?.businessName ?? null),
     applicantName: formatPersonName({
@@ -248,11 +248,11 @@ export async function listBploApplicationsPaginated(
 
 export async function getBploApplicationDetail(applicationId: string) {
   const row = await prisma.businessApplication.findUnique({
-    where: { id: applicationId },
+    where: { businessApplicationId: applicationId },
     include: {
       applicant: {
         select: {
-          id: true,
+          userId: true,
           name: true,
           email: true,
           firstName: true,
@@ -282,9 +282,18 @@ export async function getBploApplicationDetail(applicationId: string) {
   if (!row) return null;
 
   return {
-    id: row.id,
+    id: row.businessApplicationId,
     applicationNumber: row.applicationNumber,
-    applicant: row.applicant,
+    applicant: {
+      id: row.applicant.userId,
+      name: row.applicant.name,
+      email: row.applicant.email,
+      firstName: row.applicant.firstName,
+      middleName: row.applicant.middleName,
+      lastName: row.applicant.lastName,
+      suffix: row.applicant.suffix,
+      profileImageStoragePath: row.applicant.profileImageStoragePath,
+    },
     applicationType: row.applicationType,
     closureType: row.closureType ?? null,
     closureTypeOtherReason: row.closureTypeOtherReason ?? null,
@@ -297,7 +306,7 @@ export async function getBploApplicationDetail(applicationId: string) {
     businessPhone: row.businessRecord?.phone ?? null,
     formData: row.formData,
     documents: row.documents.map((doc: any) => ({
-      id: doc.id,
+      id: doc.applicationDocumentId,
       documentName: doc.documentName,
       fileName: doc.fileName,
       mimeType: doc.mimeType,
@@ -308,7 +317,7 @@ export async function getBploApplicationDetail(applicationId: string) {
       validatedAt: doc.validatedAt ? doc.validatedAt.toISOString() : null,
     })),
     history: row.history.map((item: any) => ({
-      id: item.id,
+      id: item.applicationHistoryId,
       fromStatus: item.fromStatus ? mapDbStatusToUi(item.fromStatus) : null,
       toStatus: mapDbStatusToUi(item.toStatus),
       remarks: item.remarks,
@@ -322,10 +331,10 @@ export async function getBploApplicationDetail(applicationId: string) {
 export async function getBploApplicationDocument(applicationId: string, documentId: string) {
   const application = await prisma.businessApplication.findFirst({
     where: {
-      id: applicationId,
+      businessApplicationId: applicationId,
     },
     select: {
-      id: true,
+      businessApplicationId: true,
       status: true,
     },
   });
@@ -342,7 +351,7 @@ export async function getBploApplicationDocument(applicationId: string, document
 
   const document = await prisma.applicationDocument.findFirst({
     where: {
-      id: documentId,
+      applicationDocumentId: documentId,
     },
   });
 
@@ -367,8 +376,8 @@ export async function updateBploDocumentValidation(
   }
 ) {
   const application = await prisma.businessApplication.findFirst({
-    where: { id: applicationId },
-    select: { id: true, status: true },
+    where: { businessApplicationId: applicationId },
+    select: { businessApplicationId: true, status: true },
   });
 
   if (!application) {
@@ -380,7 +389,7 @@ export async function updateBploDocumentValidation(
   }
 
   const document = await prisma.applicationDocument.findFirst({
-    where: { id: documentId, applicationId },
+    where: { applicationDocumentId: documentId, applicationId },
   });
 
   if (!document) {
@@ -393,7 +402,7 @@ export async function updateBploDocumentValidation(
   }
 
   const updated = await prisma.applicationDocument.update({
-    where: { id: document.id },
+    where: { applicationDocumentId: document.applicationDocumentId },
     data: {
       validationStatus: input.status,
       validationRemarks: normalizedRemarks || null,
@@ -403,7 +412,7 @@ export async function updateBploDocumentValidation(
   });
 
   return {
-    id: updated.id,
+    id: updated.applicationDocumentId,
     documentName: updated.documentName,
     fileName: updated.fileName,
     mimeType: updated.mimeType,
@@ -431,8 +440,8 @@ export async function applyBploReviewAction(
   // interactive transaction so we do not hold a 5s txn open for extra queries.
   if (action === "APPROVE_FOR_ASSESSMENT") {
     const precheck = await prisma.businessApplication.findUnique({
-      where: { id: applicationId },
-      select: { id: true, status: true },
+      where: { businessApplicationId: applicationId },
+      select: { businessApplicationId: true, status: true },
     });
     if (!precheck) {
       throw new Error("Application not found");
@@ -446,9 +455,9 @@ export async function applyBploReviewAction(
   return prisma.$transaction(
     async (tx: any) => {
       const current = await tx.businessApplication.findUnique({
-        where: { id: applicationId },
+        where: { businessApplicationId: applicationId },
         select: {
-          id: true,
+          businessApplicationId: true,
           status: true,
         },
       });
@@ -465,12 +474,12 @@ export async function applyBploReviewAction(
       assertStatusTransition(current.status, nextStatus);
 
       const updated = await tx.businessApplication.update({
-        where: { id: current.id },
+        where: { businessApplicationId: current.businessApplicationId },
         data: {
           status: nextStatus,
         },
         select: {
-          id: true,
+          businessApplicationId: true,
           applicationNumber: true,
           status: true,
         },
@@ -478,7 +487,7 @@ export async function applyBploReviewAction(
 
       await tx.applicationHistory.create({
         data: {
-          applicationId: current.id,
+          applicationId: current.businessApplicationId,
           actorId: bploUserId,
           actorRole: "BPLO",
           fromStatus: current.status,
@@ -488,7 +497,7 @@ export async function applyBploReviewAction(
       });
 
       return {
-        id: updated.id,
+        id: updated.businessApplicationId,
         applicationNumber: updated.applicationNumber,
         status: mapDbStatusToUi(updated.status),
       };

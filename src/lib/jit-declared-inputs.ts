@@ -164,11 +164,11 @@ function buildClearanceRows(
 async function getReleasedApplicationForBusiness(businessRecordId: string) {
   const record = await prisma.businessRecord.findFirst({
     where: {
-      id: businessRecordId,
+      businessRecordId,
       businessStatus: "ACTIVE",
     },
     select: {
-      id: true,
+      businessRecordId: true,
       businessName: true,
       tradeName: true,
       ownerName: true,
@@ -187,7 +187,7 @@ async function getReleasedApplicationForBusiness(businessRecordId: string) {
         orderBy: { updatedAt: "desc" },
         take: 1,
         select: {
-          id: true,
+          businessApplicationId: true,
           applicationNumber: true,
           applicationType: true,
           status: true,
@@ -195,7 +195,7 @@ async function getReleasedApplicationForBusiness(businessRecordId: string) {
           formData: true,
           documents: {
             select: {
-              id: true,
+              applicationDocumentId: true,
               documentName: true,
               fileName: true,
               uploadedAt: true,
@@ -209,13 +209,13 @@ async function getReleasedApplicationForBusiness(businessRecordId: string) {
               assessmentNumber: true,
               annualAssessedAmount: true,
               releasePaymentAmount: true,
-              amountPaid: true,
-              remainingBalance: true,
+              totalAmount: true,
+              paymentStatus: true,
             },
           },
           paymentReferences: {
             where: { status: "VERIFIED" },
-            select: { id: true },
+            select: { paymentReferenceId: true },
           },
           permitIssuance: {
             select: { documentNumber: true },
@@ -243,7 +243,7 @@ export async function getJitDeclaredInputs(businessRecordId: string): Promise<Ji
   const applicationType = application.applicationType as "NEW" | "RENEWAL";
 
   const documents: JitDeclaredDocumentRow[] = application.documents.map((doc) => ({
-    id: doc.id,
+    id: doc.applicationDocumentId,
     documentName: doc.documentName,
     fileName: doc.fileName,
     uploadedAt: doc.uploadedAt.toISOString(),
@@ -251,9 +251,14 @@ export async function getJitDeclaredInputs(businessRecordId: string): Promise<Ji
     validationRemarks: doc.validationRemarks,
   }));
 
+  const paidAmount =
+    application.feeAssessment?.paymentStatus === "PAID"
+      ? toMoneyNumber(application.feeAssessment.releasePaymentAmount ?? application.feeAssessment.totalAmount)
+      : null;
+
   return {
-    businessRecordId: record.id,
-    applicationId: application.id,
+    businessRecordId: record.businessRecordId,
+    applicationId: application.businessApplicationId,
     applicationNumber: application.applicationNumber,
     applicationType,
     applicationStatus: mapDbStatusToUi(application.status),
@@ -272,9 +277,9 @@ export async function getJitDeclaredInputs(businessRecordId: string): Promise<Ji
       releasePaymentAmount: application.feeAssessment
         ? toMoneyNumber(application.feeAssessment.releasePaymentAmount)
         : null,
-      amountPaid: application.feeAssessment ? toMoneyNumber(application.feeAssessment.amountPaid) : null,
+      amountPaid: paidAmount,
       remainingBalance: application.feeAssessment
-        ? toMoneyNumber(application.feeAssessment.remainingBalance)
+        ? Math.max(0, toMoneyNumber(application.feeAssessment.totalAmount) - (paidAmount ?? 0))
         : null,
       verifiedPaymentCount: application.paymentReferences.length,
     },
@@ -284,7 +289,7 @@ export async function getJitDeclaredInputs(businessRecordId: string): Promise<Ji
 export async function getJitApplicationDocument(applicationId: string, documentId: string) {
   const application = await prisma.businessApplication.findFirst({
     where: {
-      id: applicationId,
+      businessApplicationId: applicationId,
       status: { in: [...ACTIVE_RELEASED_STATUSES] },
       applicationType: { in: ["NEW", "RENEWAL"] },
       businessRecord: {
@@ -292,7 +297,7 @@ export async function getJitApplicationDocument(applicationId: string, documentI
       },
     },
     select: {
-      id: true,
+      businessApplicationId: true,
       businessRecordId: true,
     },
   });
@@ -302,7 +307,7 @@ export async function getJitApplicationDocument(applicationId: string, documentI
   }
 
   const document = await prisma.applicationDocument.findFirst({
-    where: { id: documentId, applicationId },
+    where: { applicationDocumentId: documentId, applicationId },
   });
 
   if (!document) {
@@ -314,15 +319,15 @@ export async function getJitApplicationDocument(applicationId: string, documentI
 
 export async function getJitInspectionChecklist(inspectionId: string) {
   const inspection = await prisma.inspection.findFirst({
-    where: { id: inspectionId },
+    where: { inspectionId },
     select: {
-      id: true,
+      inspectionId: true,
       businessRecordId: true,
       applicationId: true,
       checklistItems: {
         orderBy: { departmentKey: "asc" },
         select: {
-          id: true,
+          inspectionChecklistItemId: true,
           departmentKey: true,
           question: true,
           response: true,

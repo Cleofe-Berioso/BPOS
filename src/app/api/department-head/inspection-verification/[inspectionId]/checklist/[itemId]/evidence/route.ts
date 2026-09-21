@@ -56,7 +56,7 @@ export async function GET(
   const { inspectionId, itemId } = await params;
   const checklistItem = await prisma.inspectionChecklistItem.findFirst({
     where: {
-      id: itemId,
+      inspectionChecklistItemId: itemId,
       inspectionId,
       inspection: {
         status: "DH_VERIFICATION_PENDING",

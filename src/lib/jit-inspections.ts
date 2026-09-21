@@ -30,9 +30,6 @@ interface CreateInspectionInput {
   comment?: string;
   evidence?: EvidencePayload;
   checklist: ChecklistItemInput[];
-  referToBplo?: boolean;
-  referralReason?: string;
-  referralRemarks?: string;
 }
 
 export type JitMapMarkerStatus = "UNINSPECTED" | "PENDING_INSPECTION" | "COMPLIANT" | "REVOKED";
@@ -79,12 +76,11 @@ export function getJitMapMarkerStatus(
   }
 
   if (
+    inspectionStatus === "PENDING_REVIEW" ||
     inspectionStatus === "DH_VERIFICATION_PENDING" ||
-    inspectionStatus === "COMPLIANT" ||
     inspectionStatus === "NON_COMPLIANT" ||
     inspectionStatus === "VERIFIED_NON_COMPLIANT" ||
-    inspectionStatus === "REVOCATION_REVIEW" ||
-    inspectionStatus === "REVOCATION_DENIED"
+    inspectionStatus === "REVOCATION_REVIEW"
   ) {
     return "PENDING_INSPECTION";
   }
@@ -199,9 +195,6 @@ export async function createJitInspection(
   input: CreateInspectionInput
 ) {
   const trimmedComment = input.comment?.trim() ?? "";
-  const referToBplo = Boolean(input.referToBplo);
-  const referralReason = input.referralReason?.trim() ?? "";
-  const referralRemarks = input.referralRemarks?.trim() ?? "";
 
   if (!trimmedComment) {
     throw new Error("General inspection remarks are required");
@@ -211,18 +204,14 @@ export async function createJitInspection(
     throw new Error("All 8 post-audit checklist responses are required");
   }
 
-  if (referToBplo && !referralReason) {
-    throw new Error("Referral reason is required when referring to BPLO");
-  }
-
   const created = await prisma.$transaction(async (tx: any) => {
     const activeBusiness = await tx.businessRecord.findFirst({
       where: {
-        id: businessRecordId,
+        businessRecordId,
         businessStatus: "ACTIVE",
       },
       select: {
-        id: true,
+        businessRecordId: true,
         applications: {
           where: {
             status: "RELEASED",
@@ -235,7 +224,7 @@ export async function createJitInspection(
           },
           take: 1,
           select: {
-            id: true,
+            businessApplicationId: true,
             status: true,
           },
         },
@@ -251,7 +240,7 @@ export async function createJitInspection(
     const inspection = await tx.inspection.create({
       data: {
         businessRecordId,
-        applicationId: releasedApplication.id,
+        applicationId: releasedApplication.businessApplicationId,
         inspectorId,
         complianceStatus: "PENDING_REVIEW",
         status: "DH_VERIFICATION_PENDING",
@@ -261,9 +250,6 @@ export async function createJitInspection(
         evidenceBucket: input.evidence?.bucket ?? null,
         evidenceMimeType: input.evidence?.mimeType ?? null,
         evidenceSizeBytes: input.evidence?.sizeBytes ?? null,
-        referToBplo,
-        referralReason: referToBplo ? referralReason || null : null,
-        referralRemarks: referToBplo ? referralRemarks || null : null,
         checklistItems: {
           create: input.checklist.map((item) => ({
             departmentKey: item.departmentKey,
@@ -279,7 +265,7 @@ export async function createJitInspection(
         },
       },
       select: {
-        id: true,
+        inspectionId: true,
         applicationId: true,
         complianceStatus: true,
         status: true,
@@ -287,22 +273,21 @@ export async function createJitInspection(
       },
     });
 
-    const referralNote = referToBplo ? ` Referred to BPLO: ${referralReason}.` : "";
     await tx.applicationHistory.create({
       data: {
-        applicationId: releasedApplication.id,
+        applicationId: releasedApplication.businessApplicationId,
         actorId: inspectorId,
         actorRole: "JIT",
         fromStatus: "RELEASED",
         toStatus: "RELEASED",
-        remarks: `JIT submitted inspection with post-audit checklist (pending BPLO compliance review).${referralNote}`,
+        remarks: "JIT submitted inspection with post-audit checklist.",
       },
     });
 
     if (input.evidence) {
       await tx.applicationHistory.create({
         data: {
-          applicationId: releasedApplication.id,
+          applicationId: releasedApplication.businessApplicationId,
           actorId: inspectorId,
           actorRole: "JIT",
           fromStatus: "RELEASED",
@@ -316,7 +301,8 @@ export async function createJitInspection(
   });
 
   return {
-    id: created.id,
+    id: created.inspectionId,
+    inspectionId: created.inspectionId,
     applicationId: created.applicationId,
     complianceStatus: created.complianceStatus as ComplianceStatus,
     status: created.status as "DH_VERIFICATION_PENDING",

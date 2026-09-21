@@ -4,6 +4,7 @@ export type Role = "APPLICANT" | "BPLO" | "SUPER_ADMIN" | "DEPARTMENT_HEAD" | "J
 
 export interface DbUser {
   id: string;
+  userId: string;
   email: string;
   name: string;
   /** bcrypt-hashed password stored in DB */
@@ -16,7 +17,7 @@ export async function getUserByEmail(email: string): Promise<DbUser | null> {
   const user = await prisma.user.findUnique({
     where: { email },
     select: {
-      id: true,
+      userId: true,
       email: true,
       name: true,
       passwordHash: true,
@@ -29,6 +30,8 @@ export async function getUserByEmail(email: string): Promise<DbUser | null> {
 
   return {
     ...user,
+    id: user.userId,
     role: user.role as Role,
   };
 }
+

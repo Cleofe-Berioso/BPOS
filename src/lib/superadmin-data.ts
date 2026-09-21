@@ -512,7 +512,7 @@ export async function listSuperAdminApplications(
 
   return buildPaginatedResult(
     rows.map((row) => ({
-      id: row.id,
+      id: row.businessApplicationId,
       applicationNumber: row.applicationNumber,
       businessName: resolveBusinessName(row.formData, row.businessRecord?.businessName ?? null),
       applicantEmail: row.applicant.email,
@@ -533,13 +533,13 @@ export async function getSuperAdminApplicationDetail(
   applicationId: string
 ): Promise<SuperAdminApplicationDetail | null> {
   const row = await prisma.businessApplication.findUnique({
-    where: { id: applicationId },
+    where: { businessApplicationId: applicationId },
     include: {
-      applicant: { select: { id: true, name: true, email: true } },
+      applicant: { select: { userId: true, name: true, email: true } },
       businessRecord: { select: { businessName: true } },
       documents: {
         select: {
-          id: true,
+          applicationDocumentId: true,
           documentName: true,
           fileName: true,
           mimeType: true,
@@ -555,9 +555,8 @@ export async function getSuperAdminApplicationDetail(
         orderBy: { submittedAt: "desc" },
         take: 1,
         select: {
-          id: true,
+          paymentReferenceId: true,
           transactionNumber: true,
-          amountPaid: true,
           submittedAt: true,
           status: true,
           reviewerRemarks: true,
@@ -584,9 +583,12 @@ export async function getSuperAdminApplicationDetail(
   const latestDbPaymentRef = row.paymentReferences[0] ?? null;
   const paymentRef = latestDbPaymentRef
     ? {
-        id: latestDbPaymentRef.id,
+        id: latestDbPaymentRef.paymentReferenceId,
         transactionNumber: latestDbPaymentRef.transactionNumber,
-        amountPaid: toMoneyNumber(latestDbPaymentRef.amountPaid),
+        amountPaid:
+          row.feeAssessment?.paymentStatus === "PAID"
+            ? toMoneyNumber(row.feeAssessment?.releasePaymentAmount ?? row.feeAssessment?.totalAmount)
+            : 0,
         submittedAt: latestDbPaymentRef.submittedAt.toISOString(),
         status: latestDbPaymentRef.status as PaymentRefStatus,
         reviewerRemarks: latestDbPaymentRef.reviewerRemarks,
@@ -594,7 +596,7 @@ export async function getSuperAdminApplicationDetail(
           ? latestDbPaymentRef.reviewedAt.toISOString()
           : null,
       }
-    : latestPaymentReference(row.formData, row.id, row.status as DbApplicationStatus);
+    : latestPaymentReference(row.formData, row.businessApplicationId, row.status as DbApplicationStatus);
 
   const form = (row.formData ?? {}) as Record<string, unknown>;
   const formValue = (key: string) =>
@@ -618,7 +620,7 @@ export async function getSuperAdminApplicationDetail(
 
   return {
     application: {
-      id: row.id,
+      id: row.businessApplicationId,
       applicationNumber: row.applicationNumber,
       applicationType: row.applicationType as ApplicationType,
       status: mapDbStatusToUi(row.status),
@@ -627,7 +629,11 @@ export async function getSuperAdminApplicationDetail(
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     },
-    applicant: row.applicant,
+    applicant: {
+      id: row.applicant.userId,
+      name: row.applicant.name,
+      email: row.applicant.email,
+    },
     businessInfo: {
       businessName: resolveBusinessName(row.formData, row.businessRecord?.businessName ?? null),
       ownerFirstName: formValue("ownerFirstName"),
@@ -675,7 +681,7 @@ export async function getSuperAdminApplicationDetail(
           : formValue("closureRemarks"),
     },
     documents: row.documents.map((doc) => ({
-      id: doc.id,
+      id: doc.applicationDocumentId,
       documentName: doc.documentName,
       fileName: doc.fileName,
       mimeType: doc.mimeType,
@@ -700,7 +706,7 @@ export async function getSuperAdminApplicationDetail(
       surcharge: toMoneyNumber(row.feeAssessment?.surcharge),
       interest: toMoneyNumber(row.feeAssessment?.interest),
       closureCertificateFee: toMoneyNumber(row.feeAssessment?.closureCertificateFee),
-      arrears: toMoneyNumber(row.feeAssessment?.arrears),
+      arrears: 0,
       otherCharges: toMoneyNumber(row.feeAssessment?.otherCharges),
       totalAmount: toMoneyNumber(row.feeAssessment?.totalAmount),
       remarks: row.feeAssessment?.remarks ?? null,
@@ -711,7 +717,7 @@ export async function getSuperAdminApplicationDetail(
     paymentReference: paymentRef,
     permitIssuance: row.permitIssuance
       ? {
-          id: row.permitIssuance.id,
+          id: row.permitIssuance.permitIssuanceId,
           documentType: row.permitIssuance.documentType,
           documentNumber: row.permitIssuance.documentNumber,
           status: row.permitIssuance.status,
@@ -725,7 +731,7 @@ export async function getSuperAdminApplicationDetail(
         }
       : null,
     history: row.history.map((item) => ({
-      id: item.id,
+      id: item.applicationHistoryId,
       createdAt: item.createdAt.toISOString(),
       actorEmail: item.actor?.email ?? null,
       actorRole: item.actorRole,
@@ -738,8 +744,8 @@ export async function getSuperAdminApplicationDetail(
 
 export async function getSuperAdminApplicationDocument(applicationId: string, documentId: string) {
   const application = await prisma.businessApplication.findUnique({
-    where: { id: applicationId },
-    select: { id: true },
+    where: { businessApplicationId: applicationId },
+    select: { businessApplicationId: true },
   });
 
   if (!application) {
@@ -748,7 +754,7 @@ export async function getSuperAdminApplicationDocument(applicationId: string, do
 
   const document = await prisma.applicationDocument.findFirst({
     where: {
-      id: documentId,
+      applicationDocumentId: documentId,
       applicationId,
     },
   });
@@ -774,14 +780,14 @@ export async function listSuperAdminActivities(
     searchKeyword
       ? prisma.businessApplication.findMany({
           where: { applicationNumber: { contains: searchKeyword } },
-          select: { id: true, applicationNumber: true },
+          select: { businessApplicationId: true, applicationNumber: true },
           take: 100,
         })
       : Promise.resolve([]),
     applicationNumber
       ? prisma.businessApplication.findMany({
           where: { applicationNumber: { contains: applicationNumber } },
-          select: { id: true, applicationNumber: true },
+          select: { businessApplicationId: true, applicationNumber: true },
           take: 100,
         })
       : Promise.resolve([]),
@@ -795,10 +801,10 @@ export async function listSuperAdminActivities(
           : undefined,
       module: filters.module?.trim() || undefined,
       action: filters.action?.trim() || undefined,
-      applicationIds: filteredApplications.map((item) => item.id),
+      applicationIds: filteredApplications.map((item) => item.businessApplicationId),
       applicationNumberSearch: applicationNumber,
       search: searchKeyword,
-      searchApplicationIds: searchApplications.map((item) => item.id),
+      searchApplicationIds: searchApplications.map((item) => item.businessApplicationId),
       startDate,
       endDate,
     },
@@ -816,20 +822,20 @@ export async function listSuperAdminActivities(
   const [actors, applications] = await Promise.all([
     actorIds.length > 0
       ? prisma.user.findMany({
-          where: { id: { in: actorIds } },
-          select: { id: true, name: true },
+          where: { userId: { in: actorIds } },
+          select: { userId: true, name: true },
         })
       : Promise.resolve([]),
     applicationIds.length > 0
       ? prisma.businessApplication.findMany({
-          where: { id: { in: applicationIds } },
-          select: { id: true, applicationNumber: true },
+          where: { businessApplicationId: { in: applicationIds } },
+          select: { businessApplicationId: true, applicationNumber: true },
         })
       : Promise.resolve([]),
   ]);
 
-  const actorNameById = new Map(actors.map((item) => [item.id, item.name]));
-  const applicationNumberById = new Map(applications.map((item) => [item.id, item.applicationNumber]));
+  const actorNameById = new Map(actors.map((item) => [item.userId, item.name]));
+  const applicationNumberById = new Map(applications.map((item) => [item.businessApplicationId, item.applicationNumber]));
   const totalPages = auditResult.total === 0 ? 1 : Math.ceil(auditResult.total / pageSize);
 
   return {
@@ -838,7 +844,7 @@ export async function listSuperAdminActivities(
       const recordReference = relatedApplicationNumber ?? item.entityId ?? null;
 
       return {
-        id: item.id,
+        id: item.auditLogId,
         dateTime: item.createdAt.toISOString(),
         actorName: item.actorName?.trim() || (item.actorId ? actorNameById.get(item.actorId) ?? null : null) || "System",
         actorRole: item.actorRole ?? "SYSTEM",
@@ -914,7 +920,7 @@ export async function listSuperAdminUsers(
     prisma.user.findMany({
       where,
       select: {
-        id: true,
+        userId: true,
         name: true,
         email: true,
         role: true,
@@ -932,7 +938,7 @@ export async function listSuperAdminUsers(
 
   return buildPaginatedResult(
     users.map((user) => ({
-      id: user.id,
+      id: user.userId,
       name: user.name,
       email: user.email,
       role: user.role,
@@ -1620,7 +1626,18 @@ export async function getMonthlySummaryReport(month: number, year: number): Prom
     prisma.user.count({ where: createdWhere }),
     prisma.paymentReference.findMany({
       where: { status: "VERIFIED", reviewedAt: { gte: start, lte: end } },
-      select: { amountPaid: true },
+      select: {
+        application: {
+          select: {
+            feeAssessment: {
+              select: {
+                releasePaymentAmount: true,
+                totalAmount: true,
+              },
+            },
+          },
+        },
+      },
     }),
     prisma.smsDeliveryLog.count({
       where: { ...createdWhere, status: "SENT" },
@@ -1632,7 +1649,10 @@ export async function getMonthlySummaryReport(month: number, year: number): Prom
 
   let verifiedPaymentAmount = 0;
   for (const payment of verifiedPayments) {
-    verifiedPaymentAmount += toMoneyNumber(payment.amountPaid);
+    const fee = payment.application?.feeAssessment;
+    if (fee) {
+      verifiedPaymentAmount += toMoneyNumber(fee.releasePaymentAmount ?? fee.totalAmount);
+    }
   }
 
   return {

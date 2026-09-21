@@ -43,9 +43,7 @@
     "db:setup:storage": "tsx scripts/setup-supabase-storage.ts",
     "db:migrate:storage": "tsx scripts/migrate-local-uploads-to-supabase.ts",
     "db:studio": "prisma studio",
-    "verify:security": "tsx scripts/verify-security-hardening.ts",
-    "renewal-emails:dry-run": "tsx scripts/send-renewal-emails.ts --dry-run",
-    "renewal-emails:send": "tsx scripts/send-renewal-emails.ts"
+    "verify:security": "tsx scripts/verify-security-hardening.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",

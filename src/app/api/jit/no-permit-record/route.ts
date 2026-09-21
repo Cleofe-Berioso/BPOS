@@ -95,7 +95,7 @@ export async function POST(req: Request) {
   }
 
   const notification = await sendNoPermitOptionalNotification({
-    recordId: result.record.id,
+    recordId: result.record.jitNoPermitRecordId,
     businessName: result.record.businessName,
     personAttended: result.record.personAttended,
     ticketNumber: result.record.ticketNumber,
@@ -107,7 +107,7 @@ export async function POST(req: Request) {
   return NextResponse.json(
     {
       record: result.record,
-      printPath: `/jit/no-permit-record/${result.record.id}/print`,
+      printPath: `/jit/no-permit-record/${result.record.jitNoPermitRecordId}/print`,
       notification,
     },
     { status: 201 }

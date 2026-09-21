@@ -14,12 +14,29 @@ import {
   validateDocumentFileUpload,
 } from "@/lib/document-upload-rules";
 import { buildPaginatedResult, resolvePagination, type PaginatedResult } from "@/lib/pagination";
-import {
-  extractRevocationApplicantMessage,
-  isRevocationHistoryRemarks,
-  resolveRevocationNotificationTitle,
-} from "@/lib/revocation-notification-copy";
 import type { NotificationType } from "@/types/notifications";
+
+function isRevocationHistoryRemarks(remarks: string | null | undefined): boolean {
+  if (!remarks) return false;
+  return /revocation/i.test(remarks);
+}
+
+function extractRevocationApplicantMessage(remarks: string | null | undefined): string | null {
+  if (!remarks) return null;
+  const match = remarks.match(/Reason:\s*([^|]+)/i) || remarks.match(/Remarks:\s*(.+)/i);
+  return match ? match[1].trim() : null;
+}
+
+function resolveRevocationNotificationTitle(type: "REVOCATION_REVIEW_ENTERED" | "REVOCATION_APPROVED" | "REVOCATION_DENIED"): string {
+  switch (type) {
+    case "REVOCATION_REVIEW_ENTERED":
+      return "Permit Revocation Under Review";
+    case "REVOCATION_APPROVED":
+      return "Business Permit Revoked";
+    case "REVOCATION_DENIED":
+      return "Permit Revocation Request Denied";
+  }
+}
 import {
   applyLockedBusinessFields,
   BUSINESS_ACTIVITY_OPTIONS,
@@ -72,7 +89,8 @@ type DbApplicationStatus =
   | "REJECTED";
 
 type ApplicationWithDocs = {
-  id: string;
+  businessApplicationId?: string;
+  id?: string;
   applicationNumber: string;
   applicationType: "NEW" | "RENEWAL" | "CLOSURE";
   status: DbApplicationStatus;
@@ -81,7 +99,8 @@ type ApplicationWithDocs = {
   createdAt: Date;
   updatedAt: Date;
   documents: Array<{
-    id: string;
+    applicationDocumentId?: string;
+    id?: string;
     documentName: string;
     fileName: string;
     storagePath: string;
@@ -122,7 +141,8 @@ interface StagedSubmitDocument {
 }
 
 function toSafeApplicantDocument(doc: {
-  id: string;
+  applicationDocumentId?: string;
+  id?: string;
   documentName: string;
   fileName: string;
   mimeType: string;
@@ -133,7 +153,7 @@ function toSafeApplicantDocument(doc: {
   validatedAt?: Date | null;
 }): SafeApplicantDocument {
   return {
-    id: doc.id,
+    id: doc.applicationDocumentId ?? doc.id ?? "",
     documentName: doc.documentName,
     fileName: doc.fileName,
     mimeType: doc.mimeType,
@@ -329,9 +349,9 @@ async function assertUniqueBusinessIdentity(params: {
     const dupRecord = await prisma.businessRecord.findFirst({
       where: {
         registrationNumber: { equals: registrationNumber, mode: "insensitive" },
-        ...(excludeRecordId ? { NOT: { id: excludeRecordId } } : {}),
+        ...(excludeRecordId ? { NOT: { businessRecordId: excludeRecordId } } : {}),
       },
-      select: { id: true },
+      select: { businessRecordId: true },
     });
     if (dupRecord) {
       throw new DuplicateBusinessIdentityError("registrationNumber");
@@ -343,9 +363,9 @@ async function assertUniqueBusinessIdentity(params: {
     const tinRecords = await prisma.businessRecord.findMany({
       where: {
         tin: tinValue,
-        ...(excludeRecordId ? { NOT: { id: excludeRecordId } } : {}),
+        ...(excludeRecordId ? { NOT: { businessRecordId: excludeRecordId } } : {}),
       },
-      select: { id: true },
+      select: { businessRecordId: true },
     });
     if (tinRecords.length > 0) {
       throw new DuplicateBusinessIdentityError("tin");
@@ -355,7 +375,7 @@ async function assertUniqueBusinessIdentity(params: {
   const activeApplications = await prisma.businessApplication.findMany({
     where: {
       status: { notIn: ["REJECTED", "REVOKED"] },
-      ...(excludeAppId ? { id: { not: excludeAppId } } : {}),
+      ...(excludeAppId ? { businessApplicationId: { not: excludeAppId } } : {}),
       ...(excludeRecordId
         ? {
             OR: [{ businessRecordId: null }, { businessRecordId: { not: excludeRecordId } }],
@@ -363,7 +383,7 @@ async function assertUniqueBusinessIdentity(params: {
         : {}),
     },
     select: {
-      id: true,
+      businessApplicationId: true,
       formData: true,
     },
   });
@@ -482,11 +502,11 @@ async function assertEligibleBusinessRecord(
 
   const businessRecord = await prisma.businessRecord.findFirst({
     where: {
-      id: input.businessRecordId,
+      businessRecordId: input.businessRecordId,
       applicantId,
     },
     select: {
-      id: true,
+      businessRecordId: true,
       businessStatus: true,
       location: {
         select: {
@@ -500,7 +520,7 @@ async function assertEligibleBusinessRecord(
           },
         },
         select: {
-          id: true,
+          businessApplicationId: true,
         },
         take: 1,
       },
@@ -549,7 +569,7 @@ function mapApplicationToRow(app: ApplicationWithDocs): ApplicantApplicationRow 
   const formData = app.formData as unknown as Partial<BusinessInfo>;
 
   return {
-    id: app.id,
+    id: app.businessApplicationId ?? app.id ?? "",
     applicationNumber: app.applicationNumber,
     businessName: formData.businessName ?? app.businessRecord?.businessName ?? "-",
     applicationType: app.applicationType as ApplicantApplicationRow["applicationType"],
@@ -697,7 +717,7 @@ async function getApplicantBusinessRecordSource(applicantId: string, businessRec
 
   const record = await prisma.businessRecord.findFirst({
     where: {
-      id: businessRecordId,
+      businessRecordId,
       applicantId,
     },
   });
@@ -1036,7 +1056,7 @@ export async function getApplicantLatestApplication(applicantId: string): Promis
 export async function getApplicantApplicationDetail(applicantId: string, applicationId: string) {
   const app = await prisma.businessApplication.findFirst({
     where: {
-      id: applicationId,
+      businessApplicationId: applicationId,
       applicantId,
     },
     include: {
@@ -1062,7 +1082,7 @@ export async function getApplicantApplicationDetail(applicantId: string, applica
   if (!app) return null;
 
   return {
-    id: app.id,
+    id: app.businessApplicationId,
     applicationNumber: app.applicationNumber,
     applicationType: app.applicationType as ApplicantApplicationRow["applicationType"],
     businessRecordId: app.businessRecordId,
@@ -1075,7 +1095,7 @@ export async function getApplicantApplicationDetail(applicantId: string, applica
     updatedAt: app.updatedAt.toISOString(),
     formData: app.formData,
     documents: app.documents.map((doc: any) => ({
-      id: doc.id,
+      id: doc.applicationDocumentId ?? doc.id,
       documentName: doc.documentName,
       fileName: doc.fileName,
       mimeType: doc.mimeType,
@@ -1086,7 +1106,7 @@ export async function getApplicantApplicationDetail(applicantId: string, applica
       validatedAt: doc.validatedAt ? doc.validatedAt.toISOString() : null,
     })),
     history: app.history.map((item: any) => ({
-      id: item.id,
+      id: item.applicationHistoryId ?? item.id,
       fromStatus: item.fromStatus ? mapDbStatusToUi(item.fromStatus) : null,
       toStatus: mapDbStatusToUi(item.toStatus),
       remarks: item.remarks,
@@ -1112,8 +1132,8 @@ export async function saveApplicantApplication(
   submitFiles: SubmitFileInput[] = []
 ) {
   const applicantUser = await prisma.user.findUnique({
-    where: { id: applicantId },
-    select: { id: true, email: true, role: true, isActive: true },
+    where: { userId: applicantId },
+    select: { userId: true, email: true, role: true, isActive: true },
   });
 
   if (
@@ -1124,7 +1144,7 @@ export async function saveApplicantApplication(
     if (process.env.NODE_ENV !== "production") {
       console.info("[ApplicantSubmission] invalid-applicant", {
         requestedApplicantId: applicantId,
-        resolvedApplicantId: applicantUser?.id ?? null,
+        resolvedApplicantId: applicantUser?.userId ?? null,
         resolvedApplicantEmail: applicantUser?.email ?? null,
         resolvedApplicantRole: applicantUser?.role ?? null,
         resolvedApplicantActive: applicantUser?.isActive ?? null,
@@ -1170,7 +1190,7 @@ export async function saveApplicantApplication(
   const existing = input.applicationId
     ? await prisma.businessApplication.findFirst({
         where: {
-          id: input.applicationId,
+          businessApplicationId: input.applicationId,
           applicantId,
         },
       })
@@ -1186,7 +1206,7 @@ export async function saveApplicantApplication(
 
   const existingDocuments = existing
     ? await prisma.applicationDocument.findMany({
-        where: { applicationId: existing.id },
+        where: { applicationId: existing.businessApplicationId },
       })
     : [];
 
@@ -1288,7 +1308,7 @@ export async function saveApplicantApplication(
     registrationNumber: normalizedFormData.registrationNumber,
     tin: normalizedFormData.tin,
     excludeBusinessRecordId: input.businessRecordId ?? null,
-    excludeApplicationId: existing?.id ?? null,
+    excludeApplicationId: existing?.businessApplicationId ?? null,
   });
 
   if (input.mode === "SUBMIT") {
@@ -1360,13 +1380,13 @@ export async function saveApplicantApplication(
       // exceeds Prisma's default 5s interactive transaction timeout on Vercel.
       const newDocumentsByName =
         input.mode === "SUBMIT" || normalizedSubmitFiles.length > 0
-          ? await buildNewDocumentsByName(existing.id)
+          ? await buildNewDocumentsByName(existing.businessApplicationId)
           : null;
 
       const updated = await prisma.$transaction(
         async (tx: any) => {
           const row = await tx.businessApplication.update({
-            where: { id: existing.id },
+            where: { businessApplicationId: existing.businessApplicationId },
             data: {
               applicationType: input.applicationType,
               businessRecordId: input.businessRecordId ?? null,
@@ -1390,7 +1410,7 @@ export async function saveApplicantApplication(
             for (const doc of newDocumentsByName.values()) {
               const existingDoc = await tx.applicationDocument.findFirst({
                 where: {
-                  applicationId: existing.id,
+                  applicationId: existing.businessApplicationId,
                   documentName: doc.documentName,
                 },
               });
@@ -1403,7 +1423,7 @@ export async function saveApplicantApplication(
                 const storageChanged = existingDoc.storagePath !== doc.storagePath;
 
                 await tx.applicationDocument.update({
-                  where: { id: existingDoc.id },
+                  where: { applicationDocumentId: existingDoc.applicationDocumentId },
                   data: {
                     fileName: doc.fileName,
                     storagePath: doc.storagePath,
@@ -1427,7 +1447,7 @@ export async function saveApplicantApplication(
               } else {
                 await tx.applicationDocument.create({
                   data: {
-                    applicationId: existing.id,
+                    applicationId: existing.businessApplicationId,
                     documentName: doc.documentName,
                     fileName: doc.fileName,
                     storagePath: doc.storagePath,
@@ -1445,7 +1465,7 @@ export async function saveApplicantApplication(
 
           await tx.applicationHistory.create({
             data: {
-              applicationId: existing.id,
+              applicationId: existing.businessApplicationId,
               actorId: applicantId,
               actorRole: "APPLICANT",
               fromStatus: existing.status,
@@ -1466,7 +1486,7 @@ export async function saveApplicantApplication(
       if (process.env.NODE_ENV !== "production") {
         console.info("[ApplicantSubmission] update", {
           applicantId,
-          applicationId: updated.id,
+          applicationId: updated.businessApplicationId,
           applicationNumber: updated.applicationNumber,
           mode: input.mode,
           applicationType: input.applicationType,
@@ -1476,7 +1496,7 @@ export async function saveApplicantApplication(
       }
 
       return mapSavedApplicationToRow({
-        id: updated.id,
+        id: updated.businessApplicationId,
         applicationNumber: updated.applicationNumber,
         applicationType: input.applicationType,
         status: updated.status,
@@ -1509,10 +1529,10 @@ export async function saveApplicantApplication(
         submittedAt: input.mode === "SUBMIT" ? new Date() : null,
       },
     });
-    createdApplicationId = created.id;
+    createdApplicationId = created.businessApplicationId;
     const newDocumentsByName =
       input.mode === "SUBMIT" || normalizedSubmitFiles.length > 0
-        ? await buildNewDocumentsByName(created.id)
+        ? await buildNewDocumentsByName(created.businessApplicationId)
         : null;
 
     await prisma.$transaction(
@@ -1521,7 +1541,7 @@ export async function saveApplicantApplication(
           for (const doc of newDocumentsByName.values()) {
             await tx.applicationDocument.create({
               data: {
-                applicationId: created.id,
+                applicationId: created.businessApplicationId,
                 documentName: doc.documentName,
                 fileName: doc.fileName,
                 storagePath: doc.storagePath,
@@ -1538,7 +1558,7 @@ export async function saveApplicantApplication(
 
         await tx.applicationHistory.create({
           data: {
-            applicationId: created.id,
+            applicationId: created.businessApplicationId,
             actorId: applicantId,
             actorRole: "APPLICANT",
             fromStatus: null,
@@ -1552,7 +1572,7 @@ export async function saveApplicantApplication(
     if (process.env.NODE_ENV !== "production") {
       console.info("[ApplicantSubmission] create", {
         applicantId,
-        applicationId: created.id,
+        applicationId: created.businessApplicationId,
         applicationNumber: created.applicationNumber,
         mode: input.mode,
         applicationType: input.applicationType,
@@ -1562,7 +1582,7 @@ export async function saveApplicantApplication(
     }
 
     return mapSavedApplicationToRow({
-      id: created.id,
+      id: created.businessApplicationId,
       applicationNumber: created.applicationNumber,
       applicationType: input.applicationType,
       status: nextStatus,
@@ -1576,7 +1596,7 @@ export async function saveApplicantApplication(
     }
     if (createdApplicationId) {
       await prisma.businessApplication
-        .delete({ where: { id: createdApplicationId } })
+        .delete({ where: { businessApplicationId: createdApplicationId } })
         .catch(() => undefined);
     }
     throw error;
@@ -1600,7 +1620,7 @@ export async function createApplicantDocument(
 ) {
   const application = await prisma.businessApplication.findFirst({
     where: {
-      id: applicationId,
+      businessApplicationId: applicationId,
       applicantId,
     },
   });
@@ -1620,7 +1640,7 @@ export async function createApplicantDocument(
   if (existing) {
     const storageChanged = existing.storagePath !== input.storagePath;
     const updated = await prisma.applicationDocument.update({
-      where: { id: existing.id },
+      where: { applicationDocumentId: existing.applicationDocumentId },
       data: {
         fileName: input.fileName,
         storagePath: input.storagePath,
@@ -1665,7 +1685,7 @@ export async function createApplicantDocument(
 export async function listApplicantDocuments(applicantId: string, applicationId: string) {
   const application = await prisma.businessApplication.findFirst({
     where: {
-      id: applicationId,
+      businessApplicationId: applicationId,
       applicantId,
     },
     include: {
@@ -1681,7 +1701,7 @@ export async function listApplicantDocuments(applicantId: string, applicationId:
 export async function getApplicantOwnedDocument(applicantId: string, applicationId: string, documentId: string) {
   const document = await prisma.applicationDocument.findFirst({
     where: {
-      id: documentId,
+      applicationDocumentId: documentId,
       applicationId,
       application: {
         applicantId,
@@ -1699,7 +1719,7 @@ export async function getApplicantOwnedDocument(applicantId: string, application
 export async function deleteApplicantDocument(applicantId: string, applicationId: string, documentId: string) {
   const application = await prisma.businessApplication.findFirst({
     where: {
-      id: applicationId,
+      businessApplicationId: applicationId,
       applicantId,
     },
   });
@@ -1711,14 +1731,14 @@ export async function deleteApplicantDocument(applicantId: string, applicationId
 
   const doc = await prisma.applicationDocument.findFirst({
     where: {
-      id: documentId,
+      applicationDocumentId: documentId,
       applicationId,
     },
   });
 
   if (!doc) throw new Error("Document not found");
 
-  await prisma.applicationDocument.delete({ where: { id: doc.id } });
+  await prisma.applicationDocument.delete({ where: { applicationDocumentId: doc.applicationDocumentId } });
   return doc;
 }
 
@@ -1868,7 +1888,7 @@ const getCachedApplicantNotifications = cache(async (applicantId: string) => {
   const apps = await prisma.businessApplication.findMany({
     where: { applicantId },
     select: {
-      id: true,
+      businessApplicationId: true,
       applicationNumber: true,
       applicationType: true,
       history: {
@@ -1889,8 +1909,8 @@ const getCachedApplicantNotifications = cache(async (applicantId: string) => {
         item.fromStatus ?? null
       );
       return {
-        id: item.id,
-        applicationId: app.id,
+        id: item.applicationHistoryId ?? item.id,
+        applicationId: app.businessApplicationId,
         applicationNumber: app.applicationNumber,
         type: dbStatusToNotificationType(item.toStatus, item.fromStatus ?? null, item.remarks ?? null),
         title,
@@ -1927,7 +1947,7 @@ export async function listApplicantNotifications(
       include: {
         application: {
           select: {
-            id: true,
+            businessApplicationId: true,
             applicationNumber: true,
             applicationType: true,
           },
@@ -1948,8 +1968,8 @@ export async function listApplicantNotifications(
       item.fromStatus ?? null
     );
     return {
-      id: item.id,
-      applicationId: item.application.id,
+      id: item.applicationHistoryId,
+      applicationId: item.application.businessApplicationId,
       applicationNumber: item.application.applicationNumber,
       type: dbStatusToNotificationType(item.toStatus, item.fromStatus ?? null, item.remarks ?? null),
       title,
@@ -1970,14 +1990,12 @@ const applicantTopInclude = {
   },
   feeAssessment: {
     select: {
-      id: true,
+      feeAssessmentId: true,
       assessmentNumber: true,
       status: true,
       paymentFrequency: true,
       annualAssessedAmount: true,
       releasePaymentAmount: true,
-      amountPaid: true,
-      remainingBalance: true,
       paymentStatus: true,
       mayorsPermitFee: true,
       regulatoryFees: true,
@@ -1986,7 +2004,6 @@ const applicantTopInclude = {
       surcharge: true,
       interest: true,
       closureCertificateFee: true,
-      arrears: true,
       otherCharges: true,
       closurePaymentDues: true,
       totalAmount: true,
@@ -2013,20 +2030,20 @@ const applicantTopWhere = {
 };
 
 function mapApplicationToTopSummary(application: {
-  id: string;
+  businessApplicationId?: string;
+  id?: string;
   applicationNumber: string;
   applicationType: string;
   status: PrismaApplicationStatus;
   formData: unknown;
   businessRecord: { businessName: string } | null;
   feeAssessment: {
+    feeAssessmentId?: string;
     assessmentNumber: string;
     status: string;
     paymentFrequency: string;
     annualAssessedAmount: Parameters<typeof toMoneyNumber>[0];
     releasePaymentAmount: Parameters<typeof toMoneyNumber>[0];
-    amountPaid: Parameters<typeof toMoneyNumber>[0];
-    remainingBalance: Parameters<typeof toMoneyNumber>[0];
     paymentStatus: "UNPAID" | "PARTIALLY_PAID" | "PAID";
     mayorsPermitFee: Parameters<typeof toMoneyNumber>[0];
     regulatoryFees: Parameters<typeof toMoneyNumber>[0];
@@ -2035,7 +2052,6 @@ function mapApplicationToTopSummary(application: {
     surcharge: Parameters<typeof toMoneyNumber>[0];
     interest: Parameters<typeof toMoneyNumber>[0];
     closureCertificateFee: Parameters<typeof toMoneyNumber>[0];
-    arrears: Parameters<typeof toMoneyNumber>[0];
     otherCharges: Parameters<typeof toMoneyNumber>[0];
     closurePaymentDues: Parameters<typeof toMoneyNumber>[0];
     totalAmount: Parameters<typeof toMoneyNumber>[0];
@@ -2043,16 +2059,17 @@ function mapApplicationToTopSummary(application: {
     generatedAt: Date | null;
     reassessmentRequestedAt: Date | null;
     lineItems: Array<{
-      id: string;
+      feeAssessmentLineItemId?: string;
+      id?: string;
       description: string;
       amount: Parameters<typeof toMoneyNumber>[0];
       isSystemGenerated: boolean;
     }>;
   } | null;
   paymentReferences: Array<{
-    id: string;
+    paymentReferenceId?: string;
+    id?: string;
     transactionNumber: string;
-    amountPaid: Parameters<typeof toMoneyNumber>[0];
     paymentDate: Date;
     submittedAt: Date;
     status: "PENDING" | "VERIFIED" | "REJECTED";
@@ -2063,9 +2080,11 @@ function mapApplicationToTopSummary(application: {
 }) {
   const payment = application.paymentReferences[0] ?? null;
   const fa = application.feeAssessment;
+  const appId = application.businessApplicationId ?? application.id ?? "";
+  const paymentAmt = toMoneyNumber(fa?.releasePaymentAmount ?? fa?.totalAmount);
 
   return {
-    applicationId: application.id,
+    applicationId: appId,
     applicationNumber: application.applicationNumber,
     businessName: resolveBusinessName(application.formData, application.businessRecord?.businessName ?? null),
     applicationType: application.applicationType as string,
@@ -2077,8 +2096,8 @@ function mapApplicationToTopSummary(application: {
     paymentFrequency: (fa?.paymentFrequency ?? null) as "ANNUAL" | "BI_ANNUAL" | "QUARTERLY" | null,
     annualAssessedAmount: toMoneyNumber(fa?.annualAssessedAmount),
     releasePaymentAmount: toMoneyNumber(fa?.releasePaymentAmount),
-    amountPaid: toMoneyNumber(fa?.amountPaid),
-    remainingBalance: toMoneyNumber(fa?.remainingBalance),
+    amountPaid: payment ? paymentAmt : 0,
+    remainingBalance: 0,
     paymentStatus: fa?.paymentStatus ?? "UNPAID",
     mayorsPermitFee: toMoneyNumber(fa?.mayorsPermitFee),
     regulatoryFees: toMoneyNumber(fa?.regulatoryFees),
@@ -2088,24 +2107,24 @@ function mapApplicationToTopSummary(application: {
     interest: toMoneyNumber(fa?.interest),
     closurePaymentDues: toMoneyNumber(fa?.closurePaymentDues),
     closureCertificateFee: toMoneyNumber(fa?.closureCertificateFee),
-    arrears: toMoneyNumber(fa?.arrears),
+    arrears: 0,
     otherCharges: toMoneyNumber(fa?.otherCharges),
     totalAmount: toMoneyNumber(fa?.totalAmount),
     remarks: fa?.remarks ?? null,
     generatedAt: fa?.generatedAt ? fa.generatedAt.toISOString() : null,
     reassessmentRequestedAt: fa?.reassessmentRequestedAt ? fa.reassessmentRequestedAt.toISOString() : null,
     lineItems: (fa?.lineItems ?? []).map((item) => ({
-      id: item.id,
+      id: item.feeAssessmentLineItemId ?? item.id ?? "",
       description: item.description,
       amount: toMoneyNumber(item.amount),
       isSystemGenerated: item.isSystemGenerated,
     })),
     paymentReference: payment
       ? {
-          id: payment.id,
+          id: payment.paymentReferenceId ?? payment.id ?? "",
           transactionNumber: payment.transactionNumber,
           officialReceiptNumber: payment.transactionNumber,
-          amountPaid: toMoneyNumber(payment.amountPaid),
+          amountPaid: paymentAmt,
           paymentDate: payment.paymentDate.toISOString(),
           submittedAt: payment.submittedAt.toISOString(),
           status: payment.status,
@@ -2189,7 +2208,7 @@ export async function submitApplicantPaymentReference(
 ) {
   const application = await prisma.businessApplication.findFirst({
     where: {
-      id: applicationId,
+      businessApplicationId: applicationId,
       applicantId,
     },
     include: {
@@ -2215,7 +2234,7 @@ export async function submitApplicantPaymentReference(
 
   const duplicate = await prisma.paymentReference.findUnique({
     where: { transactionNumber: transactionNumber.trim() },
-    select: { id: true },
+    select: { paymentReferenceId: true },
   });
 
   if (duplicate) {
@@ -2223,7 +2242,7 @@ export async function submitApplicantPaymentReference(
   }
 
   const latest = await prisma.paymentReference.findFirst({
-    where: { applicationId: application.id },
+    where: { applicationId: application.businessApplicationId },
     orderBy: { submittedAt: "desc" },
     select: { status: true },
   });
@@ -2246,9 +2265,8 @@ export async function submitApplicantPaymentReference(
   const updated = await prisma.$transaction(async (tx: any) => {
     await tx.paymentReference.create({
       data: {
-        applicationId: application.id,
+        applicationId: application.businessApplicationId,
         transactionNumber: transactionNumber.trim(),
-        amountPaid: normalizedAmountPaid,
         paymentDate: parsedPaymentDate,
         proofFileName: proof.proofFileName,
         proofStoragePath: proof.proofStoragePath,
@@ -2261,7 +2279,7 @@ export async function submitApplicantPaymentReference(
 
     await tx.applicationHistory.create({
       data: {
-        applicationId: application.id,
+        applicationId: application.businessApplicationId,
         actorId: applicantId,
         actorRole: "APPLICANT",
         fromStatus: application.status,
@@ -2271,13 +2289,13 @@ export async function submitApplicantPaymentReference(
     });
 
     return tx.businessApplication.findUniqueOrThrow({
-      where: { id: application.id },
-      select: { id: true, applicationNumber: true, status: true },
+      where: { businessApplicationId: application.businessApplicationId },
+      select: { businessApplicationId: true, applicationNumber: true, status: true },
     });
   });
 
   return {
-    applicationId: updated.id,
+    applicationId: updated.businessApplicationId,
     applicationNumber: updated.applicationNumber,
     status: mapDbStatusToUi(updated.status),
   };

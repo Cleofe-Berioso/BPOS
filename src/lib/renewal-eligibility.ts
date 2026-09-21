@@ -44,7 +44,7 @@ type BusinessSnapshot = {
   location: { status: string | null } | null;
   applications: Array<{ status: string }>;
   inspections: Array<{
-    id: string;
+    inspectionId: string;
     nonComplianceType: string | null;
     violationSeverity: string | null;
     isSettled: boolean;
@@ -128,7 +128,7 @@ function getComplianceBlockReason(snapshot: BusinessSnapshot): RenewalEligibilit
     eligible: false,
     reasonCode,
     userFriendlyReason: BLOCKED_REASON_MESSAGES[reasonCode],
-    blockingInspectionId: blockingInspection.id,
+    blockingInspectionId: blockingInspection.inspectionId,
     complianceCaseStatus: blockingInspection.complianceCaseStatus,
     nonComplianceType: blockingInspection.nonComplianceType,
   };
@@ -176,7 +176,7 @@ export function getBusinessRenewalBlockReason(snapshot: BusinessSnapshot): Renew
 async function loadRenewalBusinessSnapshot(applicantId: string, businessRecordId: string): Promise<BusinessSnapshot | null> {
   const row: any = await prisma.businessRecord.findFirst({
     where: {
-      id: businessRecordId,
+      businessRecordId,
       applicantId,
     },
     include: {
@@ -199,7 +199,7 @@ async function loadRenewalBusinessSnapshot(applicantId: string, businessRecordId
       },
       inspections: {
         select: {
-          id: true,
+          inspectionId: true,
           nonComplianceType: true,
           violationSeverity: true,
           isSettled: true,
@@ -217,7 +217,7 @@ async function loadRenewalBusinessSnapshot(applicantId: string, businessRecordId
   if (!row) return null;
 
   return {
-    id: row.id,
+    id: row.businessRecordId,
     registrationNumber: row.registrationNumber,
     businessName: row.businessName,
     businessStatus: row.businessStatus as BusinessSnapshot["businessStatus"],
@@ -308,7 +308,7 @@ export async function listRenewalEligibleBusinesses(applicantId: string): Promis
       },
       inspections: {
         select: {
-          id: true,
+          inspectionId: true,
           nonComplianceType: true,
           violationSeverity: true,
           isSettled: true,
@@ -328,7 +328,7 @@ export async function listRenewalEligibleBusinesses(applicantId: string): Promis
 
   const records = rows.map((row: any) => {
     const snapshot: BusinessSnapshot = {
-      id: row.id,
+      id: row.businessRecordId,
       registrationNumber: row.registrationNumber,
       businessName: row.businessName,
       businessStatus: row.businessStatus,

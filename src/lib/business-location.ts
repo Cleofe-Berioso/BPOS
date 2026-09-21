@@ -142,12 +142,12 @@ function isLocationEditable(status: LocationStatus): boolean {
 }
 
 function toApplicantRow(record: {
-  id: string;
+  businessRecordId: string;
   businessName: string;
   registrationNumber: string;
   permitExpirationDate: Date | null;
   location: {
-    id: string;
+    businessLocationId: string;
     latitude: number;
     longitude: number;
     address: string | null;
@@ -163,7 +163,7 @@ function toApplicantRow(record: {
   };
 }): ApplicantBusinessLocationRow {
   return {
-    businessRecordId: record.id,
+    businessRecordId: record.businessRecordId,
     businessName: record.businessName,
     registrationNumber: record.registrationNumber,
     applicationNumber: record.releasedApplication.applicationNumber,
@@ -172,7 +172,7 @@ function toApplicantRow(record: {
     permitValidUntil: record.permitExpirationDate ? record.permitExpirationDate.toISOString() : null,
     location: record.location
       ? {
-          id: record.location.id,
+          id: record.location.businessLocationId,
           latitude: record.location.latitude,
           longitude: record.location.longitude,
           address: record.location.address,
@@ -262,13 +262,13 @@ export async function listApplicantReleasedBusinessLocations(
       },
     },
     select: {
-      id: true,
+      businessRecordId: true,
       businessName: true,
       registrationNumber: true,
       permitExpirationDate: true,
       location: {
         select: {
-          id: true,
+          businessLocationId: true,
           latitude: true,
           longitude: true,
           address: true,
@@ -285,11 +285,11 @@ export async function listApplicantReleasedBusinessLocations(
   });
 
   const releasedMeta = await resolveLatestReleasedByBusinessRecord(
-    records.map((row: (typeof records)[number]) => row.id)
+    records.map((row: (typeof records)[number]) => row.businessRecordId)
   );
 
   return records
-    .filter((row: (typeof records)[number]) => releasedMeta.has(row.id))
+    .filter((row: (typeof records)[number]) => releasedMeta.has(row.businessRecordId))
     .map((row: (typeof records)[number]) =>
       toApplicantRow({
         ...row,
@@ -299,7 +299,7 @@ export async function listApplicantReleasedBusinessLocations(
               status: row.location.status as LocationStatus,
             }
           : null,
-        releasedApplication: releasedMeta.get(row.id) as {
+        releasedApplication: releasedMeta.get(row.businessRecordId) as {
           applicationNumber: string;
           applicationType: ApplicationType;
           permitOrCertificateNumber: string | null;
@@ -329,7 +329,7 @@ export async function submitApplicantBusinessLocation(
 
   const record = await prisma.businessRecord.findFirst({
     where: {
-      id: businessRecordId,
+      businessRecordId,
       applicantId,
       applications: {
         some: {
@@ -338,12 +338,12 @@ export async function submitApplicantBusinessLocation(
       },
     },
     select: {
-      id: true,
+      businessRecordId: true,
       businessName: true,
       registrationNumber: true,
       location: {
         select: {
-          id: true,
+          businessLocationId: true,
           status: true,
         },
       },
@@ -455,7 +455,7 @@ export async function listActivePermittedBusinessLocations(
       },
     },
     select: {
-      id: true,
+      businessLocationId: true,
       latitude: true,
       longitude: true,
       address: true,
@@ -465,7 +465,7 @@ export async function listActivePermittedBusinessLocations(
       updatedAt: true,
       businessRecord: {
         select: {
-          id: true,
+          businessRecordId: true,
           businessName: true,
           tradeName: true,
           ownerName: true,
@@ -486,7 +486,7 @@ export async function listActivePermittedBusinessLocations(
             },
             take: 1,
             select: {
-              id: true,
+              businessApplicationId: true,
               applicationNumber: true,
               applicationType: true,
               status: true,
@@ -494,7 +494,7 @@ export async function listActivePermittedBusinessLocations(
               formData: true,
               documents: {
                 select: {
-                  id: true,
+                  applicationDocumentId: true,
                   documentName: true,
                   fileName: true,
                   uploadedAt: true,
@@ -566,9 +566,9 @@ export async function listActivePermittedBusinessLocations(
       const categoryMeta = MAP_CATEGORY_META[category];
 
       return {
-        locationId: location.id,
-        businessRecordId: location.businessRecord.id,
-        applicationId: latestApplication.id,
+        locationId: location.businessLocationId,
+        businessRecordId: location.businessRecord.businessRecordId,
+        applicationId: latestApplication.businessApplicationId,
         applicantName: location.businessRecord.applicant?.name ?? "-",
         tradeName: (tradeName ?? location.businessRecord.tradeName ?? null)?.trim() || null,
         businessName: location.businessRecord.businessName,
@@ -588,7 +588,7 @@ export async function listActivePermittedBusinessLocations(
         applicationStatus: mapDbStatusToUi(latestApplication.status),
         bploRemarks: latestApplication.history[0]?.remarks?.trim() || null,
         documents: latestApplication.documents.map((doc) => ({
-          id: doc.id,
+          id: doc.applicationDocumentId,
           documentName: doc.documentName,
           fileName: doc.fileName,
           uploadedAt: doc.uploadedAt.toISOString(),
@@ -701,7 +701,7 @@ export async function listActivePermittedBusinessLocationsPaginated(
     prisma.businessLocation.findMany({
       where,
       select: {
-        id: true,
+        businessLocationId: true,
         latitude: true,
         longitude: true,
         address: true,
@@ -711,7 +711,7 @@ export async function listActivePermittedBusinessLocationsPaginated(
         updatedAt: true,
         businessRecord: {
           select: {
-            id: true,
+            businessRecordId: true,
             businessName: true,
             tradeName: true,
             ownerName: true,
@@ -732,7 +732,7 @@ export async function listActivePermittedBusinessLocationsPaginated(
               },
               take: 1,
               select: {
-                id: true,
+                businessApplicationId: true,
                 applicationNumber: true,
                 applicationType: true,
                 status: true,
@@ -740,7 +740,7 @@ export async function listActivePermittedBusinessLocationsPaginated(
                 formData: true,
                 documents: {
                   select: {
-                    id: true,
+                    applicationDocumentId: true,
                     documentName: true,
                     fileName: true,
                     uploadedAt: true,
@@ -816,9 +816,9 @@ export async function listActivePermittedBusinessLocationsPaginated(
       const categoryMeta = MAP_CATEGORY_META[category];
 
       return {
-        locationId: location.id,
-        businessRecordId: location.businessRecord.id,
-        applicationId: latestApplication.id,
+        locationId: location.businessLocationId,
+        businessRecordId: location.businessRecord.businessRecordId,
+        applicationId: latestApplication.businessApplicationId,
         applicantName: location.businessRecord.applicant?.name ?? "-",
         tradeName: (tradeName ?? location.businessRecord.tradeName ?? null)?.trim() || null,
         businessName: location.businessRecord.businessName,
@@ -838,7 +838,7 @@ export async function listActivePermittedBusinessLocationsPaginated(
         applicationStatus: mapDbStatusToUi(latestApplication.status),
         bploRemarks: latestApplication.history[0]?.remarks?.trim() || null,
         documents: latestApplication.documents.map((doc) => ({
-          id: doc.id,
+          id: doc.applicationDocumentId,
           documentName: doc.documentName,
           fileName: doc.fileName,
           uploadedAt: doc.uploadedAt.toISOString(),
@@ -995,10 +995,10 @@ export async function verifyBusinessLocation(
 ): Promise<BusinessLocationMapRow> {
   const existing = await prisma.businessLocation.findUnique({
     where: {
-      id: businessLocationId,
+      businessLocationId,
     },
     select: {
-      id: true,
+      businessLocationId: true,
       businessRecordId: true,
     },
   });
@@ -1009,7 +1009,7 @@ export async function verifyBusinessLocation(
 
   const hasValidApplication = await prisma.businessRecord.findFirst({
     where: {
-      id: existing.businessRecordId,
+      businessRecordId: existing.businessRecordId,
       businessStatus: "ACTIVE",
       applications: {
         some: {
@@ -1017,7 +1017,7 @@ export async function verifyBusinessLocation(
         },
       },
     },
-    select: { id: true },
+    select: { businessRecordId: true },
   });
 
   if (!hasValidApplication) {
@@ -1026,7 +1026,7 @@ export async function verifyBusinessLocation(
 
   await prisma.businessLocation.update({
     where: {
-      id: businessLocationId,
+      businessLocationId,
     },
     data: {
       status: "VERIFIED",
@@ -1056,10 +1056,10 @@ export async function returnBusinessLocationForCorrection(
 
   const existing = await prisma.businessLocation.findUnique({
     where: {
-      id: businessLocationId,
+      businessLocationId,
     },
     select: {
-      id: true,
+      businessLocationId: true,
     },
   });
 
@@ -1069,7 +1069,7 @@ export async function returnBusinessLocationForCorrection(
 
   const hasValidApplication = await prisma.businessLocation.findFirst({
     where: {
-      id: businessLocationId,
+      businessLocationId,
       businessRecord: {
         businessStatus: "ACTIVE",
         applications: {
@@ -1079,7 +1079,7 @@ export async function returnBusinessLocationForCorrection(
         },
       },
     },
-    select: { id: true },
+    select: { businessLocationId: true },
   });
 
   if (!hasValidApplication) {
@@ -1088,7 +1088,7 @@ export async function returnBusinessLocationForCorrection(
 
   await prisma.businessLocation.update({
     where: {
-      id: businessLocationId,
+      businessLocationId,
     },
     data: {
       status: "NEEDS_CORRECTION",

@@ -17,8 +17,8 @@ export async function POST(
 
   const target = userId
     ? await prisma.user.findUnique({
-        where: { id: userId },
-        select: { id: true, name: true, email: true, role: true, isActive: true },
+        where: { userId },
+        select: { userId: true, name: true, email: true, role: true, isActive: true },
       })
     : null;
 
@@ -37,7 +37,7 @@ export async function POST(
   }
 
   await prisma.user.update({
-    where: { id: userId },
+    where: { userId },
     data: { isActive: true },
   });
 
@@ -52,7 +52,7 @@ export async function POST(
       entityId: target!.email,
       description: "IT Administrator enabled JIT inspector account",
       metadata: {
-        targetUserId: target!.id,
+        targetUserId: target!.userId,
         targetName: target!.name,
         targetEmail: target!.email,
         targetRole: target!.role,

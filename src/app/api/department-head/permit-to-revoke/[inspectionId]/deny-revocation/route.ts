@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { applyDepartmentHeadRevocationDecision, requireDepartmentHeadSession } from "@/lib/department-head-api";
 import { logInspectionAction, logRevocationAction } from "@/lib/audit-log";
-import { notifyApplicantRevocationEvent } from "@/lib/revocation-notifications";
 
 export async function POST(
   req: Request,
@@ -59,12 +58,6 @@ export async function POST(
       `Department Head denied revocation: ${payload.remarks || "No remarks"}`,
       { remarks: payload.remarks }
     );
-
-    void notifyApplicantRevocationEvent({
-      inspectionId: result.inspectionId,
-      eventType: "REVOCATION_DENIED",
-      decisionRemarks: payload.remarks,
-    });
 
     return NextResponse.json({ result });
   } catch (error) {

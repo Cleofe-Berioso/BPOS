@@ -58,16 +58,9 @@ function resolveRenewalCompliancePenalty(
   severity: "MINOR" | "MAJOR" | "SEVERE" | null,
   runtimeSettings: any
 ): number {
-  if (!severity) return 0;
-  const p = runtimeSettings?.penalties;
-  if (!p) return 0;
-  const raw =
-    severity === "SEVERE"
-      ? p.renewalComplianceSeverePenalty
-      : severity === "MAJOR"
-        ? p.renewalComplianceMajorPenalty
-        : p.renewalComplianceMinorPenalty;
-  return typeof raw === "number" && raw > 0 ? roundMoney(raw) : 0;
+  void severity;
+  void runtimeSettings;
+  return 0;
 }
 
 const ASSESSMENT_QUEUE_STATUSES: DbApplicationStatus[] = ["DEPARTMENT_HEAD_APPROVED", "ASSESSED"];
@@ -225,7 +218,7 @@ async function generateAssessmentNumber(dbClient: any = prisma): Promise<string>
 
 function toAssessmentLineItem(row: any): AssessmentLineItem {
   return {
-    id: row.id,
+    id: row.feeAssessmentLineItemId ?? row.id,
     description: row.description,
     amount: toMoneyNumber(row.amount),
     sortOrder: row.sortOrder,
@@ -235,14 +228,14 @@ function toAssessmentLineItem(row: any): AssessmentLineItem {
 
 function toSavedAssessment(row: any): SavedAssessment {
   return {
-    id: row.id,
+    id: row.feeAssessmentId ?? row.id,
     assessmentNumber: row.assessmentNumber,
     status: row.status as "DRAFT" | "GENERATED",
     paymentFrequency: row.paymentFrequency as PaymentFrequency,
     annualAssessedAmount: toMoneyNumber(row.annualAssessedAmount),
     releasePaymentAmount: toMoneyNumber(row.releasePaymentAmount),
-    amountPaid: toMoneyNumber(row.amountPaid),
-    remainingBalance: toMoneyNumber(row.remainingBalance),
+    amountPaid: toMoneyNumber(row.amountPaid ?? 0),
+    remainingBalance: toMoneyNumber(row.remainingBalance ?? row.totalAmount ?? 0),
     paymentStatus: row.paymentStatus as "UNPAID" | "PARTIALLY_PAID" | "PAID",
     mayorsPermitFee: toMoneyNumber(row.mayorsPermitFee),
     regulatoryFees: toMoneyNumber(row.regulatoryFees),
@@ -252,7 +245,7 @@ function toSavedAssessment(row: any): SavedAssessment {
     interest: toMoneyNumber(row.interest),
     closurePaymentDues: toMoneyNumber(row.closurePaymentDues),
     closureCertificateFee: toMoneyNumber(row.closureCertificateFee),
-    arrears: toMoneyNumber(row.arrears),
+    arrears: 0,
     otherCharges: toMoneyNumber(row.otherCharges),
     totalAmount: toMoneyNumber(row.totalAmount),
     remarks: row.remarks,
@@ -628,9 +621,9 @@ function ensureTopHasPayableItems(applicationType: "NEW" | "RENEWAL" | "CLOSURE"
 
 async function getAssessmentApplication(applicationId: string, dbClient: any = prisma) {
   return dbClient.businessApplication.findUnique({
-    where: { id: applicationId },
+    where: { businessApplicationId: applicationId },
     include: {
-      applicant: { select: { id: true, name: true, email: true } },
+      applicant: { select: { userId: true, name: true, email: true } },
       businessRecord: {
         include: {
           applications: {
@@ -645,7 +638,7 @@ async function getAssessmentApplication(applicationId: string, dbClient: any = p
           },
           inspections: {
             select: {
-              id: true,
+              inspectionId: true,
               nonComplianceType: true,
               violationSeverity: true,
               isSettled: true,
@@ -703,7 +696,7 @@ export async function listAssessmentFeeApplicationsPaginated(options?: {
   ]);
 
   const records = rows.map((row: any) => ({
-    id: row.id,
+    id: row.businessApplicationId,
     applicationNumber: row.applicationNumber,
     businessName: resolveBusinessName(row.formData, row.businessRecord?.businessName ?? null),
     applicantName: row.applicant.name,
@@ -799,13 +792,13 @@ export async function getApplicationForAssessment(applicationId: string): Promis
   };
 
   return {
-    id: row.id,
+    id: row.businessApplicationId,
     applicationNumber: row.applicationNumber,
     applicationType: row.applicationType as "NEW" | "RENEWAL" | "CLOSURE",
     status: mapDbStatusToUi(row.status),
     rawStatus: row.status as DbApplicationStatus,
     submittedAt: row.submittedAt ? row.submittedAt.toISOString() : null,
-    applicant: row.applicant,
+    applicant: { id: row.applicant.userId, name: row.applicant.name, email: row.applicant.email },
     businessName,
     lineOfBusiness,
     assetSize,
@@ -852,13 +845,13 @@ async function persistAssessment(
 
   // Fetch application outside transaction for pre-validation
   const preCheckApplication = await prisma.businessApplication.findUnique({
-    where: { id: applicationId },
+    where: { businessApplicationId: applicationId },
     select: {
-      id: true,
+      businessApplicationId: true,
       status: true,
       applicationType: true,
       formData: true,
-      feeAssessment: { select: { id: true, assessmentNumber: true, status: true, reassessmentRequestedAt: true } },
+      feeAssessment: { select: { feeAssessmentId: true, assessmentNumber: true, status: true, reassessmentRequestedAt: true } },
     },
   });
 
@@ -877,7 +870,7 @@ async function persistAssessment(
 
   const existing = preCheckApplication.feeAssessment
     ? {
-        id: preCheckApplication.feeAssessment.id,
+        id: preCheckApplication.feeAssessment.feeAssessmentId,
         assessmentNumber: preCheckApplication.feeAssessment.assessmentNumber,
         status: preCheckApplication.feeAssessment.status,
       }
@@ -930,7 +923,7 @@ async function persistAssessment(
     if (workingStatus !== initialStatus) {
       assertStatusTransition(initialStatus, "ASSESSED");
       await tx.businessApplication.update({
-        where: { id: applicationId },
+        where: { businessApplicationId: applicationId },
         data: { status: "ASSESSED" },
       });
     }
@@ -974,8 +967,6 @@ async function persistAssessment(
         paymentFrequency: effectivePaymentFrequency,
         annualAssessedAmount,
         releasePaymentAmount,
-        amountPaid: 0,
-        remainingBalance: annualAssessedAmount,
         paymentStatus: "UNPAID",
         mayorsPermitFee: totals.mayorsPermitFee,
         regulatoryFees: totals.regulatoryFees,
@@ -985,7 +976,6 @@ async function persistAssessment(
         interest: totals.interest,
         closurePaymentDues: totals.closurePaymentDues,
         closureCertificateFee: totals.closureCertificateFee,
-        arrears: totals.arrears,
         otherCharges: totals.otherCharges,
         totalAmount: totals.totalAmount,
         remarks: sanitized.remarks ?? null,
@@ -999,8 +989,6 @@ async function persistAssessment(
         paymentFrequency: effectivePaymentFrequency,
         annualAssessedAmount,
         releasePaymentAmount,
-        amountPaid: 0,
-        remainingBalance: annualAssessedAmount,
         paymentStatus: "UNPAID",
         mayorsPermitFee: totals.mayorsPermitFee,
         regulatoryFees: totals.regulatoryFees,
@@ -1010,7 +998,6 @@ async function persistAssessment(
         interest: totals.interest,
         closurePaymentDues: totals.closurePaymentDues,
         closureCertificateFee: totals.closureCertificateFee,
-        arrears: totals.arrears,
         otherCharges: totals.otherCharges,
         totalAmount: totals.totalAmount,
         remarks: sanitized.remarks ?? null,
@@ -1021,13 +1008,13 @@ async function persistAssessment(
     });
 
     await tx.feeAssessmentLineItem.deleteMany({
-      where: { feeAssessmentId: saved.id },
+      where: { feeAssessmentId: saved.feeAssessmentId },
     });
 
     if (totals.lineItems.length > 0) {
       await tx.feeAssessmentLineItem.createMany({
         data: totals.lineItems.map((item, index) => ({
-          feeAssessmentId: saved.id,
+          feeAssessmentId: saved.feeAssessmentId,
           description: item.description,
           amount: item.amount,
           sortOrder: index,
@@ -1039,7 +1026,7 @@ async function persistAssessment(
     if (mode === "GENERATED") {
       assertStatusTransition(workingStatus, "APPROVED_FOR_PAYMENT");
       await tx.businessApplication.update({
-        where: { id: applicationId },
+        where: { businessApplicationId: applicationId },
         data: { status: "APPROVED_FOR_PAYMENT" },
       });
     }
@@ -1095,14 +1082,14 @@ async function persistAssessment(
     }
 
     // Return saved ID for post-transaction fetch
-    return saved.id;
+    return saved.feeAssessmentId;
   }, { maxWait: 10000, timeout: 10000 });
 
   const hadReassessment = Boolean(preCheckApplication?.feeAssessment?.reassessmentRequestedAt);
 
   // Fetch complete assessment after transaction completes
   const savedWithLineItems = await prisma.feeAssessment.findUniqueOrThrow({
-    where: { id: savedAssessmentId },
+    where: { feeAssessmentId: savedAssessmentId },
     include: {
       lineItems: {
         orderBy: { sortOrder: "asc" },

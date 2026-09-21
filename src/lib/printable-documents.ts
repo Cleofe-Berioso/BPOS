@@ -381,13 +381,13 @@ async function findApplicationForPrint(
     paymentDate: Date;
   }>;
 } | null> {
-  return prisma.businessApplication.findFirst({
+  const row = await prisma.businessApplication.findFirst({
     where: {
-      id: applicationId,
+      businessApplicationId: applicationId,
       ...(applicantId ? { applicantId } : {}),
     },
     select: {
-      id: true,
+      businessApplicationId: true,
       applicantId: true,
       applicationNumber: true,
       applicationType: true,
@@ -403,8 +403,8 @@ async function findApplicationForPrint(
           assessmentNumber: true,
           annualAssessedAmount: true,
           releasePaymentAmount: true,
-          remainingBalance: true,
-          amountPaid: true,
+          totalAmount: true,
+          paymentStatus: true,
         },
       },
       businessRecord: {
@@ -414,7 +414,7 @@ async function findApplicationForPrint(
       },
       permitIssuance: {
         select: {
-          id: true,
+          permitIssuanceId: true,
           documentNumber: true,
           documentPath: true,
           status: true,
@@ -426,43 +426,54 @@ async function findApplicationForPrint(
         orderBy: { submittedAt: "desc" },
         take: 1,
         select: {
-          id: true,
+          paymentReferenceId: true,
           transactionNumber: true,
           paymentDate: true,
         },
       },
     },
-  }) as Promise<{
-    id: string;
-    applicantId: string;
-    applicationNumber: string;
-    applicationType: ApplicationTypeForPrint;
-    status: ApplicationStatusForPrint;
-    formData: unknown;
-    applicant: {
-      name: string;
-    };
-    feeAssessment: {
-      assessmentNumber: string;
-      annualAssessedAmount: any;
-      releasePaymentAmount: unknown;
-      remainingBalance: unknown;
-      amountPaid: unknown;
-    } | null;
-    businessRecord: { closedAt: Date | null } | null;
-    permitIssuance: {
-      id: string;
-      documentNumber: string;
-      documentPath: string | null;
-      status: PermitIssuanceStatusForPrint;
-      issuedAt: Date;
-    } | null;
-    paymentReferences: Array<{
-      id: string;
-      transactionNumber: string;
-      paymentDate: Date;
-    }>;
-  } | null>;
+  });
+
+  if (!row) return null;
+
+  const paidAmount =
+    row.feeAssessment?.paymentStatus === "PAID"
+      ? toMoneyNumber(row.feeAssessment.releasePaymentAmount ?? row.feeAssessment.totalAmount)
+      : 0;
+
+  return {
+    id: row.businessApplicationId,
+    applicantId: row.applicantId,
+    applicationNumber: row.applicationNumber,
+    applicationType: row.applicationType as ApplicationTypeForPrint,
+    status: row.status as ApplicationStatusForPrint,
+    formData: row.formData,
+    applicant: row.applicant,
+    feeAssessment: row.feeAssessment
+      ? {
+          assessmentNumber: row.feeAssessment.assessmentNumber,
+          annualAssessedAmount: row.feeAssessment.annualAssessedAmount,
+          releasePaymentAmount: row.feeAssessment.releasePaymentAmount,
+          remainingBalance: Math.max(0, toMoneyNumber(row.feeAssessment.totalAmount) - paidAmount),
+          amountPaid: paidAmount,
+        }
+      : null,
+    businessRecord: row.businessRecord,
+    permitIssuance: row.permitIssuance
+      ? {
+          id: row.permitIssuance.permitIssuanceId,
+          documentNumber: row.permitIssuance.documentNumber,
+          documentPath: row.permitIssuance.documentPath,
+          status: row.permitIssuance.status as PermitIssuanceStatusForPrint,
+          issuedAt: row.permitIssuance.issuedAt,
+        }
+      : null,
+    paymentReferences: row.paymentReferences.map((ref) => ({
+      id: ref.paymentReferenceId,
+      transactionNumber: ref.transactionNumber,
+      paymentDate: ref.paymentDate,
+    })),
+  };
 }
 
 export function getPrintableDocumentType(

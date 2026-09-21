@@ -74,7 +74,7 @@ export async function countUninspectedActivePermittedBusinesses(): Promise<JitUn
         },
       },
     },
-    select: { id: true },
+    select: { businessRecordId: true },
   });
 
   const totalInspectableCount = activeRecords.length;
@@ -82,7 +82,7 @@ export async function countUninspectedActivePermittedBusinesses(): Promise<JitUn
     return { uninspectedCount: 0, totalInspectableCount: 0 };
   }
 
-  const ids = activeRecords.map((row) => row.id);
+  const ids = activeRecords.map((row) => row.businessRecordId);
   const inspected = await prisma.inspection.findMany({
     where: {
       businessRecordId: { in: ids },
@@ -101,7 +101,7 @@ export async function countUninspectedActivePermittedBusinesses(): Promise<JitUn
 async function resetJitInspectionCycle(settingId: string): Promise<Date> {
   const startedAt = new Date();
   await prisma.systemFeeSetting.update({
-    where: { id: settingId },
+    where: { systemFeeSettingId: settingId },
     data: { jitInspectionCycleStartedAt: startedAt },
   });
   return startedAt;
@@ -126,7 +126,7 @@ export async function enforceUnresolvedJitComplianceCases(): Promise<JitPortalEn
       forcedClosure: false,
     },
     select: {
-      id: true,
+      inspectionId: true,
       businessRecord: {
         select: {
           registrationNumber: true,
@@ -151,7 +151,7 @@ export async function enforceUnresolvedJitComplianceCases(): Promise<JitPortalEn
   await prisma.$transaction(
     casesToEnforce.map((inspection) => {
       details.push({
-        inspectionId: inspection.id,
+        inspectionId: inspection.inspectionId,
         businessRegistrationNumber: inspection.businessRecord?.registrationNumber ?? "UNKNOWN",
         nonComplianceType: inspection.nonComplianceType,
         previousStatus: inspection.complianceCaseStatus,
@@ -159,7 +159,7 @@ export async function enforceUnresolvedJitComplianceCases(): Promise<JitPortalEn
       });
 
       return prisma.inspection.update({
-        where: { id: inspection.id },
+        where: { inspectionId: inspection.inspectionId },
         data: {
           complianceCaseStatus: "EXPIRED_UNSETTLED",
           autoClosed: true,
@@ -171,7 +171,7 @@ export async function enforceUnresolvedJitComplianceCases(): Promise<JitPortalEn
 
   return {
     casesEnforced: casesToEnforce.length,
-    affectedInspectionIds: casesToEnforce.map((i) => i.id),
+    affectedInspectionIds: casesToEnforce.map((i) => i.inspectionId),
     details,
   };
 }
@@ -213,7 +213,7 @@ export async function updateJitPortalEnabled(input: {
   }
 
   const setting = await prisma.systemFeeSetting.findFirst({
-    select: { id: true },
+    select: { systemFeeSettingId: true },
     orderBy: { updatedAt: "desc" },
   });
 
@@ -223,10 +223,10 @@ export async function updateJitPortalEnabled(input: {
 
   // Reset active map cycle on both disable and enable so prior inspected markers clear
   // and re-enabled portals show registered/renewed permits as grey again.
-  const cycleStartedAt = await resetJitInspectionCycle(setting.id);
+  const cycleStartedAt = await resetJitInspectionCycle(setting.systemFeeSettingId);
 
   await prisma.systemFeeSetting.update({
-    where: { id: setting.id },
+    where: { systemFeeSettingId: setting.systemFeeSettingId },
     data: {
       jitPortalEnabled: input.enabled,
       updatedById: input.changedById,

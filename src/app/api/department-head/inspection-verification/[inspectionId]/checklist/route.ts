@@ -21,7 +21,7 @@ export async function GET(
     const items = formatChecklistItemsForReadOnlyApi(inspection.checklistItems);
 
     return NextResponse.json({
-      inspectionId: inspection.id,
+      inspectionId: inspection.inspectionId,
       businessRecordId: inspection.businessRecordId,
       applicationId: inspection.applicationId,
       items,

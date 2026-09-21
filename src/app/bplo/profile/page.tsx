@@ -27,9 +27,9 @@ export default async function BploProfilePage() {
   if (!session?.user?.id) notFound();
 
   const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
+    where: { userId: session.user.id },
     select: {
-      id: true,
+      userId: true,
       email: true,
       role: true,
       name: true,
@@ -58,7 +58,7 @@ export default async function BploProfilePage() {
 
       <BploProfileSettingsClient
         initialProfile={{
-          id: user.id,
+          id: user.userId,
           email: user.email,
           role: user.role,
           name: user.name,

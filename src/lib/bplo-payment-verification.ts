@@ -123,7 +123,7 @@ function resolveString(formData: unknown, key: string): string {
 
 function toRow(params: {
   app: {
-    id: string;
+    businessApplicationId: string;
     applicationNumber: string;
     applicationType: "NEW" | "RENEWAL" | "CLOSURE";
     status: DbApplicationStatus;
@@ -138,9 +138,8 @@ function toRow(params: {
     } | null;
   };
   ref: {
-    id: string;
+    paymentReferenceId: string;
     transactionNumber: string;
-    amountPaid: any;
     paymentDate: Date;
     submittedAt: Date;
     status: "PENDING" | "VERIFIED" | "REJECTED";
@@ -150,9 +149,10 @@ function toRow(params: {
   };
 }): PaymentVerificationRow {
   const { app, ref } = params;
+  const paymentAmt = toMoneyNumber(app.feeAssessment?.releasePaymentAmount ?? app.feeAssessment?.totalAmount);
   return {
-    paymentReferenceId: ref.id,
-    applicationId: app.id,
+    paymentReferenceId: ref.paymentReferenceId,
+    applicationId: app.businessApplicationId,
     applicationNumber: app.applicationNumber,
     businessName: resolveBusinessName(app.formData, app.businessRecord?.businessName ?? null),
     applicantName: app.applicant.name,
@@ -162,7 +162,7 @@ function toRow(params: {
     annualAssessedAmount: toMoneyNumber(app.feeAssessment?.annualAssessedAmount),
     releasePaymentAmount: toMoneyNumber(app.feeAssessment?.releasePaymentAmount),
     totalAmountDue: toMoneyNumber(app.feeAssessment?.totalAmount),
-    amountPaid: toMoneyNumber(ref.amountPaid),
+    amountPaid: paymentAmt,
     paymentDate: ref.paymentDate.toISOString(),
     transactionNumber: ref.transactionNumber,
     officialReceiptNumber: ref.transactionNumber,
@@ -197,7 +197,7 @@ async function fetchCandidateApplications() {
       },
     },
     include: {
-      applicant: { select: { id: true, name: true, email: true } },
+      applicant: { select: { userId: true, name: true, email: true } },
       businessRecord: { select: { businessName: true } },
       feeAssessment: {
         select: {
@@ -205,8 +205,6 @@ async function fetchCandidateApplications() {
           paymentFrequency: true,
           annualAssessedAmount: true,
           releasePaymentAmount: true,
-          amountPaid: true,
-          remainingBalance: true,
           paymentStatus: true,
           mayorsPermitFee: true,
           regulatoryFees: true,
@@ -216,7 +214,6 @@ async function fetchCandidateApplications() {
           interest: true,
           closurePaymentDues: true,
           closureCertificateFee: true,
-          arrears: true,
           otherCharges: true,
           totalAmount: true,
           remarks: true,
@@ -241,7 +238,7 @@ export async function listPaymentVerificationEntries(): Promise<PaymentVerificat
       allRows.push(
         toRow({
           app: {
-            id: app.id,
+            businessApplicationId: app.businessApplicationId,
             applicationNumber: app.applicationNumber,
             applicationType: app.applicationType,
             status: app.status,
@@ -250,7 +247,16 @@ export async function listPaymentVerificationEntries(): Promise<PaymentVerificat
             businessRecord: app.businessRecord,
             feeAssessment: app.feeAssessment,
           },
-          ref,
+          ref: {
+            paymentReferenceId: ref.paymentReferenceId,
+            transactionNumber: ref.transactionNumber,
+            paymentDate: ref.paymentDate,
+            submittedAt: ref.submittedAt,
+            status: ref.status,
+            reviewerRemarks: ref.reviewerRemarks,
+            reviewedAt: ref.reviewedAt,
+            proofFileName: ref.proofFileName,
+          },
         })
       );
     }
@@ -274,7 +280,7 @@ const paymentReferenceApplicationWhere = {
 const paymentReferenceInclude = {
   application: {
     include: {
-      applicant: { select: { id: true, name: true, email: true } },
+      applicant: { select: { userId: true, name: true, email: true } },
       businessRecord: { select: { businessName: true } },
       feeAssessment: {
         select: {
@@ -312,7 +318,7 @@ export async function listPaymentVerificationEntriesPaginated(
   const records = (refs as any[]).map((ref) =>
     toRow({
       app: {
-        id: ref.application.id,
+        businessApplicationId: ref.application.businessApplicationId,
         applicationNumber: ref.application.applicationNumber,
         applicationType: ref.application.applicationType,
         status: ref.application.status,
@@ -321,7 +327,16 @@ export async function listPaymentVerificationEntriesPaginated(
         businessRecord: ref.application.businessRecord,
         feeAssessment: ref.application.feeAssessment,
       },
-      ref,
+      ref: {
+        paymentReferenceId: ref.paymentReferenceId,
+        transactionNumber: ref.transactionNumber,
+        paymentDate: ref.paymentDate,
+        submittedAt: ref.submittedAt,
+        status: ref.status,
+        reviewerRemarks: ref.reviewerRemarks,
+        reviewedAt: ref.reviewedAt,
+        proofFileName: ref.proofFileName,
+      },
     })
   );
 
@@ -330,11 +345,11 @@ export async function listPaymentVerificationEntriesPaginated(
 
 async function findReference(paymentReferenceId: string) {
   return (prisma as any).paymentReference.findUnique({
-    where: { id: paymentReferenceId },
+    where: { paymentReferenceId },
     include: {
       application: {
         include: {
-          applicant: { select: { id: true, name: true, email: true } },
+          applicant: { select: { userId: true, name: true, email: true } },
           businessRecord: { select: { businessName: true } },
           feeAssessment: true,
         },
@@ -354,10 +369,12 @@ export async function getPaymentVerificationDetail(
     return null;
   }
 
+  const paymentAmt = toMoneyNumber(app.feeAssessment?.releasePaymentAmount ?? app.feeAssessment?.totalAmount);
+
   return {
     row: toRow({
       app: {
-        id: app.id,
+        businessApplicationId: app.businessApplicationId,
         applicationNumber: app.applicationNumber,
         applicationType: app.applicationType,
         status: app.status as DbApplicationStatus,
@@ -367,9 +384,8 @@ export async function getPaymentVerificationDetail(
         feeAssessment: app.feeAssessment,
       },
       ref: {
-        id: found.id,
+        paymentReferenceId: found.paymentReferenceId,
         transactionNumber: found.transactionNumber,
-        amountPaid: found.amountPaid,
         paymentDate: found.paymentDate,
         submittedAt: found.submittedAt,
         status: found.status,
@@ -378,7 +394,11 @@ export async function getPaymentVerificationDetail(
         proofFileName: found.proofFileName,
       },
     }),
-    applicant: app.applicant,
+    applicant: {
+      id: app.applicant.userId,
+      name: app.applicant.name,
+      email: app.applicant.email,
+    },
     business: {
       businessName: resolveBusinessName(app.formData, app.businessRecord?.businessName ?? null),
       businessType: resolveString(app.formData, "businessType"),
@@ -391,8 +411,8 @@ export async function getPaymentVerificationDetail(
       paymentFrequency: app.feeAssessment?.paymentFrequency ?? null,
       annualAssessedAmount: toMoneyNumber(app.feeAssessment?.annualAssessedAmount),
       releasePaymentAmount: toMoneyNumber(app.feeAssessment?.releasePaymentAmount),
-      amountPaid: toMoneyNumber(app.feeAssessment?.amountPaid),
-      remainingBalance: toMoneyNumber(app.feeAssessment?.remainingBalance),
+      amountPaid: paymentAmt,
+      remainingBalance: 0,
       paymentStatus: app.feeAssessment?.paymentStatus ?? "UNPAID",
       mayorsPermitFee: toMoneyNumber(app.feeAssessment?.mayorsPermitFee),
       regulatoryFees: toMoneyNumber(app.feeAssessment?.regulatoryFees),
@@ -402,12 +422,12 @@ export async function getPaymentVerificationDetail(
       interest: toMoneyNumber(app.feeAssessment?.interest),
       closurePaymentDues: toMoneyNumber(app.feeAssessment?.closurePaymentDues),
       closureCertificateFee: toMoneyNumber(app.feeAssessment?.closureCertificateFee),
-      arrears: toMoneyNumber(app.feeAssessment?.arrears),
+      arrears: 0,
       otherCharges: toMoneyNumber(app.feeAssessment?.otherCharges),
       totalAmount: toMoneyNumber(app.feeAssessment?.totalAmount),
       remarks: app.feeAssessment?.remarks ?? null,
       lineItems: (app.feeAssessment?.lineItems ?? []).map((item: any) => ({
-        id: item.id,
+        id: item.feeAssessmentLineItemId ?? item.id,
         description: item.description,
         amount: toMoneyNumber(item.amount),
         isSystemGenerated: item.isSystemGenerated,
@@ -444,26 +464,13 @@ export async function approvePaymentReference(
   }
 
   const requiredForRelease = Math.round(toMoneyNumber(assessment.totalAmount) * 100) / 100;
-  const submittedAmount = Math.round(toMoneyNumber(found.amountPaid) * 100) / 100;
-  // Use rounded comparison to avoid floating-point precision issues with Decimal
-  if (submittedAmount < requiredForRelease) {
-    throw new Error(
-      `Amount paid is below required TOP total amount (₱${requiredForRelease.toLocaleString("en-PH", {
-        minimumFractionDigits: 2,
-      })}).`
-    );
-  }
-
-  const paidSoFar = submittedAmount;
-  const remainingBalance = 0;
   const paymentStatus = "PAID";
-
   const now = new Date();
 
   await prisma.$transaction(async (tx: any) => {
     assertStatusTransition(app.status, "PAID");
     await tx.paymentReference.update({
-      where: { id: found.id },
+      where: { paymentReferenceId: found.paymentReferenceId },
       data: {
         status: "VERIFIED",
         reviewerRemarks: remarks?.trim() ? remarks.trim() : null,
@@ -473,16 +480,14 @@ export async function approvePaymentReference(
     });
 
     await tx.feeAssessment.update({
-      where: { applicationId: app.id },
+      where: { applicationId: app.businessApplicationId },
       data: {
-        amountPaid: paidSoFar,
-        remainingBalance,
         paymentStatus,
       },
     });
 
     await tx.businessApplication.update({
-      where: { id: app.id },
+      where: { businessApplicationId: app.businessApplicationId },
       data: {
         status: "PAID",
       },
@@ -490,13 +495,13 @@ export async function approvePaymentReference(
 
     await tx.applicationHistory.create({
       data: {
-        applicationId: app.id,
+        applicationId: app.businessApplicationId,
         actorId: bploUserId,
         actorRole: "BPLO",
         fromStatus: "APPROVED_FOR_PAYMENT",
         toStatus: "PAID",
         remarks:
-          `BPLO verified OR number ${found.transactionNumber} for ₱${submittedAmount.toLocaleString("en-PH", {
+          `BPLO verified OR number ${found.transactionNumber} for ₱${requiredForRelease.toLocaleString("en-PH", {
             minimumFractionDigits: 2,
           })}.` + (remarks?.trim() ? ` Remarks: ${remarks.trim()}` : ""),
       },
@@ -504,15 +509,15 @@ export async function approvePaymentReference(
   });
 
   return {
-    paymentReferenceId: found.id,
-    applicationId: app.id,
+    paymentReferenceId: found.paymentReferenceId,
+    applicationId: app.businessApplicationId,
     applicationNumber: app.applicationNumber,
     previousStatus: "APPROVED_FOR_PAYMENT" as const,
     newStatus: "PAID" as const,
     totalAmountDue: toMoneyNumber(assessment.totalAmount),
     releasePaymentAmount: requiredForRelease,
-    amountPaid: submittedAmount,
-    remainingBalance,
+    amountPaid: requiredForRelease,
+    remainingBalance: 0,
   };
 }
 
@@ -550,7 +555,7 @@ export async function returnPaymentReferenceForCorrection(
 
   await prisma.$transaction(async (tx: any) => {
     await tx.paymentReference.update({
-      where: { id: found.id },
+      where: { paymentReferenceId: found.paymentReferenceId },
       data: {
         status: "REJECTED",
         reviewerRemarks: reason,
@@ -561,7 +566,7 @@ export async function returnPaymentReferenceForCorrection(
 
     await tx.applicationHistory.create({
       data: {
-        applicationId: app.id,
+        applicationId: app.businessApplicationId,
         actorId: bploUserId,
         actorRole: "BPLO",
         fromStatus: "APPROVED_FOR_PAYMENT",
@@ -572,8 +577,8 @@ export async function returnPaymentReferenceForCorrection(
   });
 
   return {
-    paymentReferenceId: found.id,
-    applicationId: app.id,
+    paymentReferenceId: found.paymentReferenceId,
+    applicationId: app.businessApplicationId,
     applicationNumber: app.applicationNumber,
     status: "APPROVED_FOR_PAYMENT" as const,
     rejectionRemarks: reason,

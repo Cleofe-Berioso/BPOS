@@ -95,9 +95,6 @@ export async function POST(
     const inspection = await createJitInspection(businessRecordId, session.user.id, {
       comment,
       checklist,
-      referToBplo,
-      referralReason,
-      referralRemarks,
       evidence: storedEvidence
         ? {
             fileName: storedEvidence.fileName,
@@ -109,15 +106,13 @@ export async function POST(
         : undefined,
     });
 
-    const submittedDescription = referToBplo
-      ? "JIT submitted inspection with BPLO referral (pending compliance review)"
-      : "JIT submitted inspection (pending BPLO compliance review)";
+    const submittedDescription = "JIT submitted inspection (pending Department Head verification)";
 
     void logInspectionAction(
       session.user.id,
       session.user.name ?? session.user.email ?? null,
       "JIT",
-      inspection.id,
+      inspection.inspectionId,
       businessRecordId,
       inspection.applicationId,
       "SUBMITTED",
@@ -125,7 +120,7 @@ export async function POST(
       inspection.status,
       undefined,
       submittedDescription,
-      { comment, hasEvidence: !!storedEvidence, checklistItemCount: checklist.length, referToBplo, referralReason }
+      { comment, hasEvidence: !!storedEvidence, checklistItemCount: checklist.length }
     );
 
     if (storedEvidence) {
@@ -133,7 +128,7 @@ export async function POST(
         session.user.id,
         session.user.name ?? session.user.email ?? null,
         "JIT",
-        inspection.id,
+        inspection.inspectionId,
         businessRecordId,
         inspection.applicationId,
         "REVIEWED",

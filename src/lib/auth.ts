@@ -114,7 +114,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       const existingUser = await prisma.user.findUnique({
         where: { email: normalizedEmail },
-        select: { id: true, email: true, name: true, role: true, isActive: true },
+        select: { userId: true, email: true, name: true, role: true, isActive: true },
       });
 
       if (existingUser && !existingUser.isActive) {
@@ -136,11 +136,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             // OAuth users do not use credentials password flow; keep a random hash to satisfy schema.
             passwordHash: await bcrypt.hash(randomUUID(), 12),
           },
-          select: { id: true, email: true, name: true, role: true },
+          select: { userId: true, email: true, name: true, role: true },
         }));
 
       const oauthUser = user as typeof user & AuthUser;
-      oauthUser.id = resolvedUser.id;
+      oauthUser.id = resolvedUser.userId;
       oauthUser.email = resolvedUser.email;
       oauthUser.name = resolvedUser.name;
       oauthUser.role = resolvedUser.role as Role;
@@ -191,11 +191,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if ((!token.id || !token.role) && typeof token.email === "string") {
           const dbUser = await prisma.user.findUnique({
             where: { email: token.email.toLowerCase() },
-            select: { id: true, role: true, isActive: true },
+            select: { userId: true, role: true, isActive: true },
           });
 
           if (dbUser) {
-            token.id = dbUser.id;
+            token.id = dbUser.userId;
             token.role = dbUser.role as Role;
             token.isActive = dbUser.isActive;
           }
@@ -203,14 +203,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         if (typeof token.id === "string" && token.id.length > 0) {
           const dbUser = await prisma.user.findUnique({
-            where: { id: token.id },
-            select: { id: true, role: true, isActive: true },
+            where: { userId: token.id },
+            select: { userId: true, role: true, isActive: true },
           });
 
           if (!dbUser || !dbUser.isActive) {
             token.isActive = false;
           } else {
-            token.id = dbUser.id;
+            token.id = dbUser.userId;
             token.role = dbUser.role as Role;
             token.isActive = true;
           }

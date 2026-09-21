@@ -303,9 +303,6 @@ export const DEFAULT_SYSTEM_FEE_SETTINGS = {
   liquorTobaccoAddOnPercent: 25,
   powerDistributionFixedFee: 10000,
   privatePortFixedFee: 50000,
-  renewalComplianceMinorPenalty: 0,
-  renewalComplianceMajorPenalty: 0,
-  renewalComplianceSeverePenalty: 0,
 } as const;
 
 export type FeeConfigurationItemDto = {
@@ -325,9 +322,6 @@ export type SystemFeeSettingDto = {
   powerDistributionFixedFee: number;
   privatePortFixedFee: number;
   jitPortalEnabled: boolean;
-  renewalComplianceMinorPenalty: number;
-  renewalComplianceMajorPenalty: number;
-  renewalComplianceSeverePenalty: number;
   updatedAt: string;
 };
 
@@ -350,18 +344,11 @@ export function formatRenewalExtensionPeriod(
   return `${start.toLocaleDateString("en-PH")} - ${end.toLocaleDateString("en-PH")}`;
 }
 
-function buildRenewalExtensionTitle(startDate: Date, endDate: Date): string {
-  return `Renewal Extension (${formatRenewalExtensionPeriod(startDate, endDate)})`;
-}
-
 export type RuntimeFeeSettings = {
   penalties: {
     renewalSurchargePercent: number;
     monthlyInterestPercent: number;
     liquorTobaccoAddOnPercent: number;
-    renewalComplianceMinorPenalty: number;
-    renewalComplianceMajorPenalty: number;
-    renewalComplianceSeverePenalty: number;
   };
   fixed: {
     powerCompanyFixedFee: number;
@@ -441,31 +428,15 @@ export function slugifyFeeCategoryKey(label: string): string {
 }
 
 export async function listCustomFeeCategories(): Promise<FeeCategoryOption[]> {
-  const rows = await prisma.feeConfigurationCategory.findMany({
-    where: { isActive: true },
-    orderBy: { label: "asc" },
-  });
-
-  return rows.map((row) => ({
-    key: row.key,
-    label: row.label,
-    classifications: parseClassificationsJson(row.classifications),
-    isCustom: true,
-  }));
+  return [];
 }
 
 export async function getAllFeeCategoryOptions(): Promise<FeeCategoryOption[]> {
-  const custom = await listCustomFeeCategories();
-  return [...FEE_CATEGORY_OPTIONS, ...custom];
+  return [...FEE_CATEGORY_OPTIONS];
 }
 
 async function getConfigurableCategoryKeySet(): Promise<Set<string>> {
-  const custom = await prisma.feeConfigurationCategory.findMany({
-    where: { isActive: true },
-    select: { key: true },
-  });
-
-  return new Set([...CONFIGURABLE_FEE_CATEGORY_KEYS, ...custom.map((row) => row.key)]);
+  return new Set(CONFIGURABLE_FEE_CATEGORY_KEYS);
 }
 
 async function isConfigurableFeeCategoryKey(category: string): Promise<boolean> {
@@ -483,52 +454,13 @@ export function isValidClassificationForOptions(
   return option.classifications.includes(classification.trim());
 }
 
-export async function createFeeConfigurationCategory(input: {
+export async function createFeeConfigurationCategory(_input: {
   label: string;
   key?: string;
   classifications: string[];
   updatedById: string;
 }): Promise<FeeCategoryOption> {
-  const label = input.label.trim();
-  if (!label) {
-    throw new Error("Category label is required.");
-  }
-
-  const classifications = input.classifications.map((item) => item.trim()).filter(Boolean);
-  if (classifications.length === 0) {
-    throw new Error("At least one size classification is required.");
-  }
-
-  let key = (input.key?.trim() || slugifyFeeCategoryKey(label)).toUpperCase();
-  if (!/^CUSTOM_[A-Z0-9_]+$/.test(key)) {
-    key = slugifyFeeCategoryKey(label);
-  }
-
-  if (FEE_CATEGORY_OPTIONS.some((item) => item.key === key)) {
-    throw new Error("This category key conflicts with a built-in category.");
-  }
-
-  const existing = await prisma.feeConfigurationCategory.findUnique({ where: { key } });
-  if (existing) {
-    throw new Error("A custom category with this key already exists.");
-  }
-
-  const row = await prisma.feeConfigurationCategory.create({
-    data: {
-      key,
-      label,
-      classifications,
-      isActive: true,
-      updatedById: input.updatedById,
-    },
-  });
-
-  return {
-    key: row.key,
-    label: row.label,
-    classifications: parseClassificationsJson(row.classifications),
-    isCustom: true,
-  };
+  throw new Error("Custom business categories are no longer supported.");
 }
 
 export async function listFeeConfigurationItems(): Promise<FeeConfigurationItemDto[]> {
@@ -542,7 +474,7 @@ export async function listFeeConfigurationItems(): Promise<FeeConfigurationItemD
   return items
     .filter((item) => configurableKeys.has(item.category))
     .map((item) => ({
-      id: item.id,
+      id: item.feeConfigurationItemId,
       category: item.category as FeeCategoryKey,
       classification: item.classification,
       amount: toMoneyNumber(item.amount),
@@ -595,7 +527,7 @@ export async function upsertFeeConfigurationItem(input: {
   });
 
   return {
-    id: row.id,
+    id: row.feeConfigurationItemId,
     category: row.category as FeeCategoryKey,
     classification: row.classification,
     amount: toMoneyNumber(row.amount),
@@ -611,7 +543,7 @@ export async function updateFeeConfigurationItemById(input: {
   updatedById: string;
 }): Promise<FeeConfigurationItemDto> {
   const row = await prisma.feeConfigurationItem.update({
-    where: { id: input.id },
+    where: { feeConfigurationItemId: input.id },
     data: {
       ...(typeof input.amount === "number" ? { amount: clampNonNegative(input.amount) } : {}),
       ...(typeof input.isActive === "boolean" ? { isActive: input.isActive } : {}),
@@ -620,7 +552,7 @@ export async function updateFeeConfigurationItemById(input: {
   });
 
   return {
-    id: row.id,
+    id: row.feeConfigurationItemId,
     category: row.category as FeeCategoryKey,
     classification: row.classification,
     amount: toMoneyNumber(row.amount),
@@ -630,14 +562,18 @@ export async function updateFeeConfigurationItemById(input: {
 }
 
 export async function deleteFeeConfigurationItem(id: string): Promise<FeeConfigurationItemDto> {
-  const existing = await prisma.feeConfigurationItem.findUnique({ where: { id } });
+  const existing = await prisma.feeConfigurationItem.findUnique({
+    where: { feeConfigurationItemId: id },
+  });
   if (!existing) {
     throw new Error("Fee configuration item not found.");
   }
 
-  const row = await prisma.feeConfigurationItem.delete({ where: { id } });
+  const row = await prisma.feeConfigurationItem.delete({
+    where: { feeConfigurationItemId: id },
+  });
   return {
-    id: row.id,
+    id: row.feeConfigurationItemId,
     category: row.category as FeeCategoryKey,
     classification: row.classification,
     amount: toMoneyNumber(row.amount),
@@ -647,42 +583,12 @@ export async function deleteFeeConfigurationItem(id: string): Promise<FeeConfigu
 }
 
 /** Permanently delete a custom fee category and all of its fee table entries. */
-export async function deleteFeeConfigurationCategory(key: string): Promise<{
+export async function deleteFeeConfigurationCategory(_key: string): Promise<{
   key: string;
   label: string;
   deletedFeeItems: number;
 }> {
-  const normalizedKey = key.trim().toUpperCase();
-  if (!normalizedKey) {
-    throw new Error("Category key is required.");
-  }
-
-  if (FEE_CATEGORY_OPTIONS.some((item) => item.key === normalizedKey)) {
-    throw new Error("Built-in business categories cannot be deleted.");
-  }
-
-  const existing = await prisma.feeConfigurationCategory.findUnique({
-    where: { key: normalizedKey },
-  });
-  if (!existing) {
-    throw new Error("Custom business category not found.");
-  }
-
-  const deleted = await prisma.$transaction(async (tx) => {
-    const feeItems = await tx.feeConfigurationItem.deleteMany({
-      where: { category: normalizedKey },
-    });
-    await tx.feeConfigurationCategory.delete({
-      where: { key: normalizedKey },
-    });
-    return feeItems.count;
-  });
-
-  return {
-    key: existing.key,
-    label: existing.label,
-    deletedFeeItems: deleted,
-  };
+  throw new Error("Custom business categories are no longer supported.");
 }
 
 export async function getOrCreateSystemFeeSetting(): Promise<SystemFeeSettingDto> {
@@ -699,16 +605,13 @@ export async function getOrCreateSystemFeeSetting(): Promise<SystemFeeSettingDto
     }));
 
   return {
-    id: row.id,
+    id: row.systemFeeSettingId,
     renewalSurchargePercent: row.renewalSurchargePercent,
     monthlyInterestPercent: row.monthlyInterestPercent,
     liquorTobaccoAddOnPercent: row.liquorTobaccoAddOnPercent,
     powerDistributionFixedFee: toMoneyNumber(row.powerDistributionFixedFee),
     privatePortFixedFee: toMoneyNumber(row.privatePortFixedFee),
     jitPortalEnabled: row.jitPortalEnabled,
-    renewalComplianceMinorPenalty: toMoneyNumber(row.renewalComplianceMinorPenalty),
-    renewalComplianceMajorPenalty: toMoneyNumber(row.renewalComplianceMajorPenalty),
-    renewalComplianceSeverePenalty: toMoneyNumber(row.renewalComplianceSeverePenalty),
     updatedAt: row.updatedAt.toISOString(),
   };
 }
@@ -719,14 +622,11 @@ export async function updateSystemFeeSetting(input: {
   liquorTobaccoAddOnPercent: number;
   powerDistributionFixedFee?: number;
   privatePortFixedFee?: number;
-  renewalComplianceMinorPenalty?: number;
-  renewalComplianceMajorPenalty?: number;
-  renewalComplianceSeverePenalty?: number;
   updatedById: string;
 }): Promise<SystemFeeSettingDto> {
   const current = await getOrCreateSystemFeeSetting();
   const row = await prisma.systemFeeSetting.update({
-    where: { id: current.id },
+    where: { systemFeeSettingId: current.id },
     data: {
       renewalSurchargePercent: clampNonNegative(input.renewalSurchargePercent),
       monthlyInterestPercent: clampNonNegative(input.monthlyInterestPercent),
@@ -739,33 +639,18 @@ export async function updateSystemFeeSetting(input: {
         typeof input.privatePortFixedFee === "number"
           ? clampNonNegative(input.privatePortFixedFee)
           : undefined,
-      renewalComplianceMinorPenalty:
-        typeof input.renewalComplianceMinorPenalty === "number"
-          ? clampNonNegative(input.renewalComplianceMinorPenalty)
-          : undefined,
-      renewalComplianceMajorPenalty:
-        typeof input.renewalComplianceMajorPenalty === "number"
-          ? clampNonNegative(input.renewalComplianceMajorPenalty)
-          : undefined,
-      renewalComplianceSeverePenalty:
-        typeof input.renewalComplianceSeverePenalty === "number"
-          ? clampNonNegative(input.renewalComplianceSeverePenalty)
-          : undefined,
       updatedById: input.updatedById,
     },
   });
 
   return {
-    id: row.id,
+    id: row.systemFeeSettingId,
     renewalSurchargePercent: row.renewalSurchargePercent,
     monthlyInterestPercent: row.monthlyInterestPercent,
     liquorTobaccoAddOnPercent: row.liquorTobaccoAddOnPercent,
     powerDistributionFixedFee: toMoneyNumber(row.powerDistributionFixedFee),
     privatePortFixedFee: toMoneyNumber(row.privatePortFixedFee),
     jitPortalEnabled: row.jitPortalEnabled,
-    renewalComplianceMinorPenalty: toMoneyNumber(row.renewalComplianceMinorPenalty),
-    renewalComplianceMajorPenalty: toMoneyNumber(row.renewalComplianceMajorPenalty),
-    renewalComplianceSeverePenalty: toMoneyNumber(row.renewalComplianceSeverePenalty),
     updatedAt: row.updatedAt.toISOString(),
   };
 }
@@ -776,7 +661,7 @@ export async function listRenewalExtensions(): Promise<RenewalExtensionDto[]> {
   });
 
   return rows.map((row) => ({
-    id: row.id,
+    id: row.renewalExtensionId,
     startDate: row.startDate.toISOString(),
     endDate: row.endDate.toISOString(),
     isActive: row.isActive,
@@ -790,11 +675,11 @@ async function ensureNoActiveOverlap(startDate: Date, endDate: Date, ignoreId?: 
   const overlap = await prisma.renewalExtension.findFirst({
     where: {
       isActive: true,
-      ...(ignoreId ? { id: { not: ignoreId } } : {}),
+      ...(ignoreId ? { renewalExtensionId: { not: ignoreId } } : {}),
       startDate: { lte: endDate },
       endDate: { gte: startDate },
     },
-    select: { id: true, startDate: true, endDate: true },
+    select: { renewalExtensionId: true, startDate: true, endDate: true },
   });
 
   if (overlap) {
@@ -822,7 +707,6 @@ export async function createRenewalExtension(input: {
 
   const row = await prisma.renewalExtension.create({
     data: {
-      title: buildRenewalExtensionTitle(input.startDate, input.endDate),
       startDate: input.startDate,
       endDate: input.endDate,
       isActive: input.isActive,
@@ -834,7 +718,7 @@ export async function createRenewalExtension(input: {
   });
 
   return {
-    id: row.id,
+    id: row.renewalExtensionId,
     startDate: row.startDate.toISOString(),
     endDate: row.endDate.toISOString(),
     isActive: row.isActive,
@@ -850,7 +734,7 @@ export async function toggleRenewalExtension(input: {
   updatedById: string;
 }): Promise<RenewalExtensionDto> {
   const current = await prisma.renewalExtension.findUnique({
-    where: { id: input.extensionId },
+    where: { renewalExtensionId: input.extensionId },
   });
 
   if (!current) {
@@ -858,11 +742,11 @@ export async function toggleRenewalExtension(input: {
   }
 
   if (input.isActive) {
-    await ensureNoActiveOverlap(current.startDate, current.endDate, current.id);
+    await ensureNoActiveOverlap(current.startDate, current.endDate, current.renewalExtensionId);
   }
 
   const row = await prisma.renewalExtension.update({
-    where: { id: input.extensionId },
+    where: { renewalExtensionId: input.extensionId },
     data: {
       isActive: input.isActive,
       updatedById: input.updatedById,
@@ -870,7 +754,7 @@ export async function toggleRenewalExtension(input: {
   });
 
   return {
-    id: row.id,
+    id: row.renewalExtensionId,
     startDate: row.startDate.toISOString(),
     endDate: row.endDate.toISOString(),
     isActive: row.isActive,
@@ -896,7 +780,7 @@ export async function getRuntimeFeeSettings(now = new Date()): Promise<RuntimeFe
       },
       orderBy: { startDate: "desc" },
       select: {
-        id: true,
+        renewalExtensionId: true,
         waiveSurcharge: true,
         waiveInterest: true,
         startDate: true,
@@ -940,9 +824,6 @@ export async function getRuntimeFeeSettings(now = new Date()): Promise<RuntimeFe
       renewalSurchargePercent: penalties.renewalSurchargePercent,
       monthlyInterestPercent: penalties.monthlyInterestPercent,
       liquorTobaccoAddOnPercent: penalties.liquorTobaccoAddOnPercent,
-      renewalComplianceMinorPenalty: penalties.renewalComplianceMinorPenalty,
-      renewalComplianceMajorPenalty: penalties.renewalComplianceMajorPenalty,
-      renewalComplianceSeverePenalty: penalties.renewalComplianceSeverePenalty,
     },
     fixed: {
       powerCompanyFixedFee: resolveFixedFeeAmount({
@@ -969,7 +850,7 @@ export async function getRuntimeFeeSettings(now = new Date()): Promise<RuntimeFe
     categoryByLabel,
     activeExtension: activeExtension
       ? {
-          id: activeExtension.id,
+          id: activeExtension.renewalExtensionId,
           waiveSurcharge: activeExtension.waiveSurcharge,
           waiveInterest: activeExtension.waiveInterest,
           startDate: activeExtension.startDate.toISOString(),

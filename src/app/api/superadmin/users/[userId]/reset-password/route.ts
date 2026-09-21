@@ -39,8 +39,8 @@ export async function POST(
   }
 
   const target = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true, role: true },
+    where: { userId },
+    select: { userId: true, role: true },
   });
 
   if (!target) {
@@ -59,7 +59,7 @@ export async function POST(
 
   const passwordHash = await bcrypt.hash(temporaryPassword, 12);
   await prisma.user.update({
-    where: { id: userId },
+    where: { userId },
     data: { passwordHash },
   });
 
@@ -71,10 +71,10 @@ export async function POST(
     action: "PASSWORD_RESET",
     module: "USER_MANAGEMENT",
     entityType: "USER",
-    entityId: target.id,
+    entityId: target.userId,
     description: `IT Administrator reset password for ${target.role} account`,
     metadata: {
-      targetUserId: target.id,
+      targetUserId: target.userId,
       targetRole: target.role,
       // The actual password is intentionally NOT logged.
     },

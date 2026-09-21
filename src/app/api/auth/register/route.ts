@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
 
   // Mark the OTP as used so it cannot be replayed
   await prisma.passwordResetOtp.update({
-    where: { id: verifiedOtp.id },
+    where: { passwordResetOtpId: verifiedOtp.passwordResetOtpId },
     data: { usedAt: new Date() },
   });
 
@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
       isActive: true,
     },
     select: {
-      id: true,
+      userId: true,
       email: true,
       name: true,
       // role and createdAt intentionally omitted: not needed client-side
@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json(
-    { success: true, user },
+    { success: true, user: { id: user.userId, email: user.email, name: user.name } },
     { status: 201 }
   );
 }

@@ -32,7 +32,7 @@ export async function GET(
     });
 
     return NextResponse.json({
-      inspectionId: inspection.id,
+      inspectionId: inspection.inspectionId,
       businessRecordId: inspection.businessRecordId,
       applicationId: inspection.applicationId,
       items,

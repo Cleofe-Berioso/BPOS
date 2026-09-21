@@ -134,7 +134,7 @@ export async function verifyPasswordResetOtp(
     if (otpRecord.attempts >= maxAttempts) {
       // Mark as used to prevent further attempts
       await prisma.passwordResetOtp.update({
-        where: { id: otpRecord.id },
+        where: { passwordResetOtpId: otpRecord.passwordResetOtpId },
         data: { usedAt: new Date() },
       });
       return { valid: false, error: "Too many failed attempts. Please request a new OTP." };
@@ -146,7 +146,7 @@ export async function verifyPasswordResetOtp(
     if (!otpMatch) {
       // Increment attempt counter
       await prisma.passwordResetOtp.update({
-        where: { id: otpRecord.id },
+        where: { passwordResetOtpId: otpRecord.passwordResetOtpId },
         data: { attempts: otpRecord.attempts + 1 },
       });
       return { valid: false, error: "Invalid OTP" };
@@ -154,7 +154,7 @@ export async function verifyPasswordResetOtp(
 
     // Mark OTP as verified
     await prisma.passwordResetOtp.update({
-      where: { id: otpRecord.id },
+      where: { passwordResetOtpId: otpRecord.passwordResetOtpId },
       data: { verifiedAt: new Date() },
     });
 
@@ -229,13 +229,13 @@ export async function resetUserPassword(
 
     // Update user password
     await prisma.user.update({
-      where: { id: user.id },
+      where: { userId: user.userId },
       data: { passwordHash: newPasswordHash },
     });
 
     // Mark OTP as used
     await prisma.passwordResetOtp.update({
-      where: { id: otpRecord.id },
+      where: { passwordResetOtpId: otpRecord.passwordResetOtpId },
       data: { usedAt: new Date() },
     });
 

@@ -42,8 +42,8 @@ export async function POST(req: Request) {
   }
 
   const user = await prisma.user.findUnique({
-    where: { id: authContext.applicantId },
-    select: { id: true, email: true, passwordHash: true, isActive: true },
+    where: { userId: authContext.applicantId },
+    select: { userId: true, email: true, passwordHash: true, isActive: true },
   });
 
   if (!user || !user.isActive) {
@@ -57,7 +57,7 @@ export async function POST(req: Request) {
 
   const passwordHash = await bcrypt.hash(newPassword, 12);
   await prisma.user.update({
-    where: { id: user.id },
+    where: { userId: user.userId },
     data: { passwordHash },
   });
 
@@ -65,13 +65,13 @@ export async function POST(req: Request) {
     authContext.applicantId,
     authContext.session.user.name ?? authContext.applicantEmail,
     "APPLICANT",
-    user.id,
+    user.userId,
     user.email,
     "PASSWORD_CHANGED",
     null,
     null,
     "Applicant changed account password",
-    { targetUserId: user.id }
+    { targetUserId: user.userId }
   );
 
   return NextResponse.json({ success: true, message: "Password updated successfully." });

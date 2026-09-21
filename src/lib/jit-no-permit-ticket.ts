@@ -106,7 +106,7 @@ export async function findDuplicateOpenTicket(
       ticketStatus: JitNoPermitTicketStatus.OPEN,
     },
     select: {
-      id: true,
+      jitNoPermitRecordId: true,
       ticketNumber: true,
       businessName: true,
       latitude: true,
@@ -124,7 +124,7 @@ export async function findDuplicateOpenTicket(
       )
   );
 
-  return duplicate ? { id: duplicate.id, ticketNumber: duplicate.ticketNumber } : null;
+  return duplicate ? { id: duplicate.jitNoPermitRecordId, ticketNumber: duplicate.ticketNumber } : null;
 }
 
 export async function generateNoPermitTicketNumber(
@@ -154,7 +154,7 @@ export async function generateNoPermitTicketNumber(
     const candidate = `${prefix}${String(nextSeq).padStart(6, "0")}`;
     const dup = await db.jitNoPermitRecord.findFirst({
       where: { ticketNumber: candidate },
-      select: { id: true },
+      select: { jitNoPermitRecordId: true },
     });
     if (!dup) return candidate;
     nextSeq += 1;
@@ -219,7 +219,7 @@ export function buildNoPermitNoticePrintData(record: {
 export async function getJitNoPermitNoticePrintAccess(recordId: string, createdById: string) {
   const record = await prisma.jitNoPermitRecord.findFirst({
     where: {
-      id: recordId,
+      jitNoPermitRecordId: recordId,
       createdById,
     },
     select: {
@@ -289,7 +289,7 @@ export async function createJitNoPermitTicket(input: CreateJitNoPermitTicketInpu
         createdById: input.createdById,
       },
       select: {
-        id: true,
+        jitNoPermitRecordId: true,
         ticketNumber: true,
         ticketStatus: true,
         businessName: true,

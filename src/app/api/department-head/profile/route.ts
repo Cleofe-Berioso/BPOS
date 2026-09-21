@@ -28,9 +28,9 @@ export async function GET() {
   }
 
   const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
+    where: { userId: session.user.id },
     select: {
-      id: true,
+      userId: true,
       email: true,
       role: true,
       name: true,
@@ -55,7 +55,7 @@ export async function GET() {
   return NextResponse.json(
     {
       profile: {
-        id: user.id,
+        id: user.userId,
         email: user.email,
         role: user.role,
         name: user.name,
@@ -121,7 +121,7 @@ export async function PATCH(req: Request) {
 
   try {
     const updated = await prisma.user.update({
-      where: { id: session.user.id },
+      where: { userId: session.user.id },
       data: {
         name: computedName,
         firstName,
@@ -130,7 +130,7 @@ export async function PATCH(req: Request) {
         suffix: suffix || null,
       },
       select: {
-        id: true,
+        userId: true,
         email: true,
         role: true,
         name: true,
@@ -147,7 +147,7 @@ export async function PATCH(req: Request) {
 
     return NextResponse.json({
       profile: {
-        id: updated.id,
+        id: updated.userId,
         email: updated.email,
         role: updated.role,
         name: updated.name,

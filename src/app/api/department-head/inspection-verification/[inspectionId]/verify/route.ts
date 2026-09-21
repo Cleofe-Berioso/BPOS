@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { safeApiErrorMessage } from "@/lib/api-errors";
 import { applyDepartmentHeadInspectionVerification, requireDepartmentHeadSession } from "@/lib/department-head-api";
 import { logInspectionAction } from "@/lib/audit-log";
-import { notifyApplicantRevocationEvent } from "@/lib/revocation-notifications";
 
 export async function POST(
   req: Request,
@@ -58,14 +57,6 @@ export async function POST(
         complianceCaseStatus: result.complianceCaseStatus,
       }
     );
-
-    if (!isCompliant) {
-      void notifyApplicantRevocationEvent({
-        inspectionId: result.inspectionId,
-        eventType: "REVOCATION_REVIEW_ENTERED",
-        departmentHeadRemarks: payload.remarks,
-      });
-    }
 
     return NextResponse.json({ result });
   } catch (error) {

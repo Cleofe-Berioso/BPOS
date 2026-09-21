@@ -11,8 +11,8 @@ export async function requireSuperAdminSession() {
   // Re-verify against DB so disabled or role-changed accounts lose access
   // immediately — not after JWT expiry. Mirrors requireJitSession behaviour.
   const dbUser = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { id: true, role: true, isActive: true },
+    where: { userId: session.user.id },
+    select: { userId: true, role: true, isActive: true },
   });
 
   if (!dbUser || dbUser.role !== "SUPER_ADMIN" || !dbUser.isActive) {

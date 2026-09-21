@@ -33,7 +33,7 @@ export async function sendNoPermitOptionalNotification(
 
   if (!input.contactEmail) {
     await prisma.jitNoPermitRecord.update({
-      where: { id: input.recordId },
+      where: { jitNoPermitRecordId: input.recordId },
       data: {
         notificationStatus: "SKIPPED",
         notificationChannel: "NONE",
@@ -48,7 +48,7 @@ export async function sendNoPermitOptionalNotification(
 
   if (!isEmailConfigured()) {
     await prisma.jitNoPermitRecord.update({
-      where: { id: input.recordId },
+      where: { jitNoPermitRecordId: input.recordId },
       data: {
         notificationStatus: "SKIPPED",
         notificationChannel: "EMAIL",
@@ -73,7 +73,7 @@ export async function sendNoPermitOptionalNotification(
       html: `<pre style="font-family: sans-serif; white-space: pre-wrap;">${plainText.replace(/</g, "&lt;")}</pre>`,
     });
     await prisma.jitNoPermitRecord.update({
-      where: { id: input.recordId },
+      where: { jitNoPermitRecordId: input.recordId },
       data: {
         notificationStatus: "SENT",
         notificationChannel: "EMAIL",
@@ -84,7 +84,7 @@ export async function sendNoPermitOptionalNotification(
   } catch (error) {
     const detail = error instanceof Error ? error.message : "Unknown email error";
     await prisma.jitNoPermitRecord.update({
-      where: { id: input.recordId },
+      where: { jitNoPermitRecordId: input.recordId },
       data: {
         notificationStatus: "FAILED",
         notificationChannel: "EMAIL",

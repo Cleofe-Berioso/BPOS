@@ -28,7 +28,7 @@ export async function listJitNoPermitRecordsPaginated(
     prisma.jitNoPermitRecord.findMany({
       where,
       select: {
-        id: true,
+        jitNoPermitRecordId: true,
         ticketNumber: true,
         ticketStatus: true,
         businessName: true,
@@ -53,7 +53,7 @@ export async function listJitNoPermitRecordsPaginated(
 
   return buildPaginatedResult(
     records.map((record) => ({
-      id: record.id,
+      id: record.jitNoPermitRecordId,
       ticketNumber: record.ticketNumber,
       ticketStatus: record.ticketStatus,
       businessName: record.businessName,

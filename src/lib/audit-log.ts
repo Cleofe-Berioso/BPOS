@@ -430,6 +430,7 @@ export interface AuditLogQueryFilters {
 }
 
 export interface AuditLogListItem {
+  auditLogId: string;
   id: string;
   actorId: string | null;
   actorName: string | null;
@@ -555,7 +556,7 @@ export async function getAuditLogs(
         take,
         orderBy: { createdAt: "desc" },
         select: {
-          id: true,
+          auditLogId: true,
           actorId: true,
           actorName: true,
           actorRole: true,
@@ -574,7 +575,13 @@ export async function getAuditLogs(
       (prisma as any).auditLog.count({ where }),
     ]);
 
-    return { logs, total, skip, take };
+    const mappedLogs: AuditLogListItem[] = logs.map((row: any) => ({
+      ...row,
+      auditLogId: row.auditLogId,
+      id: row.auditLogId,
+    }));
+
+    return { logs: mappedLogs, total, skip, take };
   } catch (error) {
     console.error("[AuditLog] Failed to retrieve audit logs:", error instanceof Error ? error.message : String(error));
     return { logs: [], total: 0, skip, take, error: "Failed to retrieve audit logs" };

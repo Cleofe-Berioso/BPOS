@@ -22,9 +22,9 @@ export default async function BploAssessmentDetailPage({
     // Check if application exists but is no longer in an assessment-accessible status
     // (e.g., TOP has already been generated and no reassessment requested)
     const application = await prisma.businessApplication.findUnique({
-      where: { id: applicationId },
+      where: { businessApplicationId: applicationId },
       select: {
-        id: true,
+        businessApplicationId: true,
         applicationNumber: true,
         status: true,
         feeAssessment: { select: { status: true, reassessmentRequestedAt: true } },

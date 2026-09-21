@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     password,
   } = parsed.value;
 
-  const existing = await prisma.user.findUnique({ where: { email: normalizedEmail }, select: { id: true } });
+  const existing = await prisma.user.findUnique({ where: { email: normalizedEmail }, select: { userId: true } });
   if (existing) {
     return NextResponse.json({ error: "An account with this email already exists." }, { status: 409 });
   }
@@ -52,7 +52,7 @@ export async function POST(req: Request) {
       isActive: true,
     },
     select: {
-      id: true,
+      userId: true,
       name: true,
       email: true,
       role: true,
@@ -69,10 +69,10 @@ export async function POST(req: Request) {
     action: "STAFF_ACCOUNT_CREATED",
     module: "USER_MANAGEMENT",
     entityType: "USER",
-    entityId: user.id,
+    entityId: user.userId,
     description: "IT Administrator created new BPLO staff account",
     metadata: {
-      newUserId: user.id,
+      newUserId: user.userId,
       newUserEmail: user.email,
       newUserRole: "BPLO",
     },
@@ -82,6 +82,7 @@ export async function POST(req: Request) {
     {
       success: true,
       user: {
+        id: user.userId,
         ...user,
         status: mapUserActiveStatus(user.isActive),
       },

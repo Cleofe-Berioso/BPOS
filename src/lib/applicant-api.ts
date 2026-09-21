@@ -78,8 +78,8 @@ export async function resolveApplicantSessionContext(): Promise<ApplicantAuthCon
 
   const byId = sessionUserId
     ? await prisma.user.findUnique({
-        where: { id: sessionUserId },
-        select: { id: true, email: true, role: true, isActive: true },
+        where: { userId: sessionUserId },
+        select: { userId: true, email: true, role: true, isActive: true },
       })
     : null;
 
@@ -89,7 +89,7 @@ export async function resolveApplicantSessionContext(): Promise<ApplicantAuthCon
     usedEmailFallback && sessionUserEmail
       ? await prisma.user.findUnique({
           where: { email: sessionUserEmail },
-          select: { id: true, email: true, role: true, isActive: true },
+          select: { userId: true, email: true, role: true, isActive: true },
         })
       : null;
 
@@ -100,7 +100,7 @@ export async function resolveApplicantSessionContext(): Promise<ApplicantAuthCon
   logApplicantAuthResolution({
     sessionUserId,
     sessionUserEmail,
-    resolvedUserId: resolvedUser?.id ?? null,
+    resolvedUserId: resolvedUser?.userId ?? null,
     resolvedRole: resolvedUser?.role ?? null,
     usedEmailFallback,
     requiresRelogin,
@@ -116,14 +116,14 @@ export async function resolveApplicantSessionContext(): Promise<ApplicantAuthCon
 
   // Normalize the in-memory session to the current database user so all
   // downstream callers see the active DB id, not the potentially-stale JWT id.
-  session.user.id = resolvedUser.id;
+  session.user.id = resolvedUser.userId;
   session.user.email = resolvedUser.email;
   session.user.role = "APPLICANT";
 
   return {
     ok: true,
     session,
-    applicantId: resolvedUser.id,
+    applicantId: resolvedUser.userId,
     applicantEmail: resolvedUser.email,
     applicantRole: resolvedUser.role,
   };

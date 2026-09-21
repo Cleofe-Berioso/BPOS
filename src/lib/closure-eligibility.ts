@@ -149,7 +149,7 @@ type BusinessSnapshot = {
   location: { status: string | null } | null;
   applications: Array<{ status: string }>;
   inspections: Array<{
-    id: string;
+    inspectionId: string;
     nonComplianceType: string | null;
     complianceCaseStatus: string;
     forcedClosure: boolean;
@@ -177,7 +177,7 @@ function getEligibility(snapshot: BusinessSnapshot): ClosureEligibilityResult {
       isComplianceForcedClosure: true,
       reasonCode: "COMPLIANCE_FORCED_CLOSURE",
       userFriendlyReason: getComplianceForcedClosureReason(),
-      blockingInspectionId: blockingInspection.id,
+      blockingInspectionId: blockingInspection.inspectionId,
       complianceCaseStatus: blockingInspection.complianceCaseStatus,
       nonComplianceType: blockingInspection.nonComplianceType,
     };
@@ -242,7 +242,7 @@ export async function resolveClosureEligibilityForBusiness(
 ): Promise<ClosureEligibilityResult> {
   const row = await prisma.businessRecord.findFirst({
     where: {
-      id: businessRecordId,
+      businessRecordId,
       applicantId,
     },
     include: {
@@ -265,7 +265,7 @@ export async function resolveClosureEligibilityForBusiness(
       },
       inspections: {
         select: {
-          id: true,
+          inspectionId: true,
           nonComplianceType: true,
           complianceCaseStatus: true,
           forcedClosure: true,
@@ -329,7 +329,7 @@ export async function listClosureEligibleBusinesses(applicantId: string): Promis
       },
       inspections: {
         select: {
-          id: true,
+          inspectionId: true,
           nonComplianceType: true,
           complianceCaseStatus: true,
           forcedClosure: true,
@@ -354,7 +354,7 @@ export async function listClosureEligibleBusinesses(applicantId: string): Promis
     });
 
     return {
-      id: row.id,
+      id: row.businessRecordId,
       registrationNumber: row.registrationNumber,
       businessName: row.businessName,
       businessStatus: row.businessStatus as "ACTIVE" | "INACTIVE" | "CLOSED",

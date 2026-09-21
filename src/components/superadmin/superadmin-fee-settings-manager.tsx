@@ -55,9 +55,6 @@ type Penalties = {
   liquorTobaccoAddOnPercent: number;
   powerDistributionFixedFee: number;
   privatePortFixedFee: number;
-  renewalComplianceMinorPenalty: number;
-  renewalComplianceMajorPenalty: number;
-  renewalComplianceSeverePenalty: number;
   updatedAt: string;
 };
 
@@ -134,9 +131,6 @@ const EMPTY_PENALTIES: Penalties = {
   liquorTobaccoAddOnPercent: 25,
   powerDistributionFixedFee: 10000,
   privatePortFixedFee: 50000,
-  renewalComplianceMinorPenalty: 0,
-  renewalComplianceMajorPenalty: 0,
-  renewalComplianceSeverePenalty: 0,
   updatedAt: "",
 };
 
@@ -178,9 +172,6 @@ export function SuperAdminFeeSettingsManager() {
     renewalSurchargePercent: "25",
     monthlyInterestPercent: "2",
     liquorTobaccoAddOnPercent: "25",
-    renewalComplianceMinorPenalty: "0",
-    renewalComplianceMajorPenalty: "0",
-    renewalComplianceSeverePenalty: "0",
   });
 
   const [extensionForm, setExtensionForm] = useState({
@@ -249,9 +240,6 @@ export function SuperAdminFeeSettingsManager() {
         renewalSurchargePercent: String(nextPenalties.renewalSurchargePercent),
         monthlyInterestPercent: String(nextPenalties.monthlyInterestPercent),
         liquorTobaccoAddOnPercent: String(nextPenalties.liquorTobaccoAddOnPercent),
-        renewalComplianceMinorPenalty: String(nextPenalties.renewalComplianceMinorPenalty ?? 0),
-        renewalComplianceMajorPenalty: String(nextPenalties.renewalComplianceMajorPenalty ?? 0),
-        renewalComplianceSeverePenalty: String(nextPenalties.renewalComplianceSeverePenalty ?? 0),
       });
     } catch {
       setFlash({ type: "danger", message: "Failed to load system settings." });
@@ -517,17 +505,11 @@ export function SuperAdminFeeSettingsManager() {
     const renewalSurchargePercent = Number(penaltyForm.renewalSurchargePercent);
     const monthlyInterestPercent = Number(penaltyForm.monthlyInterestPercent);
     const liquorTobaccoAddOnPercent = Number(penaltyForm.liquorTobaccoAddOnPercent);
-    const renewalComplianceMinorPenalty = Number(penaltyForm.renewalComplianceMinorPenalty);
-    const renewalComplianceMajorPenalty = Number(penaltyForm.renewalComplianceMajorPenalty);
-    const renewalComplianceSeverePenalty = Number(penaltyForm.renewalComplianceSeverePenalty);
 
     const all = [
       renewalSurchargePercent,
       monthlyInterestPercent,
       liquorTobaccoAddOnPercent,
-      renewalComplianceMinorPenalty,
-      renewalComplianceMajorPenalty,
-      renewalComplianceSeverePenalty,
     ];
 
     if (all.some((value) => Number.isNaN(value) || value < 0)) {
@@ -543,9 +525,6 @@ export function SuperAdminFeeSettingsManager() {
           renewalSurchargePercent,
           monthlyInterestPercent,
           liquorTobaccoAddOnPercent,
-          renewalComplianceMinorPenalty,
-          renewalComplianceMajorPenalty,
-          renewalComplianceSeverePenalty,
         }),
       });
       const json = (await res.json()) as { error?: string };

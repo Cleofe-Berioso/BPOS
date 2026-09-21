@@ -167,6 +167,7 @@ export function getChecklistQuestionForDepartment(departmentKey: JitChecklistDep
 
 export interface ChecklistItemReadOnlyApiRow {
   id: string;
+  inspectionChecklistItemId: string;
   departmentKey: string;
   departmentLabel: string;
   question: string;
@@ -180,7 +181,8 @@ export interface ChecklistItemReadOnlyApiRow {
 
 export function formatChecklistItemsForReadOnlyApi(
   checklistItems: Array<{
-    id: string;
+    id?: string;
+    inspectionChecklistItemId?: string;
     departmentKey: string;
     question: string;
     response: string;
@@ -192,6 +194,7 @@ export function formatChecklistItemsForReadOnlyApi(
 ): ChecklistItemReadOnlyApiRow[] {
   return checklistItems.map((item) => {
     const template = JIT_POST_AUDIT_CHECKLIST_ITEMS.find((entry) => entry.departmentKey === item.departmentKey);
+    const itemId = item.inspectionChecklistItemId ?? item.id ?? "";
 
     const responseLabel = (() => {
       switch (item.response) {
@@ -206,7 +209,8 @@ export function formatChecklistItemsForReadOnlyApi(
     })();
 
     return {
-      id: item.id,
+      id: itemId,
+      inspectionChecklistItemId: itemId,
       departmentKey: item.departmentKey,
       departmentLabel: template?.departmentLabel ?? item.departmentKey,
       question: item.question,

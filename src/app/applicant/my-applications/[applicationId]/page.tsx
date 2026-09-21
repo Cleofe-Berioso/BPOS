@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { resolveApplicantSessionContext } from "@/lib/applicant-api";
 import { getApplicantApplicationDetail } from "@/lib/applications";
 import { mapDocumentValidationStatusToUi, validationStatusBadgeClass } from "@/lib/document-validation";
-import { extractRevocationApplicantMessage, isRevocationHistoryRemarks } from "@/lib/revocation-notification-copy";
 import { StatusBadge } from "@/components/applicant/status-badge";
 import { StatusTracker } from "@/components/applicant/status-tracker";
 import {
@@ -174,11 +173,9 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
     (item: any) => typeof item.remarks === "string" && item.remarks.trim().length > 0
   );
   const latestRevocationEntry = application.history.find(
-    (item: any) => isRevocationHistoryRemarks(item.remarks)
+    (item: any) => typeof item.remarks === "string" && /revoc/i.test(item.remarks)
   );
-  const latestRevocationNotice = latestRevocationEntry?.remarks
-    ? extractRevocationApplicantMessage(latestRevocationEntry.remarks)
-    : null;
+  const latestRevocationNotice = latestRevocationEntry?.remarks?.trim() ?? null;
   const latestBploRemarks = latestRemarkEntry?.remarks?.trim() ?? null;
 
   const showNextActionSection = [

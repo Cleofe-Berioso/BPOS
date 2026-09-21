@@ -18,7 +18,7 @@ function renewalSnapshot(overrides: Record<string, unknown> = {}) {
     location: { status: "VERIFIED" },
     applications: [{ status: "RELEASED" }],
     inspections: [] as Array<{
-      id: string;
+      inspectionId: string;
       nonComplianceType: string | null;
       violationSeverity: string | null;
       isSettled: boolean;
@@ -51,7 +51,7 @@ describe("WB-ELIG — renewal & closure eligibility helpers", () => {
       renewalSnapshot({
         inspections: [
           {
-            id: "insp1",
+            inspectionId: "insp1",
             nonComplianceType: "GOVERNMENT_AGENCY_RELATED",
             violationSeverity: "MAJOR",
             isSettled: false,
@@ -71,7 +71,7 @@ describe("WB-ELIG — renewal & closure eligibility helpers", () => {
       renewalSnapshot({
         inspections: [
           {
-            id: "insp1a",
+            inspectionId: "insp1a",
             nonComplianceType: "GOVERNMENT_AGENCY_RELATED",
             violationSeverity: "MINOR",
             isSettled: true,
@@ -91,7 +91,7 @@ describe("WB-ELIG — renewal & closure eligibility helpers", () => {
       renewalSnapshot({
         inspections: [
           {
-            id: "insp1b",
+            inspectionId: "insp1b",
             nonComplianceType: "GOVERNMENT_AGENCY_RELATED",
             violationSeverity: "MAJOR",
             isSettled: false,
@@ -124,7 +124,7 @@ describe("WB-ELIG — renewal & closure eligibility helpers", () => {
       applications: [{ status: "RELEASED" }],
       inspections: [
         {
-          id: "insp2",
+          inspectionId: "insp2",
           nonComplianceType: "GOVERNMENT_AGENCY_RELATED",
           complianceCaseStatus: "FORCED_CLOSURE_PENDING",
           forcedClosure: true,
@@ -143,7 +143,7 @@ describe("WB-ELIG — renewal & closure eligibility helpers", () => {
       applications: [{ status: "REVOKED" }],
       inspections: [
         {
-          id: "insp3",
+          inspectionId: "insp3",
           nonComplianceType: "GOVERNMENT_AGENCY_RELATED",
           complianceCaseStatus: "FORCED_CLOSURE_PENDING",
           forcedClosure: true,

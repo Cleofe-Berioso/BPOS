@@ -126,7 +126,7 @@ export async function verifySuperAdminLoginOtp(
 
     if (otpRecord.attempts >= maxAttempts) {
       await prisma.passwordResetOtp.update({
-        where: { id: otpRecord.id },
+        where: { passwordResetOtpId: otpRecord.passwordResetOtpId },
         data: { usedAt: new Date() },
       });
       return { valid: false, error: "Too many failed attempts. Please sign in again to request a new code." };
@@ -135,14 +135,14 @@ export async function verifySuperAdminLoginOtp(
     const otpMatch = await verifyOtp(plainOtp, otpRecord.otpHash);
     if (!otpMatch) {
       await prisma.passwordResetOtp.update({
-        where: { id: otpRecord.id },
+        where: { passwordResetOtpId: otpRecord.passwordResetOtpId },
         data: { attempts: otpRecord.attempts + 1 },
       });
       return { valid: false, error: "Invalid OTP." };
     }
 
     await prisma.passwordResetOtp.update({
-      where: { id: otpRecord.id },
+      where: { passwordResetOtpId: otpRecord.passwordResetOtpId },
       data: { verifiedAt: new Date() },
     });
 
@@ -183,7 +183,7 @@ export async function consumeSuperAdminLoginOtp(
   if (!otpMatch) return false;
 
   await prisma.passwordResetOtp.update({
-    where: { id: otpRecord.id },
+    where: { passwordResetOtpId: otpRecord.passwordResetOtpId },
     data: { usedAt: new Date() },
   });
 

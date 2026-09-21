@@ -29,9 +29,6 @@ export type SystemPenaltyInput = {
   liquorTobaccoAddOnPercent?: unknown;
   powerDistributionFixedFee?: unknown;
   privatePortFixedFee?: unknown;
-  renewalComplianceMinorPenalty?: unknown;
-  renewalComplianceMajorPenalty?: unknown;
-  renewalComplianceSeverePenalty?: unknown;
 };
 
 export type SystemPenaltyParsed = {
@@ -40,9 +37,6 @@ export type SystemPenaltyParsed = {
   liquorTobaccoAddOnPercent: number;
   powerDistributionFixedFee?: number;
   privatePortFixedFee?: number;
-  renewalComplianceMinorPenalty?: number;
-  renewalComplianceMajorPenalty?: number;
-  renewalComplianceSeverePenalty?: number;
 };
 
 export type SettingsPolicyResult<T> =
@@ -68,9 +62,6 @@ export function parseSystemPenaltySettings(
   const optionalMoney: Array<keyof SystemPenaltyInput> = [
     "powerDistributionFixedFee",
     "privatePortFixedFee",
-    "renewalComplianceMinorPenalty",
-    "renewalComplianceMajorPenalty",
-    "renewalComplianceSeverePenalty",
   ];
 
   for (const key of optionalMoney) {
@@ -79,9 +70,6 @@ export function parseSystemPenaltySettings(
       const labels: Record<string, string> = {
         powerDistributionFixedFee: "Power Distribution fixed fee must be non-negative.",
         privatePortFixedFee: "Private Port fixed fee must be non-negative.",
-        renewalComplianceMinorPenalty: "Renewal compliance minor penalty must be non-negative.",
-        renewalComplianceMajorPenalty: "Renewal compliance major penalty must be non-negative.",
-        renewalComplianceSeverePenalty: "Renewal compliance severe penalty must be non-negative.",
       };
       return { ok: false, error: labels[key] };
     }
@@ -98,15 +86,6 @@ export function parseSystemPenaltySettings(
         : {}),
       ...(typeof body.privatePortFixedFee === "number"
         ? { privatePortFixedFee: body.privatePortFixedFee }
-        : {}),
-      ...(typeof body.renewalComplianceMinorPenalty === "number"
-        ? { renewalComplianceMinorPenalty: body.renewalComplianceMinorPenalty }
-        : {}),
-      ...(typeof body.renewalComplianceMajorPenalty === "number"
-        ? { renewalComplianceMajorPenalty: body.renewalComplianceMajorPenalty }
-        : {}),
-      ...(typeof body.renewalComplianceSeverePenalty === "number"
-        ? { renewalComplianceSeverePenalty: body.renewalComplianceSeverePenalty }
         : {}),
     },
   };
