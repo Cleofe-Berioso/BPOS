@@ -43,7 +43,7 @@ export interface SuperAdminDashboardMetrics {
     superAdmin: number;
   }>;
   applicationVolumeAcrossSystem: Array<{
-    stage: string;
+    label: string;
     bploReview: number;
     bploAssessment: number;
     bploPayment: number;
@@ -64,7 +64,7 @@ export interface SuperAdminDashboardMetrics {
     logins: number;
   }>;
   complianceRevocationTrends: Array<{
-    metric: string;
+    label: string;
     releasedPermits: number;
     verifiedNonCompliant: number;
     revokedBusinesses: number;
@@ -180,10 +180,12 @@ const getCachedSuperAdminDashboardMetrics = cache(async (): Promise<SuperAdminDa
     paymentVerificationRows,
     permitReleaseRows,
     smsTrendRows,
-    releasedPermits,
-    verifiedNonCompliant,
-    revokedBusinessRows,
-    restrictedRenewals,
+    allReleasedPermits,
+    allVerifiedNonCompliant,
+    allRevokedInspections,
+    allRestrictedRenewals,
+    applicationsForWorkload,
+    inspectionsForWorkload,
     closureRows,
     businessCategoryRows,
     smsSummaryRows,
@@ -230,17 +232,42 @@ const getCachedSuperAdminDashboardMetrics = cache(async (): Promise<SuperAdminDa
       select: { createdAt: true, status: true },
       orderBy: { createdAt: "asc" },
     }),
-    prisma.permitIssuance.count({ where: { status: "RELEASED" } }),
-    prisma.inspection.count({ where: { status: "VERIFIED_NON_COMPLIANT" } }),
+    prisma.permitIssuance.findMany({
+      where: { status: "RELEASED" },
+      select: { releasedAt: true, issuedAt: true, createdAt: true },
+    }),
+    prisma.inspection.findMany({
+      where: { status: "VERIFIED_NON_COMPLIANT" },
+      select: { decidedAt: true, updatedAt: true, createdAt: true },
+    }),
     prisma.inspection.findMany({
       where: { OR: [{ status: "REVOKED" }, { revocationDecision: "APPROVED" }] },
-      select: { businessRecordId: true },
-      distinct: ["businessRecordId"],
+      select: { businessRecordId: true, decidedAt: true, updatedAt: true, createdAt: true },
     }),
-    prisma.businessApplication.count({
+    prisma.businessApplication.findMany({
       where: {
         applicationType: "RENEWAL",
         status: { in: ["REVOCATION_REVIEW", "REVOKED"] },
+      },
+      select: { businessApplicationId: true, updatedAt: true, createdAt: true },
+    }),
+    prisma.businessApplication.findMany({
+      select: {
+        businessApplicationId: true,
+        status: true,
+        createdAt: true,
+        history: {
+          select: { createdAt: true, toStatus: true },
+          orderBy: { createdAt: "asc" },
+        },
+      },
+    }),
+    prisma.inspection.findMany({
+      select: {
+        inspectionId: true,
+        status: true,
+        createdAt: true,
+        decidedAt: true,
       },
     }),
     prisma.businessApplication.findMany({
@@ -268,6 +295,17 @@ const getCachedSuperAdminDashboardMetrics = cache(async (): Promise<SuperAdminDa
     prisma.applicationHistory.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
   ]);
 
+  const releasedPermits = allReleasedPermits.length;
+  const verifiedNonCompliant = allVerifiedNonCompliant.length;
+  const uniqueRevokedBusinessIds = Array.from(new Set(allRevokedInspections.map((r) => r.businessRecordId)));
+  const revokedBusinessRows = uniqueRevokedBusinessIds.map((id) => ({ businessRecordId: id }));
+  const restrictedRenewals = allRestrictedRenewals.length;
+
+  const dayDates: Date[] = [];
+  for (let i = dayWindow - 1; i >= 0; i -= 1) {
+    dayDates.push(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - i)));
+  }
+
   const activityBuckets = buildDayBuckets(dayWindow);
   for (const row of activityHistory) {
     const key = toDayKey(row.createdAt);
@@ -287,20 +325,55 @@ const getCachedSuperAdminDashboardMetrics = cache(async (): Promise<SuperAdminDa
     superAdmin: bucket.superAdmin,
   }));
 
-  const applicationVolumeAcrossSystem =
-    bploReview + bploAssessment + bploPayment + bploRelease + departmentHeadApproval + jitInspection > 0
-      ? [
-          {
-            stage: "Open Workload",
-            bploReview,
-            bploAssessment,
-            bploPayment,
-            bploRelease,
-            departmentHeadApproval,
-            jitInspection,
-          },
-        ]
-      : [];
+  const applicationVolumeAcrossSystem = dayDates.map((date) => {
+    const endOfD = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 23, 59, 59, 999));
+    const bucket = {
+      label: formatShortDate(toDayKey(date)),
+      bploReview: 0,
+      bploAssessment: 0,
+      bploPayment: 0,
+      bploRelease: 0,
+      departmentHeadApproval: 0,
+      jitInspection: 0,
+    };
+
+    for (const app of applicationsForWorkload) {
+      const validH = app.history.filter((h) => h.createdAt <= endOfD);
+      const status =
+        validH.length > 0
+          ? validH[validH.length - 1].toStatus
+          : app.createdAt <= endOfD && app.history.length === 0
+            ? app.status
+            : null;
+
+      if (!status) continue;
+      if (status === "SUBMITTED" || status === "UNDER_REVIEW" || status === "RETURNED_FOR_CORRECTION") {
+        bucket.bploReview += 1;
+      } else if (status === "DEPARTMENT_HEAD_REVIEW") {
+        bucket.departmentHeadApproval += 1;
+      } else if (status === "DEPARTMENT_HEAD_APPROVED" || status === "ASSESSED") {
+        bucket.bploAssessment += 1;
+      } else if (status === "APPROVED_FOR_PAYMENT") {
+        bucket.bploPayment += 1;
+      } else if (status === "FOR_RELEASE") {
+        bucket.bploRelease += 1;
+      }
+    }
+
+    for (const insp of inspectionsForWorkload) {
+      if (insp.createdAt <= endOfD && (!insp.decidedAt || insp.decidedAt > endOfD)) {
+        if (
+          insp.status === "COMPLIANT" ||
+          insp.status === "NON_COMPLIANT" ||
+          insp.status === "DH_VERIFICATION_PENDING"
+        ) {
+          bucket.jitInspection += 1;
+        }
+      }
+    }
+
+    return bucket;
+  });
 
   const transactionBuckets = buildTransactionDayBuckets(dayWindow);
 
@@ -375,18 +448,31 @@ const getCachedSuperAdminDashboardMetrics = cache(async (): Promise<SuperAdminDa
     logins: bucket.logins,
   }));
 
-  const complianceRevocationTrends =
-    releasedPermits + verifiedNonCompliant + revokedBusinessRows.length + restrictedRenewals > 0
-      ? [
-          {
-            metric: "System Compliance",
-            releasedPermits,
-            verifiedNonCompliant,
-            revokedBusinesses: revokedBusinessRows.length,
-            restrictedRenewals,
-          },
-        ]
-      : [];
+  const complianceRevocationTrends = dayDates.map((date) => {
+    const endOfD = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 23, 59, 59, 999));
+    const relCount = allReleasedPermits.filter(
+      (p) => (p.releasedAt ?? p.issuedAt ?? p.createdAt) <= endOfD
+    ).length;
+    const nonCompliantCount = allVerifiedNonCompliant.filter(
+      (i) => (i.decidedAt ?? i.updatedAt ?? i.createdAt) <= endOfD
+    ).length;
+    const revokedSet = new Set(
+      allRevokedInspections
+        .filter((r) => (r.decidedAt ?? r.updatedAt ?? r.createdAt) <= endOfD)
+        .map((r) => r.businessRecordId)
+    );
+    const restrictedCount = allRestrictedRenewals.filter(
+      (a) => (a.updatedAt ?? a.createdAt) <= endOfD
+    ).length;
+
+    return {
+      label: formatShortDate(toDayKey(date)),
+      releasedPermits: relCount,
+      verifiedNonCompliant: nonCompliantCount,
+      revokedBusinesses: revokedSet.size,
+      restrictedRenewals: restrictedCount,
+    };
+  });
 
   const monthBuckets = new Map<string, number>();
   const monthWindow = 12;

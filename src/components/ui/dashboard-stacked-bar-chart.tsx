@@ -24,6 +24,7 @@ export function DashboardStackedBarChart({
   data,
   categoryKey,
   series,
+  stacked = true,
   loading,
   error,
   emptyTitle,
@@ -34,6 +35,7 @@ export function DashboardStackedBarChart({
   data: Array<Record<string, string | number>>;
   categoryKey: string;
   series: DashboardStackedBarSeries[];
+  stacked?: boolean;
   loading?: boolean;
   error?: string | null;
   emptyTitle?: string;
@@ -60,7 +62,7 @@ export function DashboardStackedBarChart({
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 12, right: 20, left: 8, bottom: 8 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
-            <XAxis dataKey={categoryKey} tick={{ fontSize: 12 }} />
+            <XAxis dataKey={categoryKey} tick={{ fontSize: 12 }} interval="preserveStartEnd" />
             <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
             <Tooltip formatter={(value: number) => value.toLocaleString("en-PH")} />
             <Legend wrapperStyle={{ fontSize: 12 }} />
@@ -68,10 +70,10 @@ export function DashboardStackedBarChart({
               <Bar
                 key={item.key}
                 dataKey={item.key}
-                stackId="stack"
+                stackId={stacked ? "stack" : undefined}
                 name={item.label}
                 fill={item.color ?? DASHBOARD_CHART_COLORS[index % DASHBOARD_CHART_COLORS.length]}
-                radius={index === series.length - 1 ? [6, 6, 0, 0] : [0, 0, 0, 0]}
+                radius={stacked ? (index === series.length - 1 ? [6, 6, 0, 0] : [0, 0, 0, 0]) : [4, 4, 0, 0]}
               />
             ))}
           </BarChart>

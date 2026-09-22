@@ -218,11 +218,10 @@ export default async function SuperAdminDashboard() {
           emptyDescription="System user activity appears once workflow history entries are recorded."
         />
 
-        <DashboardStackedBarChart
+        <DashboardLineChart
           title="Where is work waiting?"
-          description="Open workload by office stage. The tallest segment is the current bottleneck for applicants waiting on a next action."
+          description="Daily open workload by office stage. The highest line indicates the current bottleneck where applicants are waiting on a next action."
           data={metrics.applicationVolumeAcrossSystem}
-          categoryKey="stage"
           series={[
             { key: "bploReview", label: "BPLO Review", color: DASHBOARD_CHART_COLORS[2] },
             { key: "bploAssessment", label: "BPLO Assessment", color: DASHBOARD_CHART_COLORS[6] },
@@ -235,10 +234,11 @@ export default async function SuperAdminDashboard() {
           emptyDescription="Stage volume appears once applications and inspections are available."
         />
 
-        <DashboardLineChart
+        <DashboardStackedBarChart
           title="Daily transaction outcomes"
           description="Submissions, approvals, returns/rejections, inspections, payment checks, permit releases, and SMS outcomes. Spikes in returns/rejections often predict follow-up applicant traffic."
           data={metrics.transactionVolume}
+          categoryKey="label"
           series={[
             { key: "logins", label: "Logins (if tracked)", color: DASHBOARD_CHART_COLORS[5] },
             { key: "submitted", label: "Applications Submitted", color: DASHBOARD_CHART_COLORS[2] },
@@ -254,11 +254,10 @@ export default async function SuperAdminDashboard() {
           emptyDescription="Activity trends render when history and related logs contain records."
         />
 
-        <DashboardStackedBarChart
+        <DashboardLineChart
           title="Compliance and revocation pressure"
           description="Released permits versus verified non-compliant inspections, revoked businesses, and renewals blocked by revocation-related status."
           data={metrics.complianceRevocationTrends}
-          categoryKey="metric"
           series={[
             { key: "releasedPermits", label: "Approved/Released Permits", color: DASHBOARD_CHART_COLORS[0] },
             { key: "verifiedNonCompliant", label: "Verified Non-Compliant", color: DASHBOARD_CHART_COLORS[3] },

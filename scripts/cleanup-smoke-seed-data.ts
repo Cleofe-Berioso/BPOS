@@ -14,6 +14,7 @@ const ROOT = path.resolve(path.dirname(scriptFilePath), "..");
 const SMOKE_APPLICANT_EMAILS = [
   "applicant@example.com",
   "smoke.duplicate@example.com",
+  "applicant1@example.com",
 ] as const;
 
 async function main() {
@@ -32,143 +33,193 @@ async function main() {
 
   const smokeApps = await prisma.businessApplication.findMany({
     where: { applicationNumber: { startsWith: "SMOKE-" } },
-    select: { id: true, applicationNumber: true, businessRecordId: true },
+    select: { businessApplicationId: true, applicationNumber: true, businessRecordId: true },
   });
 
   const smokeRecords = await prisma.businessRecord.findMany({
     where: { registrationNumber: { startsWith: "SMOKE-" } },
-    select: { id: true, registrationNumber: true, businessName: true },
+    select: { businessRecordId: true, registrationNumber: true, businessName: true },
   });
 
   const smokeUsers = await prisma.user.findMany({
     where: { email: { in: [...SMOKE_APPLICANT_EMAILS] } },
-    select: { id: true, email: true, role: true },
+    select: { userId: true, email: true, role: true },
   });
 
-  console.log("[cleanup-smoke] preview", {
-    applications: smokeApps.length,
-    businessRecords: smokeRecords.length,
+  console.log("[cleanup-smoke] Found records to delete:", {
+    applications: smokeApps.map((a) => a.applicationNumber),
+    businessRecords: smokeRecords.map((r) => `${r.registrationNumber} (${r.businessName})`),
     applicantUsers: smokeUsers.map((u) => u.email),
   });
 
   if (smokeApps.length === 0 && smokeRecords.length === 0 && smokeUsers.length === 0) {
-    // Broader inventory if smoke prefixes are gone but demo data remains
-    const totals = {
-      applications: await prisma.businessApplication.count(),
-      businessRecords: await prisma.businessRecord.count(),
-      exampleUsers: await prisma.user.count({ where: { email: { endsWith: "@example.com" } } }),
-    };
-    console.log("[cleanup-smoke] no SMOKE-* rows found; inventory:", totals);
-    const exampleUsers = await prisma.user.findMany({
-      where: { email: { endsWith: "@example.com" } },
-      select: { email: true, role: true },
-      orderBy: { email: "asc" },
-    });
-    console.log("[cleanup-smoke] @example.com users:", exampleUsers);
+    console.log("[cleanup-smoke] No SMOKE-* applications, records, or test applicant users found in database.");
     return;
   }
 
-  const appIds = smokeApps.map((a) => a.id);
+  const appIds = smokeApps.map((a) => a.businessApplicationId);
   const recordIds = Array.from(
     new Set([
-      ...smokeRecords.map((r) => r.id),
+      ...smokeRecords.map((r) => r.businessRecordId),
       ...smokeApps.map((a) => a.businessRecordId).filter((id): id is string => Boolean(id)),
     ])
   );
 
   await prisma.$transaction(async (tx) => {
+    // 1. Delete inspections and checklist items tied to smoke apps or smoke records
+    if (recordIds.length > 0 || appIds.length > 0) {
+      const smokeInspections = await tx.inspection.findMany({
+        where: {
+          OR: [
+            ...(recordIds.length > 0 ? [{ businessRecordId: { in: recordIds } }] : []),
+            ...(appIds.length > 0 ? [{ applicationId: { in: appIds } }] : []),
+          ],
+        },
+        select: { inspectionId: true },
+      });
+
+      const inspectionIds = smokeInspections.map((i) => i.inspectionId);
+      if (inspectionIds.length > 0) {
+        await tx.inspectionChecklistItem.deleteMany({
+          where: { inspectionId: { in: inspectionIds } },
+        });
+        const deletedInspections = await tx.inspection.deleteMany({
+          where: { inspectionId: { in: inspectionIds } },
+        });
+        console.log("[cleanup-smoke] deleted smoke inspections:", deletedInspections.count);
+      }
+    }
+
+    // 2. Delete child tables of smoke applications
     if (appIds.length > 0) {
-      // Clear FK pointers that SetNull / Restrict may block
-      await tx.inspection.updateMany({
+      // Fee assessments & line items
+      const assessments = await tx.feeAssessment.findMany({
         where: { applicationId: { in: appIds } },
-        data: { applicationId: null },
+        select: { feeAssessmentId: true },
       });
-      await tx.renewalEmailLog.updateMany({
+      const assessmentIds = assessments.map((a) => a.feeAssessmentId);
+      if (assessmentIds.length > 0) {
+        await tx.feeAssessmentLineItem.deleteMany({
+          where: { feeAssessmentId: { in: assessmentIds } },
+        });
+        await tx.feeAssessment.deleteMany({
+          where: { feeAssessmentId: { in: assessmentIds } },
+        });
+      }
+
+      await tx.paymentReference.deleteMany({
         where: { applicationId: { in: appIds } },
-        data: { applicationId: null },
       });
+
+      await tx.permitIssuance.deleteMany({
+        where: { applicationId: { in: appIds } },
+      });
+
+      await tx.applicationDocument.deleteMany({
+        where: { applicationId: { in: appIds } },
+      });
+
+      await tx.applicationHistory.deleteMany({
+        where: { applicationId: { in: appIds } },
+      });
+
       await tx.auditLog.deleteMany({
         where: { applicationId: { in: appIds } },
       });
 
-      const deletedApps = await tx.businessApplication.deleteMany({
-        where: { id: { in: appIds } },
-      });
-      console.log("[cleanup-smoke] deleted applications", deletedApps.count);
-    }
-
-    if (recordIds.length > 0) {
+      // Clear closureApplicationId reference on any business records
       await tx.businessRecord.updateMany({
         where: { closureApplicationId: { in: appIds } },
         data: { closureApplicationId: null },
       });
+
+      const deletedApps = await tx.businessApplication.deleteMany({
+        where: { businessApplicationId: { in: appIds } },
+      });
+      console.log("[cleanup-smoke] deleted applications:", deletedApps.count);
+    }
+
+    // 3. Delete smoke business records and their locations
+    if (recordIds.length > 0) {
+      await tx.businessLocation.deleteMany({
+        where: { businessRecordId: { in: recordIds } },
+      });
+
       await tx.auditLog.deleteMany({
         where: { businessRecordId: { in: recordIds } },
       });
+
       const deletedRecords = await tx.businessRecord.deleteMany({
-        where: { id: { in: recordIds } },
+        where: { businessRecordId: { in: recordIds } },
       });
-      console.log("[cleanup-smoke] deleted business records", deletedRecords.count);
+      console.log("[cleanup-smoke] deleted business records:", deletedRecords.count);
     }
 
-    // Any leftover apps owned only by smoke applicants
+    // 4. Delete smoke applicant users and their orphaned items
     if (smokeUsers.length > 0) {
-      const userIds = smokeUsers.map((u) => u.id);
+      const userIds = smokeUsers.map((u) => u.userId);
+
       await tx.auditLog.deleteMany({ where: { actorId: { in: userIds } } });
       await tx.passwordResetOtp.deleteMany({
         where: { email: { in: [...SMOKE_APPLICANT_EMAILS] } },
       });
 
-      // Null out Restrict-sensitive refs where smoke applicants acted as staff (unlikely)
+      // Null out verifiedById on businessLocation where smoke applicants acted (unlikely)
       await tx.businessLocation.updateMany({
         where: { verifiedById: { in: userIds } },
         data: { verifiedById: null },
       });
 
-      // Delete remaining apps/records for these applicants (safety net)
+      // Delete any locations submitted by smoke applicants
+      await tx.businessLocation.deleteMany({
+        where: { submittedById: { in: userIds } },
+      });
+
+      // Delete any leftover applications owned by smoke applicants
       const leftoverApps = await tx.businessApplication.findMany({
         where: { applicantId: { in: userIds } },
-        select: { id: true },
+        select: { businessApplicationId: true },
       });
       if (leftoverApps.length > 0) {
-        const leftoverIds = leftoverApps.map((a) => a.id);
-        await tx.inspection.updateMany({
-          where: { applicationId: { in: leftoverIds } },
-          data: { applicationId: null },
+        const leftoverIds = leftoverApps.map((a) => a.businessApplicationId);
+        await tx.businessApplication.deleteMany({
+          where: { businessApplicationId: { in: leftoverIds } },
         });
-        await tx.businessApplication.deleteMany({ where: { id: { in: leftoverIds } } });
       }
-      await tx.businessRecord.deleteMany({ where: { applicantId: { in: userIds } } });
 
-      // Locations submittedBy Restrict — reassign or delete locations first via record cascade.
-      // Users who only submitted locations on deleted records should be free.
-      // If still blocked, delete locations they submitted that remain.
-      await tx.businessLocation.deleteMany({ where: { submittedById: { in: userIds } } });
+      // Delete any leftover business records owned by smoke applicants
+      await tx.businessRecord.deleteMany({
+        where: { applicantId: { in: userIds } },
+      });
 
-      const deletedUsers = await tx.user.deleteMany({ where: { id: { in: userIds } } });
-      console.log("[cleanup-smoke] deleted smoke applicant users", deletedUsers.count);
+      const deletedUsers = await tx.user.deleteMany({
+        where: { userId: { in: userIds } },
+      });
+      console.log("[cleanup-smoke] deleted smoke applicant users:", deletedUsers.count);
     }
   });
 
   const after = {
-    smokeApps: await prisma.businessApplication.count({
+    smokeAppsRemaining: await prisma.businessApplication.count({
       where: { applicationNumber: { startsWith: "SMOKE-" } },
     }),
-    smokeRecords: await prisma.businessRecord.count({
+    smokeRecordsRemaining: await prisma.businessRecord.count({
       where: { registrationNumber: { startsWith: "SMOKE-" } },
     }),
-    smokeApplicants: await prisma.user.count({
+    smokeApplicantsRemaining: await prisma.user.count({
       where: { email: { in: [...SMOKE_APPLICANT_EMAILS] } },
     }),
-    remainingBusinessRecords: await prisma.businessRecord.count(),
-    remainingApplications: await prisma.businessApplication.count(),
+    totalRemainingBusinessRecords: await prisma.businessRecord.count(),
+    totalRemainingApplications: await prisma.businessApplication.count(),
+    totalRemainingUsers: await prisma.user.count(),
   };
-  console.log("[cleanup-smoke] complete", after);
+
+  console.log("[cleanup-smoke] cleanup completed successfully! Remaining counts:", after);
 }
 
 main()
   .catch((error) => {
-    console.error("[cleanup-smoke] failed", error);
+    console.error("[cleanup-smoke] failed:", error);
     process.exitCode = 1;
   })
   .finally(async () => {
