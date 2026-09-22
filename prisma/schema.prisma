@@ -105,8 +105,9 @@ model User {
   revocationSettlementRecords Inspection[]       @relation("InspectionRevocationSettledBy")
   complianceSettlementRecords Inspection[]       @relation("InspectionSettledBy")
   forcedClosureRecords    Inspection[]           @relation("InspectionForcedClosureBy")
-  feeConfigurationUpdates FeeConfigurationItem[] @relation("FeeConfigUpdatedBy")
-  systemFeeSettingUpdates SystemFeeSetting[]     @relation("SystemFeeSettingUpdatedBy")
+  feeConfigurationUpdates FeeConfigurationItem[]     @relation("FeeConfigUpdatedBy")
+  feeCategoryUpdates      FeeConfigurationCategory[] @relation("FeeCategoryUpdatedBy")
+  systemFeeSettingUpdates SystemFeeSetting[]         @relation("SystemFeeSettingUpdatedBy")
   renewalExtensionUpdates RenewalExtension[]     @relation("RenewalExtensionUpdatedBy")
   smsDeliveryLogs         SmsDeliveryLog[]       @relation("SmsDeliveryLogApplicant")
   reassessmentRequests    FeeAssessment[]        @relation("FeeAssessmentReassessmentRequestedBy")
@@ -560,6 +561,21 @@ model FeeConfigurationItem {
 
   @@unique([category, classification])
   @@index([category, isActive])
+}
+
+model FeeConfigurationCategory {
+  feeConfigurationCategoryId String   @id @default(cuid())
+  key                        String   @unique
+  label                      String
+  classifications            Json
+  isActive                   Boolean  @default(true)
+  updatedById                String?
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  updatedBy User? @relation("FeeCategoryUpdatedBy", fields: [updatedById], references: [userId], onDelete: SetNull)
+
+  @@index([isActive, label])
 }
 
 model SystemFeeSetting {

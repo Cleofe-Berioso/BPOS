@@ -377,7 +377,7 @@ export function LoginForm({
                       className="h-4 w-4 rounded"
                       style={{ accentColor: "var(--primary)" }}
                     />
-                    <span className="text-sm text-[var(--ink-muted)]">Remember me (30 days)</span>
+                    <span className="text-sm text-[var(--ink-muted)]">Remember me</span>
                   </label>
                   <Link
                     href="/forgot-password"

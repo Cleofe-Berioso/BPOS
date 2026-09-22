@@ -174,8 +174,10 @@ export function SuperAdminFeeSettingsManager() {
     liquorTobaccoAddOnPercent: "25",
   });
 
+  const currentYear = new Date().getFullYear();
+
   const [extensionForm, setExtensionForm] = useState({
-    startDate: "",
+    startDate: `${new Date().getFullYear()}-01-01`,
     endDate: "",
     isActive: true,
     waiveSurcharge: true,
@@ -544,13 +546,19 @@ export function SuperAdminFeeSettingsManager() {
     e.preventDefault();
     setFlash(null);
 
-    if (!extensionForm.startDate || !extensionForm.endDate) {
-      setFlash({ type: "danger", message: "Start and end date are required." });
+    const endYear =
+      extensionForm.endDate && !isNaN(new Date(extensionForm.endDate).getTime())
+        ? new Date(extensionForm.endDate).getFullYear()
+        : currentYear;
+    const fixedStartDate = `${endYear}-01-01`;
+
+    if (!extensionForm.endDate) {
+      setFlash({ type: "danger", message: "End date is required." });
       return;
     }
 
-    if (new Date(extensionForm.endDate) < new Date(extensionForm.startDate)) {
-      setFlash({ type: "danger", message: "End date cannot be before start date." });
+    if (new Date(extensionForm.endDate) < new Date(fixedStartDate)) {
+      setFlash({ type: "danger", message: "End date cannot be before January 1." });
       return;
     }
 
@@ -558,7 +566,10 @@ export function SuperAdminFeeSettingsManager() {
       const res = await fetch("/api/superadmin/settings/extensions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(extensionForm),
+        body: JSON.stringify({
+          ...extensionForm,
+          startDate: fixedStartDate,
+        }),
       });
       const json = (await res.json()) as { error?: string };
       if (!res.ok) {
@@ -569,7 +580,7 @@ export function SuperAdminFeeSettingsManager() {
       setFlash({ type: "success", message: "Renewal extension saved." });
       setExtensionForm((prev) => ({
         ...prev,
-        startDate: "",
+        startDate: `${currentYear}-01-01`,
         endDate: "",
         isActive: true,
         waiveSurcharge: true,
@@ -746,10 +757,7 @@ export function SuperAdminFeeSettingsManager() {
               />
             </FormField>
 
-            <FormField
-              label="Category Key"
-              hint="Optional. Auto-generated from label if left blank (prefixed with CUSTOM_)."
-            >
+            <FormField label="Category Key">
               <input
                 aria-label="Category Key"
                 value={categoryForm.key}
@@ -1003,13 +1011,17 @@ export function SuperAdminFeeSettingsManager() {
         description="Create, enable, and disable extension periods with surcharge/interest waiver rules."
       >
         <form className={`grid gap-3 ${superadminFormPanelClass} md:grid-cols-2 xl:grid-cols-3`} onSubmit={createExtension}>
-          <FormField label="Start Date" required>
+          <FormField label="Start Date" required hint="Fixed to January 1 for the renewal season.">
             <input
-              type="date"
+              type="text"
               aria-label="Start Date"
-              value={extensionForm.startDate}
-              onChange={(e) => setExtensionForm((prev) => ({ ...prev, startDate: e.target.value }))}
-              className={superadminFormControlClass}
+              value={`January 1, ${
+                extensionForm.endDate && !isNaN(new Date(extensionForm.endDate).getTime())
+                  ? new Date(extensionForm.endDate).getFullYear()
+                  : currentYear
+              }`}
+              readOnly
+              className={`${superadminFormControlClass} opacity-80 cursor-not-allowed bg-[var(--surface-sunken)] font-medium`}
             />
           </FormField>
 
@@ -1018,7 +1030,18 @@ export function SuperAdminFeeSettingsManager() {
               type="date"
               aria-label="End Date"
               value={extensionForm.endDate}
-              onChange={(e) => setExtensionForm((prev) => ({ ...prev, endDate: e.target.value }))}
+              onChange={(e) => {
+                const nextEndDate = e.target.value;
+                const endYear =
+                  nextEndDate && !isNaN(new Date(nextEndDate).getTime())
+                    ? new Date(nextEndDate).getFullYear()
+                    : currentYear;
+                setExtensionForm((prev) => ({
+                  ...prev,
+                  endDate: nextEndDate,
+                  startDate: `${endYear}-01-01`,
+                }));
+              }}
               className={superadminFormControlClass}
             />
           </FormField>

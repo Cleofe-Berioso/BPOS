@@ -460,8 +460,18 @@ function findConfiguredFeeAmount(
     (item) => item.category === category && normalizeClassification(item.classification) === target
   );
 
-  if (!row) return null;
-  return row.amount;
+  if (row) return row.amount;
+
+  const baseName = classification.replace(/\s*\([^)]*\)\s*$/, "").trim();
+  if (baseName && baseName !== classification) {
+    const baseTarget = normalizeClassification(baseName);
+    const baseRow = runtimeSettings.feeOverrides.find(
+      (item) => item.category === category && normalizeClassification(item.classification) === baseTarget
+    );
+    if (baseRow) return baseRow.amount;
+  }
+
+  return null;
 }
 
 function resolveCategoryKeyFromLineOfBusiness(

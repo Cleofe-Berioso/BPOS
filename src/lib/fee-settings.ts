@@ -43,7 +43,6 @@ export const FEE_CATEGORY_OPTIONS: FeeCategoryOption[] = [
     key: "MANUFACTURERS",
     label: "Manufacturers / Importers / Producers",
     classifications: [
-      ...DEFAULT_CLASSIFICATIONS,
       "Micro Industry (no workers)",
       "Micro Industry (1–5)",
       "Cottage Industries A (6–10)",
@@ -62,13 +61,6 @@ export const FEE_CATEGORY_OPTIONS: FeeCategoryOption[] = [
     key: "OTHER_FINANCIAL",
     label: "Other Financial Institutions",
     classifications: [
-      "Micro Industry",
-      "Cottage Industry (₱100K–₱250K)",
-      "Cottage Industry (₱250K–₱500K)",
-      "Small Industry (₱500K–₱2M)",
-      "Medium Industry (₱2M–₱5M)",
-      "Large Industry (₱5M–₱20M)",
-      "Large Industry (Over ₱20M)",
       "Micro Industry (no workers)",
       "Micro Industry (1–5)",
       "Cottage Industry (6–10)",
@@ -82,13 +74,6 @@ export const FEE_CATEGORY_OPTIONS: FeeCategoryOption[] = [
     key: "CONTRACTORS",
     label: "Contractors and Service Providers",
     classifications: [
-      "Micro",
-      "Cottage A",
-      "Cottage B",
-      "Small A",
-      "Small B",
-      "Medium",
-      "Large",
       "Micro (no workers)",
       "Micro (1–5)",
       "Cottage A (6–10)",
@@ -102,13 +87,6 @@ export const FEE_CATEGORY_OPTIONS: FeeCategoryOption[] = [
     key: "WHOLESALERS_RETAILERS",
     label: "Wholesalers / Retailers / Dealers / Distributors",
     classifications: [
-      "Micro",
-      "Cottage A",
-      "Cottage B",
-      "Small A",
-      "Small B",
-      "Medium",
-      "Large",
       "Micro (no workers)",
       "Micro (1–5)",
       "Cottage A (6–10)",
@@ -122,9 +100,6 @@ export const FEE_CATEGORY_OPTIONS: FeeCategoryOption[] = [
     key: "TRANSPORTATION",
     label: "Transportation Operations",
     classifications: [
-      "Small-Scale",
-      "Medium-Scale",
-      "Large-Scale",
       "Small-Scale (no workers)",
       "Small-Scale (1–5)",
       "Small-Scale (6–10)",
@@ -138,11 +113,6 @@ export const FEE_CATEGORY_OPTIONS: FeeCategoryOption[] = [
     key: "COMMUNICATIONS",
     label: "Communications",
     classifications: [
-      "Micro",
-      "Cottage",
-      "Small",
-      "Medium",
-      "Large",
       "Micro (no workers)",
       "Micro (1–5)",
       "Cottage (6–10)",
@@ -156,11 +126,6 @@ export const FEE_CATEGORY_OPTIONS: FeeCategoryOption[] = [
     key: "LESSORS_LAND",
     label: "Lessors of Real Estate - Land",
     classifications: [
-      "Micro",
-      "Cottage",
-      "Small",
-      "Medium",
-      "Large",
       "Micro (no workers)",
       "Micro (1–5)",
       "Cottage (6–10)",
@@ -174,11 +139,6 @@ export const FEE_CATEGORY_OPTIONS: FeeCategoryOption[] = [
     key: "LESSORS_COMMERCIAL",
     label: "Lessors of Real Estate - Commercial Buildings",
     classifications: [
-      "Micro",
-      "Cottage",
-      "Small",
-      "Medium",
-      "Large",
       "Micro (no workers)",
       "Micro (1–5)",
       "Cottage (6–10)",
@@ -192,11 +152,6 @@ export const FEE_CATEGORY_OPTIONS: FeeCategoryOption[] = [
     key: "HOTELS_MOTELS",
     label: "Hotels / Motels / Pension Houses / Apartelles",
     classifications: [
-      "Cottage (below ₱100K)",
-      "Cottage",
-      "Small",
-      "Medium",
-      "Large",
       "Cottage (no workers)",
       "Cottage (1–5)",
       "Cottage (6–10)",
@@ -210,11 +165,6 @@ export const FEE_CATEGORY_OPTIONS: FeeCategoryOption[] = [
     key: "LODGING",
     label: "Lodging / Boarding Houses",
     classifications: [
-      "Micro",
-      "Cottage",
-      "Small",
-      "Medium",
-      "Large",
       "Micro (no workers)",
       "Micro (1–5)",
       "Cottage (6–10)",
@@ -228,11 +178,6 @@ export const FEE_CATEGORY_OPTIONS: FeeCategoryOption[] = [
     key: "AMUSEMENT",
     label: "Amusement Places",
     classifications: [
-      "Micro",
-      "Cottage",
-      "Small",
-      "Medium",
-      "Large",
       "Micro (no workers)",
       "Micro (1–5)",
       "Cottage (6–10)",
@@ -246,11 +191,6 @@ export const FEE_CATEGORY_OPTIONS: FeeCategoryOption[] = [
     key: "RESTAURANTS",
     label: "Restaurants / Cafés / Catering Services",
     classifications: [
-      "Micro",
-      "Cottage",
-      "Small",
-      "Medium",
-      "Large",
       "Micro (no workers)",
       "Micro (1–5)",
       "Cottage (6–10)",
@@ -274,9 +214,6 @@ export const FEE_CATEGORY_OPTIONS: FeeCategoryOption[] = [
     key: "OTHER_INDUSTRIAL",
     label: "Other Industrial Companies",
     classifications: [
-      "Small",
-      "Medium",
-      "Large",
       "Small (no workers)",
       "Small (1–5)",
       "Small (6–10)",
@@ -428,15 +365,34 @@ export function slugifyFeeCategoryKey(label: string): string {
 }
 
 export async function listCustomFeeCategories(): Promise<FeeCategoryOption[]> {
-  return [];
+  try {
+    const rows = await prisma.feeConfigurationCategory.findMany({
+      where: { isActive: true },
+      orderBy: { label: "asc" },
+    });
+
+    return rows.map((row) => ({
+      key: row.key,
+      label: row.label,
+      classifications: parseClassificationsJson(row.classifications),
+      isCustom: true,
+    }));
+  } catch (error) {
+    console.error("Failed to list custom fee categories:", error);
+    return [];
+  }
 }
 
 export async function getAllFeeCategoryOptions(): Promise<FeeCategoryOption[]> {
-  return [...FEE_CATEGORY_OPTIONS];
+  const custom = await listCustomFeeCategories();
+  const builtInKeys = new Set(FEE_CATEGORY_OPTIONS.map((item) => item.key));
+  const filteredCustom = custom.filter((item) => !builtInKeys.has(item.key));
+  return [...FEE_CATEGORY_OPTIONS, ...filteredCustom];
 }
 
 async function getConfigurableCategoryKeySet(): Promise<Set<string>> {
-  return new Set(CONFIGURABLE_FEE_CATEGORY_KEYS);
+  const options = await getAllFeeCategoryOptions();
+  return new Set(options.map((item) => item.key));
 }
 
 async function isConfigurableFeeCategoryKey(category: string): Promise<boolean> {
@@ -454,13 +410,82 @@ export function isValidClassificationForOptions(
   return option.classifications.includes(classification.trim());
 }
 
-export async function createFeeConfigurationCategory(_input: {
+export async function createFeeConfigurationCategory(input: {
   label: string;
   key?: string;
-  classifications: string[];
+  classifications?: string[];
+  useDefaultClassifications?: boolean;
+  useFixedFeeOnly?: boolean;
   updatedById: string;
 }): Promise<FeeCategoryOption> {
-  throw new Error("Custom business categories are no longer supported.");
+  const label = input.label.trim();
+  if (!label) {
+    throw new Error("Category label is required.");
+  }
+
+  const finalKey = input.key?.trim()
+    ? slugifyFeeCategoryKey(input.key)
+    : slugifyFeeCategoryKey(label);
+
+  const allOptions = await getAllFeeCategoryOptions();
+  if (
+    allOptions.some(
+      (item) =>
+        item.key === finalKey ||
+        item.label.trim().toLowerCase() === label.toLowerCase()
+    )
+  ) {
+    throw new Error(`Business category "${label}" or key "${finalKey}" already exists.`);
+  }
+
+  let classificationsList: string[] = [];
+  if (Array.isArray(input.classifications) && input.classifications.length > 0) {
+    classificationsList = input.classifications
+      .map((c) => (typeof c === "string" ? c.trim() : ""))
+      .filter(Boolean);
+  } else if (input.useFixedFeeOnly) {
+    classificationsList = [FIXED_FEE_CLASSIFICATION];
+  } else {
+    classificationsList = [...DEFAULT_CLASSIFICATIONS];
+  }
+
+  if (classificationsList.length === 0) {
+    throw new Error("At least one size classification is required.");
+  }
+
+  const existing = await prisma.feeConfigurationCategory.findUnique({
+    where: { key: finalKey },
+  });
+
+  let row;
+  if (existing) {
+    row = await prisma.feeConfigurationCategory.update({
+      where: { feeConfigurationCategoryId: existing.feeConfigurationCategoryId },
+      data: {
+        label,
+        classifications: classificationsList,
+        isActive: true,
+        updatedById: input.updatedById,
+      },
+    });
+  } else {
+    row = await prisma.feeConfigurationCategory.create({
+      data: {
+        key: finalKey,
+        label,
+        classifications: classificationsList,
+        isActive: true,
+        updatedById: input.updatedById,
+      },
+    });
+  }
+
+  return {
+    key: row.key,
+    label: row.label,
+    classifications: parseClassificationsJson(row.classifications),
+    isCustom: true,
+  };
 }
 
 export async function listFeeConfigurationItems(): Promise<FeeConfigurationItemDto[]> {
@@ -583,12 +608,38 @@ export async function deleteFeeConfigurationItem(id: string): Promise<FeeConfigu
 }
 
 /** Permanently delete a custom fee category and all of its fee table entries. */
-export async function deleteFeeConfigurationCategory(_key: string): Promise<{
+export async function deleteFeeConfigurationCategory(key: string): Promise<{
   key: string;
   label: string;
   deletedFeeItems: number;
 }> {
-  throw new Error("Custom business categories are no longer supported.");
+  const normalizedKey = key.trim();
+  if (FEE_CATEGORY_OPTIONS.some((item) => item.key === normalizedKey)) {
+    throw new Error("Built-in business categories cannot be deleted.");
+  }
+
+  const existing = await prisma.feeConfigurationCategory.findUnique({
+    where: { key: normalizedKey },
+  });
+
+  if (!existing) {
+    throw new Error("Business category not found.");
+  }
+
+  const [deletedFeeItems, deletedCategory] = await prisma.$transaction([
+    prisma.feeConfigurationItem.deleteMany({
+      where: { category: normalizedKey },
+    }),
+    prisma.feeConfigurationCategory.delete({
+      where: { feeConfigurationCategoryId: existing.feeConfigurationCategoryId },
+    }),
+  ]);
+
+  return {
+    key: deletedCategory.key,
+    label: deletedCategory.label,
+    deletedFeeItems: deletedFeeItems.count,
+  };
 }
 
 export async function getOrCreateSystemFeeSetting(): Promise<SystemFeeSettingDto> {

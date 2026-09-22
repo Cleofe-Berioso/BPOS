@@ -9,11 +9,11 @@ export const BANK_CLASSIFICATIONS = [
 ] as const;
 
 export const DEFAULT_CLASSIFICATIONS = [
-  "Micro Industry",
-  "Cottage Industries A",
-  "Cottage Industries B",
-  "Small-Scale Industries A",
-  "Small-Scale Industries B",
-  "Medium-Scale Industries",
-  "Large-Scale Industries",
+  "Micro (no workers)",
+  "Micro (1–5)",
+  "Cottage (6–10)",
+  "Small (11–50)",
+  "Medium (51–99)",
+  "Large (100–150)",
+  "Large (200+)",
 ] as const;
