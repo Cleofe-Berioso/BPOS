@@ -162,6 +162,7 @@ export default function BploPaymentVerificationPage() {
   const [remarks, setRemarks] = useState("");
   const [statusMessage, setStatusMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
+  const [reminderSending, setReminderSending] = useState(false);
   const [proofModal, setProofModal] = useState<ProofModalState>({
     open: false,
     paymentReferenceId: null,
@@ -394,6 +395,38 @@ export default function BploPaymentVerificationPage() {
       await loadDetail(selectedRefId);
     }
     setActionBusy(false);
+  }
+
+  async function sendPaymentReminder() {
+    if (!detail || detail.row.paymentStatus !== "VERIFIED") return;
+    setReminderSending(true);
+    setStatusMessage(null);
+
+    try {
+      const response = await fetch(
+        `/api/bplo/payment-verification/${detail.row.paymentReferenceId}/remind`,
+        { method: "POST" }
+      );
+      const data = (await response.json()) as { message?: string; error?: string };
+      if (!response.ok) {
+        setStatusMessage({
+          kind: "error",
+          text: data.error ?? "Failed to send payment reminder email.",
+        });
+      } else {
+        setStatusMessage({
+          kind: "ok",
+          text: data.message ?? "Gmail payment reminder sent to applicant successfully.",
+        });
+      }
+    } catch {
+      setStatusMessage({
+        kind: "error",
+        text: "Network error sending Gmail payment reminder.",
+      });
+    } finally {
+      setReminderSending(false);
+    }
   }
 
   return (
@@ -772,13 +805,29 @@ export default function BploPaymentVerificationPage() {
                     </button>
                   </div>
                 ) : (
-                  <p className="mt-4 text-sm text-[var(--ink-muted)]">
-                    This payment reference is already{" "}
-                    {detail.row.paymentStatus === "REJECTED"
-                      ? "returned for correction"
-                      : detail.row.paymentStatus.toLowerCase()}{" "}
-                    and is now read-only.
-                  </p>
+                  <div className="mt-4 space-y-3">
+                    <p className="text-sm text-[var(--ink-muted)]">
+                      This payment reference is already{" "}
+                      {detail.row.paymentStatus === "REJECTED"
+                        ? "returned for correction"
+                        : detail.row.paymentStatus.toLowerCase()}{" "}
+                      and is now read-only.
+                    </p>
+                    {detail.row.paymentStatus === "VERIFIED" ? (
+                      <div className="pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void sendPaymentReminder();
+                          }}
+                          disabled={actionBusy || reminderSending}
+                          className={actionButtonStyles("secondary", "sm")}
+                        >
+                          {reminderSending ? "Sending Reminder…" : "📧 Resend Gmail Reminder"}
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
                 )}
               </div>
             </div>

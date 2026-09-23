@@ -6,7 +6,7 @@ import {
   type PaymentReminderEmailInput,
 } from "@/lib/mail";
 import { toMoneyNumber } from "@/lib/money";
-import { logPaymentAction } from "@/lib/audit-log";
+import { createAuditLog } from "@/lib/audit-log";
 
 export interface PaymentEmailResult {
   attempted: boolean;
@@ -195,15 +195,20 @@ export async function sendPaymentVerifiedEmail(
         },
       });
 
-      void logPaymentAction(
-        actorId ?? "SYSTEM",
-        "BPLO",
-        ref.paymentReferenceId,
-        app.businessApplicationId,
-        "PAYMENT_REMINDER_EMAIL_SENT",
-        `Payment reminder sent to ${recipientEmail}`,
-        { recipientEmail, messageId: sendResult.messageId }
-      );
+      void createAuditLog({
+        actorId: actorId ?? null,
+        actorRole: "BPLO",
+        action: "NOTIFIED",
+        module: "PAYMENT",
+        entityType: "PAYMENT_REFERENCE",
+        entityId: ref.transactionNumber,
+        applicationId: app.businessApplicationId,
+        paymentReferenceId: ref.paymentReferenceId,
+        beforeStatus: "VERIFIED",
+        afterStatus: "VERIFIED",
+        description: `Payment reminder sent to ${recipientEmail}`,
+        metadata: { recipientEmail, messageId: sendResult.messageId },
+      });
     } catch (logErr) {
       console.error("[PaymentNotification] Failed to log email history entry:", logErr);
     }
