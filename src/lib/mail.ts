@@ -666,3 +666,224 @@ export function generateRenewalEmailHtml(input: {
     </html>
   `;
 }
+
+export interface PaymentReminderEmailInput {
+  applicantName: string;
+  businessName: string;
+  applicationNumber: string;
+  transactionNumber: string; // OR number
+  amountPaid: number;
+  paymentDate: string;
+  verifiedDate: string;
+  remarks?: string | null;
+  trackingUrl: string;
+  supportEmail?: string;
+}
+
+export function generatePaymentReminderEmailHtml(input: PaymentReminderEmailInput): string {
+  const applicant = escapeHtml(input.applicantName || "Valued Taxpayer");
+  const business = escapeHtml(input.businessName || "Registered Business");
+  const appNum = escapeHtml(input.applicationNumber);
+  const orNum = escapeHtml(input.transactionNumber);
+  const amountStr = `₱ ${input.amountPaid.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const payDate = escapeHtml(input.paymentDate);
+  const verDate = escapeHtml(input.verifiedDate);
+  const trackingUrl = escapeHtml(input.trackingUrl);
+  const supportEmail = escapeHtml(input.supportEmail || "bplo@ebmagalona.gov.ph");
+  const remarksSection = input.remarks?.trim()
+    ? `<tr>
+        <td style="padding: 10px 12px; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0; width: 38%;">BPLO Remarks</td>
+        <td style="padding: 10px 12px; color: #0f172a; border-bottom: 1px solid #e2e8f0;">${escapeHtml(input.remarks.trim())}</td>
+      </tr>`
+    : "";
+
+  return `
+    <!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #1e293b;
+            background-color: #f1f5f9;
+            margin: 0;
+            padding: 0;
+          }
+          .container {
+            max-width: 580px;
+            margin: 24px auto;
+            padding: 0 16px;
+          }
+          .card {
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 32px 28px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e2e8f0;
+          }
+          .header {
+            text-align: center;
+            border-bottom: 3px solid #0b8754;
+            padding-bottom: 20px;
+            margin-bottom: 24px;
+          }
+          .lgu-title {
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: 700;
+            color: #64748b;
+            margin: 0 0 4px 0;
+          }
+          .header h1 {
+            margin: 0;
+            color: #0b8754;
+            font-size: 22px;
+            font-weight: 800;
+          }
+          .badge-wrap {
+            text-align: center;
+            margin: 20px 0;
+          }
+          .badge {
+            display: inline-block;
+            background-color: #dcfce7;
+            color: #15803d;
+            border: 1px solid #86efac;
+            border-radius: 9999px;
+            padding: 6px 18px;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+          }
+          .receipt-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background-color: #f8fafc;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+            font-size: 14px;
+          }
+          .notice-box {
+            background-color: #f0fdf4;
+            border-left: 4px solid #16a34a;
+            border-radius: 6px;
+            padding: 16px;
+            margin: 24px 0;
+          }
+          .notice-title {
+            font-weight: 700;
+            color: #166534;
+            font-size: 14px;
+            margin: 0 0 8px 0;
+          }
+          .notice-list {
+            margin: 0;
+            padding-left: 20px;
+            color: #14532d;
+            font-size: 13.5px;
+          }
+          .notice-list li {
+            margin-bottom: 6px;
+          }
+          .cta-wrap {
+            text-align: center;
+            margin: 28px 0;
+          }
+          .cta-btn {
+            display: inline-block;
+            background-color: #0b8754;
+            color: #ffffff !important;
+            text-decoration: none;
+            padding: 14px 30px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 15px;
+            box-shadow: 0 2px 6px rgba(11, 135, 84, 0.3);
+          }
+          .footer {
+            text-align: center;
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 28px;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 16px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="card">
+            <div class="header">
+              <p class="lgu-title">Municipality of Enrique B. Magalona</p>
+              <h1>BPLO Business Permit Online System</h1>
+            </div>
+
+            <div class="badge-wrap">
+              <span class="badge">✔ PAYMENT VERIFIED</span>
+            </div>
+
+            <p style="margin: 0 0 12px 0;">Hello <strong>${applicant}</strong>,</p>
+            <p style="margin: 0 0 16px 0; color: #334155;">
+              Your payment reference for <strong>${business}</strong> has been officially verified and recorded by the Business Permit and Licensing Office (BPLO).
+            </p>
+
+            <table class="receipt-table">
+              <tr>
+                <td style="padding: 10px 12px; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0; width: 38%;">Business Name</td>
+                <td style="padding: 10px 12px; color: #0f172a; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${business}</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px 12px; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0;">Application Ref</td>
+                <td style="padding: 10px 12px; color: #0f172a; border-bottom: 1px solid #e2e8f0;">${appNum}</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px 12px; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0;">Official Receipt (OR) No.</td>
+                <td style="padding: 10px 12px; color: #0f172a; border-bottom: 1px solid #e2e8f0; font-weight: 700; font-family: 'Courier New', monospace;">${orNum}</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px 12px; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0;">Total Amount Paid</td>
+                <td style="padding: 10px 12px; color: #0b8754; border-bottom: 1px solid #e2e8f0; font-weight: 700; font-size: 15px;">${amountStr}</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px 12px; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0;">Payment Date</td>
+                <td style="padding: 10px 12px; color: #0f172a; border-bottom: 1px solid #e2e8f0;">${payDate}</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px 12px; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0;">Verified Date</td>
+                <td style="padding: 10px 12px; color: #0f172a; border-bottom: 1px solid #e2e8f0;">${verDate}</td>
+              </tr>
+              ${remarksSection}
+            </table>
+
+            <div class="notice-box">
+              <p class="notice-title">📌 Important Reminders & Claiming Instructions:</p>
+              <ul class="notice-list">
+                <li>Your application has advanced to permit preparation and release scheduling.</li>
+                <li>When claiming your printed Business Permit at the BPLO office, please present your original <strong>Official Receipt (OR #${orNum})</strong> and a <strong>valid ID</strong>.</li>
+                <li>If an authorized representative will claim the document, please provide a signed Authorization Letter and valid IDs for both parties.</li>
+              </ul>
+            </div>
+
+            <div class="cta-wrap">
+              <a href="${trackingUrl}" class="cta-btn">View Application Status</a>
+            </div>
+
+            <p style="font-size: 13px; color: #64748b; margin-top: 16px;">
+              Questions? Contact the BPLO Municipal Office at <a href="mailto:${supportEmail}" style="color: #0b8754;">${supportEmail}</a>.
+            </p>
+
+            <div class="footer">
+              <p>&copy; 2026 Municipality of Enrique B. Magalona - BPLO. All rights reserved.</p>
+              <p>This is an automated transactional notification. Please do not reply directly to this email.</p>
+            </div>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+}
