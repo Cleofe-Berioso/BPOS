@@ -3,6 +3,7 @@ import { mapDbStatusToUi } from "@/lib/application-mappers";
 import { assertStatusTransition } from "@/lib/application-status";
 import { toMoneyNumber } from "@/lib/money";
 import { buildPaginatedResult, resolvePagination, type PaginatedResult } from "@/lib/pagination";
+import { sendPaymentVerifiedEmail } from "@/lib/payment-notifications";
 
 type DbApplicationStatus =
   | "DRAFT"
@@ -506,6 +507,11 @@ export async function approvePaymentReference(
           })}.` + (remarks?.trim() ? ` Remarks: ${remarks.trim()}` : ""),
       },
     });
+  });
+
+  // Dispatch official Gmail payment confirmation and claiming reminder asynchronously
+  void sendPaymentVerifiedEmail(found.paymentReferenceId, bploUserId).catch((err) => {
+    console.error("[approvePaymentReference] Error dispatching payment reminder email:", err);
   });
 
   return {
