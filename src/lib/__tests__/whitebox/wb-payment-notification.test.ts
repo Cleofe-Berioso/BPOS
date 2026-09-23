@@ -62,3 +62,73 @@ describe("WB-PAY-NOTIF — payment reminder email template", () => {
     expect(html).toContain("&lt;img src=");
   });
 });
+
+describe("WB-PAY-SERVICE — payment notification service logic", () => {
+  it("WB-PAY-05 resolves applicant email over business record email", async () => {
+    const { resolveRecipientEmail } = await import("@/lib/payment-notifications");
+
+    expect(
+      resolveRecipientEmail({
+        applicantEmail: "applicant@example.com",
+        businessEmail: "store@example.com",
+      })
+    ).toBe("applicant@example.com");
+
+    expect(
+      resolveRecipientEmail({
+        applicantEmail: null,
+        businessEmail: "store@example.com",
+      })
+    ).toBe("store@example.com");
+
+    expect(
+      resolveRecipientEmail({
+        applicantEmail: "   ",
+        businessEmail: "",
+      })
+    ).toBe(null);
+  });
+
+  it("WB-PAY-06 builds complete PaymentReminderEmailInput from database models", async () => {
+    const { buildPaymentReminderEmailData } = await import("@/lib/payment-notifications");
+
+    const mockApp = {
+      businessApplicationId: "app-999",
+      applicationNumber: "APP-2026-0099",
+      applicant: { name: "Maria Clara", email: "maria@example.com" },
+      businessRecord: { businessName: "Clara Bakery", email: "bakery@example.com" },
+      formData: { businessName: "Clara Bakery Official" },
+      feeAssessment: {
+        totalAmount: 4200,
+        releasePaymentAmount: 4200,
+      },
+    };
+
+    const mockRef = {
+      paymentReferenceId: "ref-123",
+      transactionNumber: "OR-112233",
+      paymentDate: new Date("2026-04-10T10:00:00Z"),
+      reviewedAt: new Date("2026-04-11T14:30:00Z"),
+      reviewerRemarks: "Cash payment confirmed",
+    };
+
+    const emailData = buildPaymentReminderEmailData(mockApp, mockRef, "https://ebpls.local");
+
+    expect(emailData).not.toBeNull();
+    expect(emailData?.applicantName).toBe("Maria Clara");
+    expect(emailData?.businessName).toBe("Clara Bakery Official");
+    expect(emailData?.transactionNumber).toBe("OR-112233");
+    expect(emailData?.amountPaid).toBe(4200);
+    expect(emailData?.trackingUrl).toContain("/applicant/my-applications/app-999");
+    expect(emailData?.remarks).toBe("Cash payment confirmed");
+  });
+
+  it("WB-PAY-07 sendPaymentVerifiedEmail returns attempted false if email is not configured", async () => {
+    const { sendPaymentVerifiedEmail } = await import("@/lib/payment-notifications");
+
+    // Calling with non-existent ID should return safe result instead of throwing
+    const result = await sendPaymentVerifiedEmail("non-existent-payment-ref-id");
+    expect(result.sent).toBe(false);
+  });
+});
+
