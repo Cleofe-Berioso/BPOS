@@ -744,7 +744,7 @@ export function SuperAdminFeeSettingsManager() {
 
         {showAddCategory ? (
           <form
-            className={`mb-4 grid gap-3 ${superadminFormPanelClass} md:grid-cols-2 xl:grid-cols-3`}
+            className={`mb-4 grid gap-3 ${superadminFormPanelClass} md:grid-cols-2`}
             onSubmit={saveCategory}
           >
             <FormField label="Category Label" required hint="Display name shown in fee settings and applicant Line of Business dropdowns.">
@@ -754,16 +754,6 @@ export function SuperAdminFeeSettingsManager() {
                 onChange={(e) => setCategoryForm((prev) => ({ ...prev, label: e.target.value }))}
                 className={superadminFormControlClass}
                 placeholder="e.g. Food Processing"
-              />
-            </FormField>
-
-            <FormField label="Category Key">
-              <input
-                aria-label="Category Key"
-                value={categoryForm.key}
-                onChange={(e) => setCategoryForm((prev) => ({ ...prev, key: e.target.value.toUpperCase() }))}
-                className={superadminFormControlClass}
-                placeholder="CUSTOM_FOOD_PROCESSING"
               />
             </FormField>
 
@@ -789,7 +779,7 @@ export function SuperAdminFeeSettingsManager() {
               </select>
             </FormField>
 
-            <div className="md:col-span-2 xl:col-span-3 flex justify-end">
+            <div className="md:col-span-2 flex justify-end">
               <button
                 type="submit"
                 className={actionButtonStyles("primary", "sm")}
