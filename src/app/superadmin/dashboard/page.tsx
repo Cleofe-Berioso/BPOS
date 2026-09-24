@@ -5,17 +5,16 @@ import { SectionCard } from "@/components/ui/section-card";
 import { StatCard } from "@/components/ui/stat-card";
 import { DashboardQueueCard } from "@/components/ui/dashboard-queue-card";
 import { DashboardLineChart } from "@/components/ui/dashboard-line-chart";
-import { DashboardStackedBarChart } from "@/components/ui/dashboard-stacked-bar-chart";
 import { DashboardHorizontalBarChart } from "@/components/ui/dashboard-horizontal-bar-chart";
 import { DashboardPieChart } from "@/components/ui/dashboard-pie-chart";
 import { DashboardGaugeCard } from "@/components/ui/dashboard-gauge-card";
-import { DASHBOARD_CHART_COLORS } from "@/components/ui/dashboard-chart-card";
 import { MunicipalDocumentHeader, IT_DEPARTMENT_HEADING } from "@/components/ui/municipal-document-header";
 import { actionButtonStyles } from "@/components/ui/action-button";
 import { WhoIsWorkingSystemChart } from "@/components/superadmin/who-is-working-system-chart";
 import { WhereIsWorkWaitingChart } from "@/components/superadmin/where-is-work-waiting-chart";
 import { DailyTransactionOutcomesChart } from "@/components/superadmin/daily-transaction-outcomes-chart";
 import { ComplianceRevocationPressureChart } from "@/components/superadmin/compliance-revocation-pressure-chart";
+import { DiagnosticLogsPanel } from "@/components/superadmin/diagnostic-logs-panel";
 import {
   getSuperAdminDashboardSummary,
   getSuperAdminReportsSummary,
@@ -253,47 +252,10 @@ export default async function SuperAdminDashboard() {
           emptyDescription="SMS status analytics render once delivery logs are recorded."
         />
 
-        <SectionCard
-          title="Diagnostic logs"
-          description="Use these live audit sources for IT root-cause checks. Dedicated exception-table logging is not part of this deployment."
-        >
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Link
-              href="/superadmin/activities"
-              className="rounded-[var(--radius-card)] border border-[var(--border-color)] bg-[var(--muted-surface)] p-3 transition-colors hover:border-[var(--primary)] hover:bg-[var(--primary-soft)]"
-            >
-              <div className="flex items-start gap-2.5">
-                <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-[var(--warning-soft)] text-[var(--warning)] ring-1 ring-[var(--border-color)]">
-                  <Activity className="h-4 w-4" />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-[var(--foreground)]">Activity Log</p>
-                  <p className="mt-1 text-xs text-[var(--ink-muted)]">
-                    {metrics.systemHealth.recentActivityVolume.toLocaleString("en-PH")} workflow events in the last 7 days
-                  </p>
-                  <p className="mt-2 text-xs font-semibold text-[var(--primary)]">Open activity trail →</p>
-                </div>
-              </div>
-            </Link>
-            <Link
-              href="/superadmin/reports/print/sms"
-              className="rounded-[var(--radius-card)] border border-[var(--border-color)] bg-[var(--muted-surface)] p-3 transition-colors hover:border-[var(--primary)] hover:bg-[var(--primary-soft)]"
-            >
-              <div className="flex items-start gap-2.5">
-                <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-[var(--danger-soft)] text-[var(--danger)] ring-1 ring-[var(--border-color)]">
-                  <MessageSquareWarning className="h-4 w-4" />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-[var(--foreground)]">SMS Delivery Log</p>
-                  <p className="mt-1 text-xs text-[var(--ink-muted)]">
-                    {metrics.systemHealth.recentFailedSmsCount.toLocaleString("en-PH")} failed SMS in the last 7 days
-                  </p>
-                  <p className="mt-2 text-xs font-semibold text-[var(--primary)]">Open SMS delivery report →</p>
-                </div>
-              </div>
-            </Link>
-          </div>
-        </SectionCard>
+        <DiagnosticLogsPanel
+          feeds={metrics.diagnosticFeeds}
+          health={metrics.systemHealth}
+        />
       </div>
 
       <SectionCard

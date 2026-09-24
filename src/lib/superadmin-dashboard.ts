@@ -1,6 +1,29 @@
 import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 import { resolveLocationBarangay } from "@/lib/business-location";
+import { maskPhoneNumber } from "@/lib/printable-reports";
+
+export interface DiagnosticActivityItem {
+  id: string;
+  createdAt: string;
+  actorName: string;
+  actorRole: string;
+  applicationNumber: string | null;
+  fromStatus: string | null;
+  toStatus: string;
+  remarks: string | null;
+}
+
+export interface DiagnosticSmsItem {
+  id: string;
+  createdAt: string;
+  applicationNumber: string | null;
+  phoneNumber: string | null;
+  status: "SENT" | "FAILED" | "SKIPPED";
+  provider: string;
+  messageSnippet: string;
+  providerResponse: string | null;
+}
 
 type DbRole = "APPLICANT" | "BPLO" | "DEPARTMENT_HEAD" | "JIT" | "SUPER_ADMIN";
 type SmsStatus = "SENT" | "FAILED" | "SKIPPED";
@@ -91,6 +114,10 @@ export interface SuperAdminDashboardMetrics {
     recentActivityAveragePerDay: number;
     closureTrendDirection: "up" | "down" | "flat" | "insufficient";
     topBusinessCategory: { label: string; count: number } | null;
+  };
+  diagnosticFeeds: {
+    recentActivities: DiagnosticActivityItem[];
+    recentSmsLogs: DiagnosticSmsItem[];
   };
 }
 
@@ -195,6 +222,8 @@ const getCachedSuperAdminDashboardMetrics = cache(async (): Promise<SuperAdminDa
     smsSummaryRows,
     recentFailedSmsCount,
     recentActivityVolume,
+    recentActivityHistoryRows,
+    recentSmsDeliveryRows,
   ] = await Promise.all([
     prisma.applicationHistory.findMany({
       where: { createdAt: { gte: startDate } },
@@ -297,6 +326,21 @@ const getCachedSuperAdminDashboardMetrics = cache(async (): Promise<SuperAdminDa
     }),
     prisma.smsDeliveryLog.count({ where: { createdAt: { gte: sevenDaysAgo }, status: "FAILED" } }),
     prisma.applicationHistory.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
+    prisma.applicationHistory.findMany({
+      take: 6,
+      orderBy: { createdAt: "desc" },
+      include: {
+        actor: { select: { name: true, email: true } },
+        application: { select: { applicationNumber: true } },
+      },
+    }),
+    prisma.smsDeliveryLog.findMany({
+      take: 6,
+      orderBy: { createdAt: "desc" },
+      include: {
+        application: { select: { applicationNumber: true } },
+      },
+    }),
   ]);
 
   const verifiedNonCompliant = allVerifiedNonCompliant.length;
@@ -678,6 +722,28 @@ const getCachedSuperAdminDashboardMetrics = cache(async (): Promise<SuperAdminDa
     });
   }
 
+  const recentActivities: DiagnosticActivityItem[] = recentActivityHistoryRows.map((row) => ({
+    id: row.applicationHistoryId,
+    createdAt: row.createdAt.toISOString(),
+    actorName: row.actor?.name || row.actor?.email || "System / Automated",
+    actorRole: row.actorRole ?? "SYSTEM",
+    applicationNumber: row.application?.applicationNumber ?? null,
+    fromStatus: row.fromStatus ?? null,
+    toStatus: row.toStatus,
+    remarks: row.remarks ?? null,
+  }));
+
+  const recentSmsLogs: DiagnosticSmsItem[] = recentSmsDeliveryRows.map((row) => ({
+    id: row.smsDeliveryLogId,
+    createdAt: row.createdAt.toISOString(),
+    applicationNumber: row.application?.applicationNumber ?? null,
+    phoneNumber: row.phoneNumber ? maskPhoneNumber(row.phoneNumber) : null,
+    status: row.status as SmsStatus,
+    provider: row.provider,
+    messageSnippet: row.messageBody,
+    providerResponse: row.providerResponse ?? null,
+  }));
+
   return {
     userActivityByRole,
     applicationVolumeAcrossSystem,
@@ -700,6 +766,10 @@ const getCachedSuperAdminDashboardMetrics = cache(async (): Promise<SuperAdminDa
       recentActivityAveragePerDay,
       closureTrendDirection,
       topBusinessCategory,
+    },
+    diagnosticFeeds: {
+      recentActivities,
+      recentSmsLogs,
     },
   };
 });
