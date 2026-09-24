@@ -73,7 +73,7 @@ async function verifyDisabledUserDbState(): Promise<void> {
 
   const disabledStaff = await prisma.user.findFirst({
     where: { isActive: false, role: { in: ["BPLO", "JIT", "DEPARTMENT_HEAD", "SUPER_ADMIN"] } },
-    select: { id: true, role: true, isActive: true },
+    select: { userId: true, role: true, isActive: true },
   });
 
   if (!disabledStaff) {
@@ -89,7 +89,7 @@ async function verifyDisabledUserDbState(): Promise<void> {
 
   const disabledApplicant = await prisma.user.findFirst({
     where: { isActive: false, role: "APPLICANT" },
-    select: { id: true, role: true, isActive: true },
+    select: { userId: true, role: true, isActive: true },
   });
 
   if (!disabledApplicant) {

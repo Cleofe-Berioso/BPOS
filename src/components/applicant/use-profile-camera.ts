@@ -176,7 +176,7 @@ export function useProfileCamera() {
     } finally {
       setCameraLoading(false);
     }
-  }, [stopCamera]);
+  }, []);
 
   // ── Capture still frame ───────────────────────────────────────────────────
 

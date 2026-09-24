@@ -297,8 +297,6 @@ async function ensureAssessment(input: SmokeAssessmentInput) {
       paymentFrequency: input.paymentFrequency,
       annualAssessedAmount: money(input.annualAssessedAmount),
       releasePaymentAmount: money(releasePaymentAmount),
-      amountPaid: money(input.amountPaid),
-      remainingBalance: money(remainingBalance),
       paymentStatus: toSettlementStatus(input.amountPaid, input.annualAssessedAmount),
       mayorsPermitFee: money(input.annualAssessedAmount),
       regulatoryFees: money(0),
@@ -307,7 +305,6 @@ async function ensureAssessment(input: SmokeAssessmentInput) {
       surcharge: money(0),
       interest: money(0),
       closureCertificateFee: money(0),
-      arrears: money(0),
       otherCharges: money(0),
       totalAmount: money(input.annualAssessedAmount),
       remarks: input.remarks,
@@ -321,8 +318,6 @@ async function ensureAssessment(input: SmokeAssessmentInput) {
       paymentFrequency: input.paymentFrequency,
       annualAssessedAmount: money(input.annualAssessedAmount),
       releasePaymentAmount: money(releasePaymentAmount),
-      amountPaid: money(input.amountPaid),
-      remainingBalance: money(remainingBalance),
       paymentStatus: toSettlementStatus(input.amountPaid, input.annualAssessedAmount),
       mayorsPermitFee: money(input.annualAssessedAmount),
       regulatoryFees: money(0),
@@ -331,7 +326,6 @@ async function ensureAssessment(input: SmokeAssessmentInput) {
       surcharge: money(0),
       interest: money(0),
       closureCertificateFee: money(0),
-      arrears: money(0),
       otherCharges: money(0),
       totalAmount: money(input.annualAssessedAmount),
       remarks: input.remarks,
@@ -346,7 +340,6 @@ async function ensurePaymentReference(input: SmokePaymentReferenceInput) {
     where: { transactionNumber: input.transactionNumber },
     update: {
       applicationId: input.applicationId,
-      amountPaid: money(input.amountPaid),
       paymentDate: input.paymentDate,
       proofFileName: input.proofFileName,
       proofStoragePath: input.proofStoragePath,
@@ -361,7 +354,6 @@ async function ensurePaymentReference(input: SmokePaymentReferenceInput) {
     create: {
       applicationId: input.applicationId,
       transactionNumber: input.transactionNumber,
-      amountPaid: money(input.amountPaid),
       paymentDate: input.paymentDate,
       proofFileName: input.proofFileName,
       proofStoragePath: input.proofStoragePath,
@@ -433,12 +425,12 @@ async function ensureBusinessLocation(input: SmokeLocationInput) {
 /** Undo revocation/manual QA drift on released smoke rows (status, business record, inspections). */
 async function resetReleasedSmokeRecord(applicationId: string, businessRecordId: string) {
   await prisma.businessApplication.update({
-    where: { id: applicationId },
+    where: { businessApplicationId: applicationId },
     data: { status: "RELEASED" },
   });
 
   await prisma.businessRecord.update({
-    where: { id: businessRecordId },
+    where: { businessRecordId },
     data: {
       businessStatus: "ACTIVE",
       closedAt: null,
@@ -468,6 +460,69 @@ async function resetReleasedSmokeRecord(applicationId: string, businessRecordId:
   });
 }
 
+async function ensureInspection(input: {
+  businessRecordId: string;
+  applicationId: string;
+  inspectorId: string;
+  complianceStatus: "COMPLIANT" | "NON_COMPLIANT";
+  status:
+    | "COMPLIANT"
+    | "NON_COMPLIANT"
+    | "DH_VERIFICATION_PENDING"
+    | "VERIFIED_COMPLIANT"
+    | "VERIFIED_NON_COMPLIANT"
+    | "REVOCATION_REVIEW"
+    | "REVOCATION_DENIED"
+    | "REVOKED";
+  comment?: string | null;
+  decidedById?: string | null;
+  revocationDecision?: "APPROVED" | "DENIED" | null;
+  revocationRemarks?: string | null;
+  decidedAt?: Date | null;
+  revocationSettledAt?: Date | null;
+}) {
+  const existing = await prisma.inspection.findFirst({
+    where: {
+      businessRecordId: input.businessRecordId,
+      applicationId: input.applicationId,
+    },
+    select: { inspectionId: true },
+  });
+
+  if (existing) {
+    return prisma.inspection.update({
+      where: { inspectionId: existing.inspectionId },
+      data: {
+        inspectorId: input.inspectorId,
+        complianceStatus: input.complianceStatus,
+        status: input.status,
+        comment: input.comment ?? null,
+        decidedById: input.decidedById ?? null,
+        revocationDecision: input.revocationDecision ?? null,
+        revocationRemarks: input.revocationRemarks ?? null,
+        decidedAt: input.decidedAt ?? null,
+        revocationSettledAt: input.revocationSettledAt ?? null,
+      },
+    });
+  }
+
+  return prisma.inspection.create({
+    data: {
+      businessRecordId: input.businessRecordId,
+      applicationId: input.applicationId,
+      inspectorId: input.inspectorId,
+      complianceStatus: input.complianceStatus,
+      status: input.status,
+      comment: input.comment ?? null,
+      decidedById: input.decidedById ?? null,
+      revocationDecision: input.revocationDecision ?? null,
+      revocationRemarks: input.revocationRemarks ?? null,
+      decidedAt: input.decidedAt ?? null,
+      revocationSettledAt: input.revocationSettledAt ?? null,
+    },
+  });
+}
+
 async function ensureHistory(
   applicationId: string,
   actorId: string,
@@ -486,7 +541,7 @@ async function ensureHistory(
       toStatus,
       remarks,
     },
-    select: { id: true },
+    select: { applicationHistoryId: true },
   });
 
   if (existing) return existing;
@@ -533,16 +588,16 @@ async function main() {
   // Prefer the production IT Admin login; migrate any leftover demo email first.
   const legacySuperAdmin = await prisma.user.findUnique({
     where: { email: "superadmin@example.com" },
-    select: { id: true },
+    select: { userId: true },
   });
   if (legacySuperAdmin) {
     const conflict = await prisma.user.findUnique({
       where: { email: "bpossuperadmin@gmail.com" },
-      select: { id: true },
+      select: { userId: true },
     });
     if (!conflict) {
       await prisma.user.update({
-        where: { id: legacySuperAdmin.id },
+        where: { userId: legacySuperAdmin.userId },
         data: { email: "bpossuperadmin@gmail.com" },
       });
     }
@@ -552,12 +607,12 @@ async function main() {
     name: "IT Administrator",
     role: "SUPER_ADMIN",
   });
-  await ensureUser({
+  const deptHead = await ensureUser({
     email: "dept-head@example.com",
     name: "Department Head Officer",
     role: "DEPARTMENT_HEAD",
   });
-  await ensureUser({
+  const jit = await ensureUser({
     email: "jit@example.com",
     name: "JIT Inspector",
     role: "JIT",
@@ -570,7 +625,7 @@ async function main() {
   });
 
   const retailRecord = await ensureBusinessRecord({
-    applicantId: applicant.id,
+    applicantId: applicant.userId,
     registrationNumber: "SMOKE-REG-RETAIL-001",
     tin: "900-000-001-001",
     businessType: "Sole Proprietorship",
@@ -589,7 +644,7 @@ async function main() {
   });
 
   const foodRecord = await ensureBusinessRecord({
-    applicantId: applicant.id,
+    applicantId: applicant.userId,
     registrationNumber: "SMOKE-REG-FOOD-001",
     tin: "900-000-001-002",
     businessType: "Sole Proprietorship",
@@ -608,7 +663,7 @@ async function main() {
   });
 
   const paidRecord = await ensureBusinessRecord({
-    applicantId: applicant.id,
+    applicantId: applicant.userId,
     registrationNumber: "SMOKE-REG-PAID-001",
     tin: "900-000-001-003",
     businessType: "Sole Proprietorship",
@@ -627,7 +682,7 @@ async function main() {
   });
 
   const assessedRecord = await ensureBusinessRecord({
-    applicantId: applicant.id,
+    applicantId: applicant.userId,
     registrationNumber: "SMOKE-REG-ASSESSED-001",
     tin: "900-000-001-004",
     businessType: "Sole Proprietorship",
@@ -646,7 +701,7 @@ async function main() {
   });
 
   const blockedPermitRecord = await ensureBusinessRecord({
-    applicantId: applicant.id,
+    applicantId: applicant.userId,
     registrationNumber: "SMOKE-REG-PERMIT-BLOCK-001",
     tin: "900-000-001-006",
     businessType: "Sole Proprietorship",
@@ -665,7 +720,7 @@ async function main() {
   });
 
   const duplicateRecord = await ensureBusinessRecord({
-    applicantId: duplicateApplicant.id,
+    applicantId: duplicateApplicant.userId,
     registrationNumber: "SMOKE-REG-DUP-001",
     tin: "900-000-001-005",
     businessType: "Sole Proprietorship",
@@ -684,25 +739,25 @@ async function main() {
   });
 
   const releasedRetail = await ensureApplication({
-    applicantId: applicant.id,
+    applicantId: applicant.userId,
     applicationNumber: "SMOKE-APP-RETAIL-RELEASED",
     applicationType: "NEW",
     status: "RELEASED",
-    businessRecordId: retailRecord.id,
+    businessRecordId: retailRecord.businessRecordId,
     formData: buildFormData(retailRecord),
     submittedAt: new Date("2026-01-12T09:00:00.000Z"),
   });
   await ensureAssessment({
-    applicationId: releasedRetail.id,
+    applicationId: releasedRetail.businessApplicationId,
     assessmentNumber: "TOP-SMOKE-RETAIL-REL",
     paymentFrequency: "ANNUAL",
     annualAssessedAmount: 6000,
     amountPaid: 6000,
-    computedById: bplo.id,
+    computedById: bplo.userId,
     remarks: "Smoke retail released record for map filter testing.",
   });
   await ensurePaymentReference({
-    applicationId: releasedRetail.id,
+    applicationId: releasedRetail.businessApplicationId,
     transactionNumber: "SMOKE-OR-RETAIL-6000",
     amountPaid: 6000,
     paymentDate: new Date("2026-01-18T10:00:00.000Z"),
@@ -714,52 +769,52 @@ async function main() {
     submittedAt: new Date("2026-01-18T10:05:00.000Z"),
     reviewerRemarks: "Smoke verified retail payment.",
     reviewedAt: new Date("2026-01-18T10:20:00.000Z"),
-    reviewedById: bplo.id,
+    reviewedById: bplo.userId,
   });
   await ensurePermitIssuance({
-    applicationId: releasedRetail.id,
+    applicationId: releasedRetail.businessApplicationId,
     documentNumber: "BP-SMOKE-RETAIL-001",
     documentType: "BUSINESS_PERMIT",
     status: "RELEASED",
     issuedAt: new Date("2026-01-20T08:30:00.000Z"),
-    preparedById: bplo.id,
+    preparedById: bplo.userId,
     releasedAt: new Date("2026-01-20T09:00:00.000Z"),
-    releasedById: bplo.id,
+    releasedById: bplo.userId,
     remarks: "Smoke released retail permit for map testing.",
   });
   await ensureBusinessLocation({
-    businessRecordId: retailRecord.id,
+    businessRecordId: retailRecord.businessRecordId,
     latitude: 10.879421,
     longitude: 122.981332,
     address: "Poblacion East, E.B. Magalona, Negros Occidental",
     barangay: "Poblacion East",
     status: "VERIFIED",
-    submittedById: applicant.id,
-    verifiedById: bplo.id,
+    submittedById: applicant.userId,
+    verifiedById: bplo.userId,
     remarks: "Smoke verified retail location.",
   });
-  await resetReleasedSmokeRecord(releasedRetail.id, retailRecord.id);
+  await resetReleasedSmokeRecord(releasedRetail.businessApplicationId, retailRecord.businessRecordId);
 
   const releasedFood = await ensureApplication({
-    applicantId: applicant.id,
+    applicantId: applicant.userId,
     applicationNumber: "SMOKE-APP-FOOD-RELEASED",
     applicationType: "NEW",
     status: "RELEASED",
-    businessRecordId: foodRecord.id,
+    businessRecordId: foodRecord.businessRecordId,
     formData: buildFormData(foodRecord),
     submittedAt: new Date("2026-01-13T09:00:00.000Z"),
   });
   await ensureAssessment({
-    applicationId: releasedFood.id,
+    applicationId: releasedFood.businessApplicationId,
     assessmentNumber: "TOP-SMOKE-FOOD-REL",
     paymentFrequency: "ANNUAL",
     annualAssessedAmount: 6000,
     amountPaid: 6000,
-    computedById: bplo.id,
+    computedById: bplo.userId,
     remarks: "Smoke food released record for map filter testing.",
   });
   await ensurePaymentReference({
-    applicationId: releasedFood.id,
+    applicationId: releasedFood.businessApplicationId,
     transactionNumber: "SMOKE-OR-FOOD-6000",
     amountPaid: 6000,
     paymentDate: new Date("2026-01-19T11:00:00.000Z"),
@@ -771,52 +826,52 @@ async function main() {
     submittedAt: new Date("2026-01-19T11:05:00.000Z"),
     reviewerRemarks: "Smoke verified food payment.",
     reviewedAt: new Date("2026-01-19T11:20:00.000Z"),
-    reviewedById: bplo.id,
+    reviewedById: bplo.userId,
   });
   await ensurePermitIssuance({
-    applicationId: releasedFood.id,
+    applicationId: releasedFood.businessApplicationId,
     documentNumber: "BP-SMOKE-FOOD-001",
     documentType: "BUSINESS_PERMIT",
     status: "RELEASED",
     issuedAt: new Date("2026-01-21T08:30:00.000Z"),
-    preparedById: bplo.id,
+    preparedById: bplo.userId,
     releasedAt: new Date("2026-01-21T09:00:00.000Z"),
-    releasedById: bplo.id,
+    releasedById: bplo.userId,
     remarks: "Smoke released food permit for map testing.",
   });
   await ensureBusinessLocation({
-    businessRecordId: foodRecord.id,
+    businessRecordId: foodRecord.businessRecordId,
     latitude: 10.884112,
     longitude: 122.986741,
     address: "San Jose, E.B. Magalona, Negros Occidental",
     barangay: "San Jose",
     status: "VERIFIED",
-    submittedById: applicant.id,
-    verifiedById: bplo.id,
+    submittedById: applicant.userId,
+    verifiedById: bplo.userId,
     remarks: "Smoke verified food location.",
   });
-  await resetReleasedSmokeRecord(releasedFood.id, foodRecord.id);
+  await resetReleasedSmokeRecord(releasedFood.businessApplicationId, foodRecord.businessRecordId);
 
   const annualPaid = await ensureApplication({
-    applicantId: applicant.id,
+    applicantId: applicant.userId,
     applicationNumber: "SMOKE-APP-NEW-ANNUAL-PAID",
     applicationType: "NEW",
     status: "PAID",
-    businessRecordId: paidRecord.id,
+    businessRecordId: paidRecord.businessRecordId,
     formData: buildFormData(paidRecord),
     submittedAt: new Date("2026-02-10T09:00:00.000Z"),
   });
   await ensureAssessment({
-    applicationId: annualPaid.id,
+    applicationId: annualPaid.businessApplicationId,
     assessmentNumber: "TOP-SMOKE-ANNUAL-PAID",
     paymentFrequency: "ANNUAL",
     annualAssessedAmount: 6000,
     amountPaid: 6000,
-    computedById: bplo.id,
+    computedById: bplo.userId,
     remarks: "Annual release amount smoke record for permit preparation.",
   });
   await ensurePaymentReference({
-    applicationId: annualPaid.id,
+    applicationId: annualPaid.businessApplicationId,
     transactionNumber: "SMOKE-OR-ANNUAL-6000",
     amountPaid: 6000,
     paymentDate: new Date("2026-02-14T10:00:00.000Z"),
@@ -828,48 +883,48 @@ async function main() {
     submittedAt: new Date("2026-02-14T10:05:00.000Z"),
     reviewerRemarks: "Verified for permit gating smoke test.",
     reviewedAt: new Date("2026-02-14T10:30:00.000Z"),
-    reviewedById: bplo.id,
+    reviewedById: bplo.userId,
   });
 
   const assessedApp = await ensureApplication({
-    applicantId: applicant.id,
+    applicantId: applicant.userId,
     applicationNumber: "SMOKE-APP-NEW-ASSESSED",
     applicationType: "NEW",
     status: "ASSESSED",
-    businessRecordId: assessedRecord.id,
+    businessRecordId: assessedRecord.businessRecordId,
     formData: buildFormData(assessedRecord),
     submittedAt: new Date("2026-03-01T09:00:00.000Z"),
   });
   await ensureAssessment({
-    applicationId: assessedApp.id,
+    applicationId: assessedApp.businessApplicationId,
     assessmentNumber: "TOP-SMOKE-ASSESSED-001",
     paymentFrequency: "ANNUAL",
     annualAssessedAmount: 6000,
     amountPaid: 0,
-    computedById: bplo.id,
+    computedById: bplo.userId,
     remarks: "Assessed-only record for Assessment & Fees page.",
   });
 
   const renewalApproved = await ensureApplication({
-    applicantId: applicant.id,
+    applicantId: applicant.userId,
     applicationNumber: "SMOKE-APP-RENEWAL-BI-APPROVED",
     applicationType: "RENEWAL",
     status: "APPROVED_FOR_PAYMENT",
-    businessRecordId: retailRecord.id,
+    businessRecordId: retailRecord.businessRecordId,
     formData: buildFormData(retailRecord),
     submittedAt: new Date("2026-03-10T09:00:00.000Z"),
   });
   await ensureAssessment({
-    applicationId: renewalApproved.id,
+    applicationId: renewalApproved.businessApplicationId,
     assessmentNumber: "TOP-SMOKE-BI-APPROVED",
     paymentFrequency: "BI_ANNUAL",
     annualAssessedAmount: 6000,
     amountPaid: 0,
-    computedById: bplo.id,
+    computedById: bplo.userId,
     remarks: "Bi-annual release amount smoke record with pending payment verification.",
   });
   await ensurePaymentReference({
-    applicationId: renewalApproved.id,
+    applicationId: renewalApproved.businessApplicationId,
     transactionNumber: "SMOKE-OR-RENEWAL-BI-3000",
     amountPaid: 3000,
     paymentDate: new Date("2026-03-12T13:00:00.000Z"),
@@ -882,59 +937,59 @@ async function main() {
   });
 
   const closureApproved = await ensureApplication({
-    applicantId: applicant.id,
+    applicantId: applicant.userId,
     applicationNumber: "SMOKE-APP-CLOSURE-QTR-APPROVED",
     applicationType: "CLOSURE",
     status: "APPROVED_FOR_PAYMENT",
-    businessRecordId: foodRecord.id,
+    businessRecordId: foodRecord.businessRecordId,
     formData: buildFormData(foodRecord),
     submittedAt: new Date("2026-03-14T09:00:00.000Z"),
   });
   await ensureAssessment({
-    applicationId: closureApproved.id,
+    applicationId: closureApproved.businessApplicationId,
     assessmentNumber: "TOP-SMOKE-QTR-APPROVED",
     paymentFrequency: "QUARTERLY",
     annualAssessedAmount: 6000,
     amountPaid: 0,
-    computedById: bplo.id,
+    computedById: bplo.userId,
     remarks: "Quarterly release amount smoke record for applicant payment submission.",
   });
 
   const permitBlocked = await ensureApplication({
-    applicantId: applicant.id,
+    applicantId: applicant.userId,
     applicationNumber: "SMOKE-APP-PERMIT-BLOCKED-UNPAID",
     applicationType: "NEW",
     status: "APPROVED_FOR_PAYMENT",
-    businessRecordId: blockedPermitRecord.id,
+    businessRecordId: blockedPermitRecord.businessRecordId,
     formData: buildFormData(blockedPermitRecord),
     submittedAt: new Date("2026-03-15T09:00:00.000Z"),
   });
   await ensureAssessment({
-    applicationId: permitBlocked.id,
+    applicationId: permitBlocked.businessApplicationId,
     assessmentNumber: "TOP-SMOKE-PERMIT-BLOCKED",
     paymentFrequency: "ANNUAL",
     annualAssessedAmount: 6000,
     amountPaid: 0,
-    computedById: bplo.id,
+    computedById: bplo.userId,
     remarks: "Dedicated blocked permit smoke record that must remain unpaid and unverified.",
   });
 
   const duplicateApproved = await ensureApplication({
-    applicantId: duplicateApplicant.id,
+    applicantId: duplicateApplicant.userId,
     applicationNumber: "SMOKE-APP-DUPLICATE-APPROVED",
     applicationType: "NEW",
     status: "APPROVED_FOR_PAYMENT",
-    businessRecordId: duplicateRecord.id,
+    businessRecordId: duplicateRecord.businessRecordId,
     formData: buildFormData(duplicateRecord),
     submittedAt: new Date("2026-03-16T09:00:00.000Z"),
   });
   await ensureAssessment({
-    applicationId: duplicateApproved.id,
+    applicationId: duplicateApproved.businessApplicationId,
     assessmentNumber: "TOP-SMOKE-DUP-APPROVED",
     paymentFrequency: "ANNUAL",
     annualAssessedAmount: 6000,
     amountPaid: 0,
-    computedById: bplo.id,
+    computedById: bplo.userId,
     remarks: "Secondary applicant record for duplicate OR browser testing.",
   });
 
@@ -945,50 +1000,50 @@ async function main() {
     statuses: ApplicationStatus[];
   }> = [
     {
-      applicationId: releasedRetail.id,
-      actorId: bplo.id,
+      applicationId: releasedRetail.businessApplicationId,
+      actorId: bplo.userId,
       actorRole: "BPLO",
       statuses: ["SUBMITTED", "UNDER_REVIEW", "ASSESSED", "APPROVED_FOR_PAYMENT", "PAID", "FOR_RELEASE", "RELEASED"],
     },
     {
-      applicationId: releasedFood.id,
-      actorId: bplo.id,
+      applicationId: releasedFood.businessApplicationId,
+      actorId: bplo.userId,
       actorRole: "BPLO",
       statuses: ["SUBMITTED", "UNDER_REVIEW", "ASSESSED", "APPROVED_FOR_PAYMENT", "PAID", "FOR_RELEASE", "RELEASED"],
     },
     {
-      applicationId: annualPaid.id,
-      actorId: bplo.id,
+      applicationId: annualPaid.businessApplicationId,
+      actorId: bplo.userId,
       actorRole: "BPLO",
       statuses: ["SUBMITTED", "UNDER_REVIEW", "ASSESSED", "APPROVED_FOR_PAYMENT", "PAID"],
     },
     {
-      applicationId: assessedApp.id,
-      actorId: bplo.id,
+      applicationId: assessedApp.businessApplicationId,
+      actorId: bplo.userId,
       actorRole: "BPLO",
       statuses: ["SUBMITTED", "UNDER_REVIEW", "ASSESSED"],
     },
     {
-      applicationId: renewalApproved.id,
-      actorId: bplo.id,
+      applicationId: renewalApproved.businessApplicationId,
+      actorId: bplo.userId,
       actorRole: "BPLO",
       statuses: ["SUBMITTED", "UNDER_REVIEW", "ASSESSED", "APPROVED_FOR_PAYMENT"],
     },
     {
-      applicationId: closureApproved.id,
-      actorId: bplo.id,
+      applicationId: closureApproved.businessApplicationId,
+      actorId: bplo.userId,
       actorRole: "BPLO",
       statuses: ["SUBMITTED", "UNDER_REVIEW", "ASSESSED", "APPROVED_FOR_PAYMENT"],
     },
     {
-      applicationId: permitBlocked.id,
-      actorId: bplo.id,
+      applicationId: permitBlocked.businessApplicationId,
+      actorId: bplo.userId,
       actorRole: "BPLO",
       statuses: ["SUBMITTED", "UNDER_REVIEW", "ASSESSED", "APPROVED_FOR_PAYMENT"],
     },
     {
-      applicationId: duplicateApproved.id,
-      actorId: bplo.id,
+      applicationId: duplicateApproved.businessApplicationId,
+      actorId: bplo.userId,
       actorRole: "BPLO",
       statuses: ["SUBMITTED", "UNDER_REVIEW", "ASSESSED", "APPROVED_FOR_PAYMENT"],
     },
@@ -1012,8 +1067,8 @@ async function main() {
   }
 
   await ensureHistory(
-    renewalApproved.id,
-    applicant.id,
+    renewalApproved.businessApplicationId,
+    applicant.userId,
     "APPLICANT",
     "APPROVED_FOR_PAYMENT",
     "APPROVED_FOR_PAYMENT",
@@ -1021,10 +1076,172 @@ async function main() {
     "Applicant submitted payment reference: SMOKE-OR-RENEWAL-BI-3000, Amount: ₱3,000.00"
   );
 
+  // ── Closed business for WB-DB-CLOSE-04 ──
+  const closedRecord = await ensureBusinessRecord({
+    applicantId: applicant.userId,
+    registrationNumber: "SMOKE-REG-CLOSED-001",
+    tin: "900-000-001-099",
+    businessType: "Sole Proprietorship",
+    businessName: "Smoke Closed Business",
+    tradeName: "Closed Business",
+    ownerName: "Juan dela Cruz",
+    nationality: "Filipino",
+    email: "applicant@example.com",
+    phone: "09171230099",
+    mainOfficeAddress: "Poblacion West, E.B. Magalona, Negros Occidental",
+    businessAddress: "Poblacion West, E.B. Magalona, Negros Occidental",
+    lineOfBusiness: "General merchandise retail",
+    businessActivity: "Retail trading",
+    assetSize: "100000",
+    totalEmployees: "1",
+  });
+  await prisma.businessRecord.update({
+    where: { businessRecordId: closedRecord.businessRecordId },
+    data: { businessStatus: "CLOSED" },
+  });
+
+  // ── Phase 6 Debug Map records for VR-P6-* and WB-DB-MAP-04/05 ──
+  const p6Seeds = [
+    {
+      reg: "DBG-P6-MAP-GRAY-BIZ",
+      name: "[DEBUG-SEED] P6 Map Gray Business",
+      owner: "Debug Owner Gray",
+      appNum: "DBG-P6-MAP-GRAY-001",
+      inspectionStatus: null,
+      revocationSettledAt: null,
+      active: true,
+      lat: 10.878586,
+      lng: 122.978876,
+    },
+    {
+      reg: "DBG-P6-MAP-YELLOW-BIZ",
+      name: "[DEBUG-SEED] P6 Map Yellow Business",
+      owner: "Debug Owner Yellow",
+      appNum: "DBG-P6-MAP-YELLOW-001",
+      inspectionStatus: "DH_VERIFICATION_PENDING" as const,
+      revocationSettledAt: null,
+      active: true,
+      lat: 10.879586,
+      lng: 122.979876,
+    },
+    {
+      reg: "DBG-P6-MAP-GREEN-BIZ",
+      name: "[DEBUG-SEED] P6 Map Green Business",
+      owner: "Debug Owner Green",
+      appNum: "DBG-P6-MAP-GREEN-001",
+      inspectionStatus: "VERIFIED_COMPLIANT" as const,
+      revocationSettledAt: null,
+      active: true,
+      lat: 10.880586,
+      lng: 122.980876,
+    },
+    {
+      reg: "DBG-P6-MAP-RED-UNSETTLED-BIZ",
+      name: "[DEBUG-SEED] P6 Map Red Unsettled Business",
+      owner: "Debug Owner Red Unsettled",
+      appNum: "DBG-P6-MAP-RED-UNSETTLED-001",
+      inspectionStatus: "REVOKED" as const,
+      revocationSettledAt: null,
+      active: true,
+      lat: 10.881586,
+      lng: 122.981876,
+    },
+    {
+      reg: "DBG-P6-MAP-RED-SETTLED-BIZ",
+      name: "[DEBUG-SEED] P6 Map Red Settled Business",
+      owner: "Debug Owner Red Settled",
+      appNum: "DBG-P6-MAP-RED-SETTLED-001",
+      inspectionStatus: "REVOKED" as const,
+      revocationSettledAt: new Date("2026-05-16T09:00:00.000Z"),
+      active: false,
+      lat: 10.882586,
+      lng: 122.982876,
+    },
+  ];
+
+  for (let i = 0; i < p6Seeds.length; i++) {
+    const s = p6Seeds[i];
+    const rec = await ensureBusinessRecord({
+      applicantId: applicant.userId,
+      registrationNumber: s.reg,
+      tin: `900-000-096-00${i + 1}`,
+      businessType: "Sole Proprietorship",
+      businessName: s.name,
+      tradeName: `${s.name} Trade`,
+      ownerName: s.owner,
+      nationality: "Filipino",
+      email: "applicant@example.com",
+      phone: "0917123960" + (i + 1),
+      mainOfficeAddress: "Purok 1, Barangay 1 (Pob.), Enrique B. Magalona, Negros Occidental",
+      businessAddress: "Purok 1, Barangay 1 (Pob.), Enrique B. Magalona, Negros Occidental",
+      lineOfBusiness: "Trading",
+      businessActivity: "Phase 6 debug map record",
+      assetSize: "500000",
+      totalEmployees: "4",
+    });
+
+    if (!s.active) {
+      await prisma.businessRecord.update({
+        where: { businessRecordId: rec.businessRecordId },
+        data: { businessStatus: "CLOSED" },
+      });
+    }
+
+    const p6App = await ensureApplication({
+      applicantId: applicant.userId,
+      applicationNumber: s.appNum,
+      applicationType: "NEW",
+      status: "RELEASED",
+      businessRecordId: rec.businessRecordId,
+      formData: buildFormData(rec),
+      submittedAt: new Date("2026-05-15T08:00:00.000Z"),
+    });
+
+    await ensurePermitIssuance({
+      applicationId: p6App.businessApplicationId,
+      documentNumber: `${s.appNum}-PERMIT`,
+      documentType: "BUSINESS_PERMIT",
+      status: "RELEASED",
+      issuedAt: new Date("2026-05-16T08:00:00.000Z"),
+      releasedAt: new Date("2026-05-16T09:00:00.000Z"),
+      preparedById: bplo.userId,
+      releasedById: bplo.userId,
+      remarks: "[DEBUG-SEED][P6] Released permit for map verification",
+    });
+
+    await ensureBusinessLocation({
+      businessRecordId: rec.businessRecordId,
+      latitude: s.lat,
+      longitude: s.lng,
+      address: "Purok 1, Barangay 1 (Pob.), Enrique B. Magalona, Negros Occidental",
+      barangay: "Barangay 1 (Pob.)",
+      status: "VERIFIED",
+      submittedById: applicant.userId,
+      verifiedById: jit.userId,
+      remarks: "[DEBUG-SEED][P6] Verified business location",
+    });
+
+    if (s.inspectionStatus) {
+      await ensureInspection({
+        businessRecordId: rec.businessRecordId,
+        applicationId: p6App.businessApplicationId,
+        inspectorId: jit.userId,
+        complianceStatus: s.inspectionStatus === "VERIFIED_COMPLIANT" ? "COMPLIANT" : "NON_COMPLIANT",
+        status: s.inspectionStatus,
+        comment: `[DEBUG-SEED][P6] ${s.inspectionStatus} inspection`,
+        decidedById: s.inspectionStatus === "REVOKED" ? deptHead.userId : null,
+        revocationDecision: s.inspectionStatus === "REVOKED" ? "APPROVED" : null,
+        revocationRemarks: s.inspectionStatus === "REVOKED" ? "[DEBUG-SEED][P6] Revoked for verification" : null,
+        decidedAt: s.inspectionStatus === "REVOKED" ? new Date("2026-05-16T10:00:00.000Z") : null,
+        revocationSettledAt: s.revocationSettledAt,
+      });
+    }
+  }
+
   const summary = [
     {
       label: "annual_paid_prepare_permit",
-      applicationId: annualPaid.id,
+      applicationId: annualPaid.businessApplicationId,
       applicationNumber: annualPaid.applicationNumber,
       businessName: paidRecord.businessName,
       ownerName: paidRecord.ownerName,
@@ -1035,7 +1252,7 @@ async function main() {
     },
     {
       label: "bi_annual_pending_verification",
-      applicationId: renewalApproved.id,
+      applicationId: renewalApproved.businessApplicationId,
       applicationNumber: renewalApproved.applicationNumber,
       businessName: retailRecord.businessName,
       ownerName: retailRecord.ownerName,
@@ -1046,7 +1263,7 @@ async function main() {
     },
     {
       label: "quarterly_applicant_payment",
-      applicationId: closureApproved.id,
+      applicationId: closureApproved.businessApplicationId,
       applicationNumber: closureApproved.applicationNumber,
       businessName: foodRecord.businessName,
       ownerName: foodRecord.ownerName,
@@ -1057,7 +1274,7 @@ async function main() {
     },
     {
       label: "permit_blocked_unpaid",
-      applicationId: permitBlocked.id,
+      applicationId: permitBlocked.businessApplicationId,
       applicationNumber: permitBlocked.applicationNumber,
       businessName: blockedPermitRecord.businessName,
       ownerName: blockedPermitRecord.ownerName,
@@ -1067,7 +1284,7 @@ async function main() {
     },
     {
       label: "assessed_queue_record",
-      applicationId: assessedApp.id,
+      applicationId: assessedApp.businessApplicationId,
       applicationNumber: assessedApp.applicationNumber,
       businessName: assessedRecord.businessName,
       ownerName: assessedRecord.ownerName,
@@ -1078,7 +1295,7 @@ async function main() {
     },
     {
       label: "released_map_retail",
-      applicationId: releasedRetail.id,
+      applicationId: releasedRetail.businessApplicationId,
       applicationNumber: releasedRetail.applicationNumber,
       businessName: retailRecord.businessName,
       ownerName: retailRecord.ownerName,
@@ -1089,7 +1306,7 @@ async function main() {
     },
     {
       label: "released_map_food",
-      applicationId: releasedFood.id,
+      applicationId: releasedFood.businessApplicationId,
       applicationNumber: releasedFood.applicationNumber,
       businessName: foodRecord.businessName,
       ownerName: foodRecord.ownerName,
@@ -1100,7 +1317,7 @@ async function main() {
     },
     {
       label: "duplicate_or_secondary_applicant",
-      applicationId: duplicateApproved.id,
+      applicationId: duplicateApproved.businessApplicationId,
       applicationNumber: duplicateApproved.applicationNumber,
       businessName: duplicateRecord.businessName,
       ownerName: duplicateRecord.ownerName,

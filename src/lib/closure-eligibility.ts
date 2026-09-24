@@ -120,16 +120,6 @@ function buildBusinessInfo(row: any): BusinessInfo {
   };
 }
 
-function isComplianceForcedClosureInspection(inspection: {
-  nonComplianceType: string | null;
-  complianceCaseStatus: string;
-  forcedClosure: boolean;
-}): boolean {
-  return (
-    inspection.nonComplianceType === "GOVERNMENT_AGENCY_RELATED" &&
-    (inspection.forcedClosure || FORCED_CLOSURE_STATUSES.has(inspection.complianceCaseStatus))
-  );
-}
 
 function getComplianceForcedClosureReason(): string {
   return "This business requires closure processing because of a compliance-related restriction.";

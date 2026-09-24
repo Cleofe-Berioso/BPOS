@@ -379,7 +379,7 @@ export async function listRenewalEligibleBusinesses(applicantId: string): Promis
     };
 
     return {
-      id: row.id,
+      id: row.businessRecordId,
       registrationNumber: row.registrationNumber,
       businessName: row.businessName,
       businessStatus: row.businessStatus as "ACTIVE" | "INACTIVE" | "CLOSED",

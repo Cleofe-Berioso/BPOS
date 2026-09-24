@@ -1247,7 +1247,7 @@ export async function applyDepartmentHeadRevocationDecision(
           revocationDecision: "APPROVED",
           revocationRemarks: normalizedRemarks,
           decidedById: departmentHeadUserId,
-          decidedAt: new Date(),
+          decidedAt: decisionDate,
         },
       });
 
@@ -1285,7 +1285,7 @@ export async function applyDepartmentHeadRevocationDecision(
           revocationDecision: "DENIED",
           revocationRemarks: normalizedRemarks,
           decidedById: departmentHeadUserId,
-          decidedAt: new Date(),
+          decidedAt: decisionDate,
         },
       });
 

@@ -355,7 +355,7 @@ export function BusinessInformationFields({
     if (match) {
       onChangeRef.current({ ...latestValueRef.current, mainOfficeCountryCode: match.value });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [countryOptions, selectedMainOfficeCountry, selectedMainOfficeCountryCode]);
 
   // Backfill province code from label when options first load.
@@ -365,7 +365,7 @@ export function BusinessInformationFields({
     if (match) {
       onChangeRef.current({ ...latestValueRef.current, mainOfficeProvinceCode: match.value });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [provinceOptions, selectedMainOfficeProvince, selectedMainOfficeProvinceCode]);
 
   // Pin moved: update only coordinates, keep manual address fields intact.

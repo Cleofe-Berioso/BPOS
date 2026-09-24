@@ -92,13 +92,13 @@ function formatVitestCases(vitest: VitestJson | null): string {
   const rows: string[] = [];
   let n = 0;
   for (const file of vitest.testResults) {
-    const module = path.basename(file.name);
+    const moduleName = path.basename(file.name);
     for (const c of file.assertionResults ?? []) {
       n++;
       const id = extractTestId(c.title);
       const obj = resolveObjective(id);
       rows.push(
-        `| ${n} | ${id} | ${obj} | \`${module}\` | ${c.title.replace(/\|/g, "\\|")} | ${c.duration ?? 0}ms | ${c.status === "passed" ? "PASS" : "FAIL"} |`
+        `| ${n} | ${id} | ${obj} | \`${moduleName}\` | ${c.title.replace(/\|/g, "\\|")} | ${c.duration ?? 0}ms | ${c.status === "passed" ? "PASS" : "FAIL"} |`
       );
     }
   }

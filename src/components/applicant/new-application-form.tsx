@@ -1110,20 +1110,6 @@ export function NewApplicationForm() {
     return nextErrors;
   }
 
-  function validateCurrentStep(currentStep: number): boolean {
-    const normalizedInfo = normalizeBusinessInfo(info);
-    const nextErrors = getStepValidationErrors(currentStep, normalizedInfo);
-
-    setFieldErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) {
-      const labels = Object.keys(nextErrors).map((rawKey) => getFieldConfig(rawKey).label);
-      setErrorSummaryItems(Array.from(new Set(labels)));
-    } else {
-      clearErrorSummary();
-    }
-
-    return Object.keys(nextErrors).length === 0;
-  }
 
   function next() {
     if (isReadOnly) return;
@@ -1761,12 +1747,6 @@ export function NewApplicationForm() {
               </FormField>
 
               {(() => {
-                // Show text input if "Others" was selected or if businessActivity starts with "Others:"
-                const isOthersMode =
-                  (info.businessActivity === "" &&
-                    (fieldErrors.businessActivity || info.businessActivity === "")) ||
-                  info.businessActivity?.startsWith("Others:");
-
                 // More reliable check: if one of the standard BUSINESS_ACTIVITY_OPTIONS is selected, don't show input
                 const isStandardOption = BUSINESS_ACTIVITY_OPTIONS.some(
                   (opt) => opt !== "Others, please specify" && opt === info.businessActivity

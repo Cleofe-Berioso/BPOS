@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import {
-  DOCUMENT_VALIDATION_UI_STATUSES,
   mapDocumentValidationStatusToUi,
   mapDocumentValidationStatusToDb,
   remarksRequiredForValidationStatus,

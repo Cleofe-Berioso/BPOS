@@ -290,7 +290,7 @@ export function SettlementManagementClient() {
                     setIsModalOpen(false);
                     await loadRows();
                     setMessage(null);
-                  } catch (err) {
+                  } catch {
                     setMessage({ type: "error", text: "Unable to mark as settled." });
                   } finally {
                     setIsSubmitting(false);

@@ -71,7 +71,7 @@ function loadMeta(): Record<string, RowMeta> {
     }
   }
   if (end < 0) throw new Error("Failed to parse META object");
-  // eslint-disable-next-line no-new-func
+   
   return Function(`"use strict"; return (${src.slice(objStart, end + 1)});`)() as Record<string, RowMeta>;
 }
 
@@ -194,7 +194,7 @@ function main() {
   const excludedPrefixes = ["WB-E2E-", "WB-BPLO-02", "WB-BPLO-03", "WB-BPLO-04", "WB-BPLO-05", "WB-BPLO-06"];
 
   for (const file of vitest.testResults ?? []) {
-    const module = path.basename(file.name);
+    const moduleName = path.basename(file.name);
     for (const assertion of file.assertionResults ?? []) {
       const title = assertion.title ?? "";
       const idMatch = title.match(/^(WB-[A-Z0-9]+(?:-[0-9]+[a-z]?)?|UT-[A-Z]+-\d+[a-z]?)/);

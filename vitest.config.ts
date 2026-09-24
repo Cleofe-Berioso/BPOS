@@ -12,6 +12,9 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: true,
+    setupFiles: ['./vitest.whitebox.setup.ts'],
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    exclude: ['**/node_modules/**', 'e2e/**', 'katalon/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],

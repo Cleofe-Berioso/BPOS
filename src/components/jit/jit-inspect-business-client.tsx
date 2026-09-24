@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronRight, FileText, Search, ShieldCheck, AlertTriangle } from "lucide-react";
+import { FileText, Search, ShieldCheck, AlertTriangle } from "lucide-react";
 import {
   jitFormControlClass,
   jitSelectableCardActiveClass,

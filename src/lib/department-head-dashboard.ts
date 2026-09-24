@@ -23,7 +23,7 @@ export interface DepartmentHeadDashboardMetrics {
 }
 
 function formatShortDate(isoDate: string): string {
-  const [year, month, day] = isoDate.split("-");
+  const [, month, day] = isoDate.split("-");
   return `${month}/${day}`;
 }
 

@@ -1,8 +1,74 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   generatePaymentReminderEmailHtml,
   type PaymentReminderEmailInput,
 } from "@/lib/mail";
+import {
+  resolveRecipientEmail,
+  buildPaymentReminderEmailData,
+  sendPaymentVerifiedEmail,
+} from "@/lib/payment-notifications";
+
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = "postgresql://localhost:5432/ebpls_whitebox";
+}
+
+const mockPaymentRefWithEmail = {
+  paymentReferenceId: "ref-valid-01",
+  transactionNumber: "OR-987654",
+  paymentDate: new Date("2026-03-15T10:00:00Z"),
+  reviewedAt: new Date("2026-03-16T14:00:00Z"),
+  reviewerRemarks: "Paid in full at Municipal Treasury.",
+  application: {
+    businessApplicationId: "app-123",
+    applicationNumber: "APP-2026-0042",
+    applicant: {
+      userId: "user-1",
+      name: "Juan Dela Cruz",
+      email: "juan@example.com",
+    },
+    businessRecord: {
+      businessName: "Sariling Sikap Enterprise",
+      email: "store@example.com",
+    },
+    formData: {
+      businessName: "Sariling Sikap Enterprise",
+    },
+    feeAssessment: {
+      totalAmount: 3500.5,
+      releasePaymentAmount: 3500.5,
+      paymentStatus: "PAID",
+    },
+  },
+};
+
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    paymentReference: {
+      findUnique: vi.fn().mockImplementation(({ where }) => {
+        if (where?.paymentReferenceId === "ref-valid-01") {
+          return Promise.resolve(mockPaymentRefWithEmail);
+        }
+        return Promise.resolve(null);
+      }),
+    },
+    applicationHistory: {
+      create: vi.fn().mockResolvedValue({}),
+    },
+    auditLog: {
+      create: vi.fn().mockResolvedValue({}),
+    },
+  },
+}));
+
+vi.mock("@/lib/mail", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/mail")>();
+  return {
+    ...actual,
+    isEmailConfigured: vi.fn(() => false),
+    sendEmail: vi.fn().mockResolvedValue({ success: true, messageId: "mock-message-id-123" }),
+  };
+});
 
 describe("WB-PAY-NOTIF — payment reminder email template", () => {
   const sampleInput: PaymentReminderEmailInput = {
@@ -64,9 +130,7 @@ describe("WB-PAY-NOTIF — payment reminder email template", () => {
 });
 
 describe("WB-PAY-SERVICE — payment notification service logic", () => {
-  it("WB-PAY-05 resolves applicant email over business record email", async () => {
-    const { resolveRecipientEmail } = await import("@/lib/payment-notifications");
-
+  it("WB-PAY-05 resolves applicant email over business record email", () => {
     expect(
       resolveRecipientEmail({
         applicantEmail: "applicant@example.com",
@@ -89,9 +153,7 @@ describe("WB-PAY-SERVICE — payment notification service logic", () => {
     ).toBe(null);
   });
 
-  it("WB-PAY-06 builds complete PaymentReminderEmailInput from database models", async () => {
-    const { buildPaymentReminderEmailData } = await import("@/lib/payment-notifications");
-
+  it("WB-PAY-06 builds complete PaymentReminderEmailInput from database models", () => {
     const mockApp = {
       businessApplicationId: "app-999",
       applicationNumber: "APP-2026-0099",
@@ -124,11 +186,25 @@ describe("WB-PAY-SERVICE — payment notification service logic", () => {
   });
 
   it("WB-PAY-07 sendPaymentVerifiedEmail returns attempted false if email is not configured", async () => {
-    const { sendPaymentVerifiedEmail } = await import("@/lib/payment-notifications");
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    // Calling with non-existent ID should return safe result instead of throwing
-    const result = await sendPaymentVerifiedEmail("non-existent-payment-ref-id");
-    expect(result.sent).toBe(false);
+    // Calling with non-existent ID returns safe diagnostic result instead of throwing
+    const notFound = await sendPaymentVerifiedEmail("non-existent-payment-ref-id");
+    expect(notFound.attempted).toBe(false);
+    expect(notFound.sent).toBe(false);
+    expect(notFound.reason).toContain("not found");
+
+    // Calling with existing payment reference when email is not configured
+    const unconfigured = await sendPaymentVerifiedEmail("ref-valid-01");
+    expect(unconfigured.attempted).toBe(false);
+    expect(unconfigured.sent).toBe(false);
+    expect(unconfigured.recipientEmail).toBe("juan@example.com");
+    expect(unconfigured.reason).toBe("Email transport is not configured");
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[PaymentNotification] Email not configured")
+    );
+    warnSpy.mockRestore();
   });
 });
 

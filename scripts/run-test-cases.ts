@@ -896,7 +896,7 @@ function formBusinessName(formData: unknown): string | null {
 
 async function checkEvidence(
   kind: EvidenceKind,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   prisma: any
 ): Promise<{ ok: boolean; detail: string }> {
   if (kind === "none") {

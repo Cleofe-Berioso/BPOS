@@ -46,9 +46,6 @@ function isActivePermitRow(row: Awaited<ReturnType<typeof listApplicantReleasedB
   return Boolean(row.permitOrCertificateNumber);
 }
 
-function toDateOnly(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
 
 function buildNextAction(input: {
   status: ApplicationStatus;

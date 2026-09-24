@@ -36,6 +36,7 @@ export interface SuperAdminDashboardInsight {
 export interface SuperAdminDashboardMetrics {
   userActivityByRole: Array<{
     label: string;
+    dateKey?: string;
     applicant: number;
     bplo: number;
     departmentHead: number;
@@ -44,6 +45,7 @@ export interface SuperAdminDashboardMetrics {
   }>;
   applicationVolumeAcrossSystem: Array<{
     label: string;
+    dateKey?: string;
     bploReview: number;
     bploAssessment: number;
     bploPayment: number;
@@ -53,6 +55,7 @@ export interface SuperAdminDashboardMetrics {
   }>;
   transactionVolume: Array<{
     label: string;
+    dateKey?: string;
     submitted: number;
     approvals: number;
     returnsRejections: number;
@@ -65,6 +68,7 @@ export interface SuperAdminDashboardMetrics {
   }>;
   complianceRevocationTrends: Array<{
     label: string;
+    dateKey?: string;
     releasedPermits: number;
     verifiedNonCompliant: number;
     revokedBusinesses: number;
@@ -99,7 +103,7 @@ function toMonthKey(date: Date): string {
 }
 
 function formatShortDate(dayKey: string): string {
-  const [year, month, day] = dayKey.split("-");
+  const [, month, day] = dayKey.split("-");
   return `${month}/${day}`;
 }
 
@@ -295,11 +299,9 @@ const getCachedSuperAdminDashboardMetrics = cache(async (): Promise<SuperAdminDa
     prisma.applicationHistory.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
   ]);
 
-  const releasedPermits = allReleasedPermits.length;
   const verifiedNonCompliant = allVerifiedNonCompliant.length;
   const uniqueRevokedBusinessIds = Array.from(new Set(allRevokedInspections.map((r) => r.businessRecordId)));
   const revokedBusinessRows = uniqueRevokedBusinessIds.map((id) => ({ businessRecordId: id }));
-  const restrictedRenewals = allRestrictedRenewals.length;
 
   const dayDates: Date[] = [];
   for (let i = dayWindow - 1; i >= 0; i -= 1) {
@@ -318,6 +320,7 @@ const getCachedSuperAdminDashboardMetrics = cache(async (): Promise<SuperAdminDa
 
   const userActivityByRole = Array.from(activityBuckets.entries()).map(([dayKey, bucket]) => ({
     label: formatShortDate(dayKey),
+    dateKey: dayKey,
     applicant: bucket.applicant,
     bplo: bucket.bplo,
     departmentHead: bucket.departmentHead,
@@ -327,8 +330,10 @@ const getCachedSuperAdminDashboardMetrics = cache(async (): Promise<SuperAdminDa
 
   const applicationVolumeAcrossSystem = dayDates.map((date) => {
     const endOfD = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 23, 59, 59, 999));
+    const dayKey = toDayKey(date);
     const bucket = {
-      label: formatShortDate(toDayKey(date)),
+      label: formatShortDate(dayKey),
+      dateKey: dayKey,
       bploReview: 0,
       bploAssessment: 0,
       bploPayment: 0,
@@ -437,6 +442,7 @@ const getCachedSuperAdminDashboardMetrics = cache(async (): Promise<SuperAdminDa
 
   const transactionVolume = Array.from(transactionBuckets.entries()).map(([dayKey, bucket]) => ({
     label: formatShortDate(dayKey),
+    dateKey: dayKey,
     submitted: bucket.submitted,
     approvals: bucket.approvals,
     returnsRejections: bucket.returnsRejections,
@@ -465,8 +471,10 @@ const getCachedSuperAdminDashboardMetrics = cache(async (): Promise<SuperAdminDa
       (a) => (a.updatedAt ?? a.createdAt) <= endOfD
     ).length;
 
+    const dayKey = toDayKey(date);
     return {
-      label: formatShortDate(toDayKey(date)),
+      label: formatShortDate(dayKey),
+      dateKey: dayKey,
       releasedPermits: relCount,
       verifiedNonCompliant: nonCompliantCount,
       revokedBusinesses: revokedSet.size,

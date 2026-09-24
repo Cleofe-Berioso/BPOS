@@ -51,6 +51,7 @@ import {
   validateBusinessIdentityFormats,
   requiresCorporationNationality,
   isValidCorporationNationality,
+  calculateAgeFromBirthDate,
 } from "@/lib/business-rules";
 import {
   EB_MAGALONA_CITY,
@@ -768,6 +769,18 @@ async function validateSubmitPayload(
       missingFields.push("capitalInvestment");
     } else if (parsePositiveAmount(capitalRaw) == null) {
       missingFields.push("capitalInvestment (must be a positive number)");
+    }
+
+    const birthDateRaw = normalizedFormData.birthDate?.trim() ?? "";
+    if (birthDateRaw) {
+      try {
+        const age = calculateAgeFromBirthDate(birthDateRaw);
+        if (age < 18) {
+          missingFields.push("birthDate (owner must be at least 18 years old)");
+        }
+      } catch {
+        missingFields.push("birthDate (invalid format)");
+      }
     }
   }
 

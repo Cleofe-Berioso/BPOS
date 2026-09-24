@@ -50,6 +50,12 @@ function buildBaseBusinessInfo(overrides: Partial<BusinessInfo> = {}): BusinessI
     cityMunicipality: EB_MAGALONA_CITY,
     streetAddress: "Purok 7",
     barangay: "Barangay 1 (Pob.)",
+    mainOfficeCountry: EB_MAGALONA_COUNTRY,
+    mainOfficeCountryCode: EB_MAGALONA_COUNTRY_CODE,
+    mainOfficeProvince: EB_MAGALONA_PROVINCE,
+    mainOfficeCityMunicipality: EB_MAGALONA_CITY,
+    mainOfficeBarangay: "Barangay 1 (Pob.)",
+    mainOfficeStreetAddress: "Purok 7",
     mainOfficeAddress: "Purok 7, Barangay 1 (Pob.), Enrique B. Magalona, Negros Occidental",
     businessAddress: "Purok 7, Barangay 1 (Pob.), Enrique B. Magalona, Negros Occidental",
     businessLatitude: 10.8786,
@@ -65,9 +71,10 @@ function buildBaseBusinessInfo(overrides: Partial<BusinessInfo> = {}): BusinessI
     propertyOwnership: "Owned",
     taxDeclarationNumber: "TD-P6-001",
     propertyIdentificationNumber: "PIN-P6-001",
+    hasTaxIncentives: "NO",
     taxIncentives: "None",
     businessActivity: "Retail",
-    lineOfBusiness: "Trading",
+    lineOfBusiness: "Wholesalers / Retailers / Dealers / Distributors",
     assetSize: "1500000",
     isMarket: false,
     isAgriculture: false,
@@ -148,7 +155,7 @@ async function verifyMarkerMappingAndFiltering() {
 async function verifyDisabledJitSeed() {
   const disabledJit = await prisma.user.findUnique({
     where: { email: "jit-disabled@example.com" },
-    select: { id: true, role: true, isActive: true },
+    select: { userId: true, role: true, isActive: true },
   });
 
   assert(disabledJit, "Disabled JIT seed account does not exist.");
@@ -159,16 +166,16 @@ async function verifyDisabledJitSeed() {
 async function verifyPhase3AndPhase4SubmitValidation() {
   const applicant = await prisma.user.findUnique({
     where: { email: "applicant@example.com" },
-    select: { id: true },
+    select: { userId: true },
   });
 
   const jit = await prisma.user.findUnique({
     where: { email: "jit@example.com" },
-    select: { id: true },
+    select: { userId: true },
   });
 
-  assert(applicant?.id, "Applicant seed user is missing.");
-  assert(jit?.id, "JIT seed user is missing.");
+  assert(applicant?.userId, "Applicant seed user is missing.");
+  assert(jit?.userId, "JIT seed user is missing.");
 
   const normalized = normalizeBusinessInfo(
     buildBaseBusinessInfo({
@@ -186,7 +193,7 @@ async function verifyPhase3AndPhase4SubmitValidation() {
   assert(normalized.cityMunicipality === EB_MAGALONA_CITY, "Normalization should enforce fixed city/municipality.");
 
   await expectSubmitValidationFailure(
-    applicant.id,
+    applicant.userId,
     {
       applicationType: "NEW",
       mode: "SUBMIT",
@@ -197,7 +204,7 @@ async function verifyPhase3AndPhase4SubmitValidation() {
   );
 
   await expectSubmitValidationFailure(
-    applicant.id,
+    applicant.userId,
     {
       applicationType: "NEW",
       mode: "SUBMIT",
@@ -212,7 +219,7 @@ async function verifyPhase3AndPhase4SubmitValidation() {
 
   const renewalBase = await prisma.businessRecord.create({
     data: {
-      applicantId: applicant.id,
+      applicantId: applicant.userId,
       businessType: "Sole Proprietorship",
       registrationNumber: renewalReg,
       tin: BigInt(renewalTin),
@@ -245,21 +252,21 @@ async function verifyPhase3AndPhase4SubmitValidation() {
           latitude: 10.886,
           longitude: 122.986,
           status: "VERIFIED",
-          submittedById: applicant.id,
-          verifiedById: jit.id,
+          submittedById: applicant.userId,
+          verifiedById: jit.userId,
           remarks: "[P6-VERIFY] Temporary renewal eligibility record",
         },
       },
     },
-    select: { id: true },
+    select: { businessRecordId: true },
   });
 
   await expectSubmitValidationFailure(
-    applicant.id,
+    applicant.userId,
     {
       applicationType: "RENEWAL",
       mode: "SUBMIT",
-      businessRecordId: renewalBase.id,
+      businessRecordId: renewalBase.businessRecordId,
       formData: buildBaseBusinessInfo({
         registrationNumber: renewalReg,
         tin: renewalTin,
@@ -277,16 +284,16 @@ async function verifyRenewalDuplicateHotfix() {
 
   const applicant = await prisma.user.findUnique({
     where: { email: "applicant@example.com" },
-    select: { id: true },
+    select: { userId: true },
   });
 
   const jit = await prisma.user.findUnique({
     where: { email: "jit@example.com" },
-    select: { id: true },
+    select: { userId: true },
   });
 
-  assert(applicant?.id, "Applicant seed user is missing.");
-  assert(jit?.id, "JIT seed user is missing.");
+  assert(applicant?.userId, "Applicant seed user is missing.");
+  assert(jit?.userId, "JIT seed user is missing.");
 
   // Create a fresh business record with unique reg#/TIN each run.
   const hotfixReg = `DTI-2026-${randomDigits(6)}`;
@@ -294,7 +301,7 @@ async function verifyRenewalDuplicateHotfix() {
 
   const hotfixRecord = await prisma.businessRecord.create({
     data: {
-      applicantId: applicant.id,
+      applicantId: applicant.userId,
       businessType: "Sole Proprietorship",
       registrationNumber: hotfixReg,
       tin: BigInt(hotfixTin),
@@ -327,21 +334,21 @@ async function verifyRenewalDuplicateHotfix() {
           latitude: 10.884,
           longitude: 122.981,
           status: "VERIFIED",
-          submittedById: applicant.id,
-          verifiedById: jit.id,
+          submittedById: applicant.userId,
+          verifiedById: jit.userId,
           remarks: "[P6-HOTFIX] Renewal duplicate hotfix eligibility",
         },
       },
     },
-    select: { id: true },
+    select: { businessRecordId: true },
   });
 
   // Simulate a historical RELEASED application for this exact business (same reg#/TIN in formData).
   // This is the record that would incorrectly trigger DuplicateBusinessIdentityError before the fix.
   await prisma.businessApplication.create({
     data: {
-      applicantId: applicant.id,
-      businessRecordId: hotfixRecord.id,
+      applicantId: applicant.userId,
+      businessRecordId: hotfixRecord.businessRecordId,
       applicationNumber: `EBPLS-HOTFIX-${randomDigits(6)}`,
       applicationType: "NEW",
       status: "RELEASED",
@@ -354,11 +361,11 @@ async function verifyRenewalDuplicateHotfix() {
   // DuplicateBusinessIdentityError. Post-fix, the duplicate check skips apps belonging
   // to hotfixRecord.id and the renewal should fail on the missing grossProfit field instead.
   await expectSubmitValidationFailure(
-    applicant.id,
+    applicant.userId,
     {
       applicationType: "RENEWAL",
       mode: "SUBMIT",
-      businessRecordId: hotfixRecord.id,
+      businessRecordId: hotfixRecord.businessRecordId,
       formData: buildBaseBusinessInfo({
         registrationNumber: hotfixReg,
         tin: hotfixTin,
@@ -371,10 +378,10 @@ async function verifyRenewalDuplicateHotfix() {
 
   // NEW application with the same hotfixReg must STILL be blocked (BusinessRecord check).
   // This confirms NEW duplicate protection is fully intact after the fix.
-  const beforeBlockCount = await prisma.businessApplication.count({ where: { applicantId: applicant.id } });
+  const beforeBlockCount = await prisma.businessApplication.count({ where: { applicantId: applicant.userId } });
   try {
     await saveApplicantApplication(
-      applicant.id,
+      applicant.userId,
       {
         applicationType: "NEW",
         mode: "SUBMIT",
@@ -393,7 +400,7 @@ async function verifyRenewalDuplicateHotfix() {
       `Expected DuplicateBusinessIdentityError for NEW with taken reg#, got: ${String(error)}`
     );
   }
-  const afterBlockCount = await prisma.businessApplication.count({ where: { applicantId: applicant.id } });
+  const afterBlockCount = await prisma.businessApplication.count({ where: { applicantId: applicant.userId } });
   assert(beforeBlockCount === afterBlockCount, "Blocked NEW submission must not persist any record.");
 }
 

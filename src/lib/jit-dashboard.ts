@@ -52,7 +52,7 @@ function toWeekKey(date: Date): string {
 }
 
 function formatShortDate(isoDate: string): string {
-  const [year, month, day] = isoDate.split("-");
+  const [, month, day] = isoDate.split("-");
   return `${month}/${day}`;
 }
 

@@ -1302,13 +1302,13 @@ function collectVitestRows(): TableRow[] {
   const vitest = JSON.parse(fs.readFileSync(p, "utf8")) as VitestJson;
   const rows: TableRow[] = [];
   for (const file of vitest.testResults ?? []) {
-    const module = path.basename(file.name);
+    const moduleName = path.basename(file.name);
     for (const c of file.assertionResults ?? []) {
       const id = extractId(c.title);
       rows.push({
         id,
         objective: objectiveForId(id),
-        meta: inferMeta(id, c.title, module),
+        meta: inferMeta(id, c.title, moduleName),
         pass: c.status === "passed",
         skip: false,
         remark: "OK",

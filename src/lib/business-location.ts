@@ -8,7 +8,7 @@ import {
 } from "@/lib/business-map-categories";
 import { getJitMapMarkerStatus, getJitMapMarkerColor } from "@/lib/jit-inspections";
 import { getJitInspectionCycleStartedAt } from "@/lib/jit-settings";
-import { EB_MAGALONA_BOUNDS, EB_MAGALONA_CENTER, isWithinEbMagalona } from "@/lib/eb-magalona";
+import { isWithinEbMagalona } from "@/lib/eb-magalona";
 import { normalizeEbMagalonaBarangayName } from "@/lib/business-rules";
 
 type ApplicationType = "NEW" | "RENEWAL" | "CLOSURE";

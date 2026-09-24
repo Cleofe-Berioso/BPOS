@@ -57,12 +57,6 @@ function emptyLineItem(index: number): AssessmentLineItem {
     isSystemGenerated: false,
   };
 }
-
-function getReleasePaymentAmount(totalAmount: number, frequency: PaymentFrequency) {
-  void frequency;
-  return totalAmount;
-}
-
 function normalizeLineItems(lineItems: AssessmentLineItem[]) {
   return lineItems.map((item, index) => ({ ...item, sortOrder: index }));
 }
@@ -88,8 +82,6 @@ export function AssessmentFeeForm({ detail }: Props) {
   const systemLineItems = lineItems.filter((item) => item.isSystemGenerated);
   const lineItemSubtotal = lineItems.reduce((sum, item) => sum + item.amount, 0);
   const totalAmount = lineItemSubtotal + closurePaymentDues;
-  const paymentFrequency = savedAssessment?.paymentFrequency ?? detail.applicantPaymentFrequency ?? "ANNUAL";
-  const releasePaymentAmount = getReleasePaymentAmount(totalAmount, paymentFrequency);
   const amountPaid = savedAssessment?.amountPaid ?? 0;
   const remainingBalance = Math.max(0, totalAmount - amountPaid);
   const isTopGenerated = savedAssessment?.status === "GENERATED";

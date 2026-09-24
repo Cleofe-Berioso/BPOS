@@ -25,7 +25,7 @@ async function main() {
       },
     },
     include: {
-      applicant: { select: { id: true, name: true } },
+      applicant: { select: { userId: true, email: true } },
       businessRecord: { select: { businessName: true, phone: true } },
     },
     orderBy: { updatedAt: "desc" },
@@ -35,7 +35,7 @@ async function main() {
   if (candidates.length === 0) {
     candidates = await prisma.businessApplication.findMany({
       include: {
-        applicant: { select: { id: true, name: true } },
+        applicant: { select: { userId: true, email: true } },
         businessRecord: { select: { businessName: true, phone: true } },
       },
       orderBy: { updatedAt: "desc" },
@@ -60,7 +60,7 @@ async function main() {
 
   assert(phone, "Selected application does not have phone number.");
   console.log("[SMS VERIFY] Phone check: PASS", {
-    applicationId: selectedApp.id,
+    applicationId: selectedApp.businessApplicationId,
     applicationNumber: selectedApp.applicationNumber,
     phone,
   });

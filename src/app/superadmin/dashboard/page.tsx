@@ -12,6 +12,10 @@ import { DashboardGaugeCard } from "@/components/ui/dashboard-gauge-card";
 import { DASHBOARD_CHART_COLORS } from "@/components/ui/dashboard-chart-card";
 import { MunicipalDocumentHeader, IT_DEPARTMENT_HEADING } from "@/components/ui/municipal-document-header";
 import { actionButtonStyles } from "@/components/ui/action-button";
+import { WhoIsWorkingSystemChart } from "@/components/superadmin/who-is-working-system-chart";
+import { WhereIsWorkWaitingChart } from "@/components/superadmin/where-is-work-waiting-chart";
+import { DailyTransactionOutcomesChart } from "@/components/superadmin/daily-transaction-outcomes-chart";
+import { ComplianceRevocationPressureChart } from "@/components/superadmin/compliance-revocation-pressure-chart";
 import {
   getSuperAdminDashboardSummary,
   getSuperAdminReportsSummary,
@@ -203,69 +207,24 @@ export default async function SuperAdminDashboard() {
       </SectionCard>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <DashboardLineChart
-          title="Who is working the system?"
-          description="Daily workflow history by actor role. Rising BPLO or Department Head lines usually mean review/approval pressure; rising Applicant lines often mean resubmissions or payments."
+        <WhoIsWorkingSystemChart
+          className="xl:col-span-2"
           data={metrics.userActivityByRole}
-          series={[
-            { key: "applicant", label: "Applicant", color: DASHBOARD_CHART_COLORS[2] },
-            { key: "bplo", label: "BPLO", color: DASHBOARD_CHART_COLORS[0] },
-            { key: "departmentHead", label: "Department Head", color: DASHBOARD_CHART_COLORS[3] },
-            { key: "jit", label: "JIT", color: DASHBOARD_CHART_COLORS[6] },
-            { key: "superAdmin", label: "IT Administrator", color: DASHBOARD_CHART_COLORS[5] },
-          ]}
-          emptyTitle="No user activity logs available yet."
-          emptyDescription="System user activity appears once workflow history entries are recorded."
         />
 
-        <DashboardLineChart
-          title="Where is work waiting?"
-          description="Daily open workload by office stage. The highest line indicates the current bottleneck where applicants are waiting on a next action."
+        <WhereIsWorkWaitingChart
+          className="xl:col-span-2"
           data={metrics.applicationVolumeAcrossSystem}
-          series={[
-            { key: "bploReview", label: "BPLO Review", color: DASHBOARD_CHART_COLORS[2] },
-            { key: "bploAssessment", label: "BPLO Assessment", color: DASHBOARD_CHART_COLORS[6] },
-            { key: "bploPayment", label: "BPLO Payment", color: DASHBOARD_CHART_COLORS[3] },
-            { key: "bploRelease", label: "BPLO Release", color: DASHBOARD_CHART_COLORS[0] },
-            { key: "departmentHeadApproval", label: "Department Head Approval", color: DASHBOARD_CHART_COLORS[5] },
-            { key: "jitInspection", label: "JIT Inspection", color: DASHBOARD_CHART_COLORS[4] },
-          ]}
-          emptyTitle="No application volume data available yet."
-          emptyDescription="Stage volume appears once applications and inspections are available."
         />
 
-        <DashboardStackedBarChart
-          title="Daily transaction outcomes"
-          description="Submissions, approvals, returns/rejections, inspections, payment checks, permit releases, and SMS outcomes. Spikes in returns/rejections often predict follow-up applicant traffic."
+        <DailyTransactionOutcomesChart
+          className="xl:col-span-2"
           data={metrics.transactionVolume}
-          categoryKey="label"
-          series={[
-            { key: "logins", label: "Logins (if tracked)", color: DASHBOARD_CHART_COLORS[5] },
-            { key: "submitted", label: "Applications Submitted", color: DASHBOARD_CHART_COLORS[2] },
-            { key: "approvals", label: "Approvals", color: DASHBOARD_CHART_COLORS[0] },
-            { key: "returnsRejections", label: "Returns/Rejections", color: DASHBOARD_CHART_COLORS[4] },
-            { key: "inspections", label: "Inspections", color: DASHBOARD_CHART_COLORS[6] },
-            { key: "paymentVerification", label: "Payment Verification", color: DASHBOARD_CHART_COLORS[3] },
-            { key: "permitReleases", label: "Permit Releases", color: DASHBOARD_CHART_COLORS[1] },
-            { key: "smsSent", label: "SMS Sent", color: DASHBOARD_CHART_COLORS[0] },
-            { key: "smsFailed", label: "SMS Failed", color: DASHBOARD_CHART_COLORS[4] },
-          ]}
-          emptyTitle="No transaction activity available yet."
-          emptyDescription="Activity trends render when history and related logs contain records."
         />
 
-        <DashboardLineChart
-          title="Compliance and revocation pressure"
-          description="Released permits versus verified non-compliant inspections, revoked businesses, and renewals blocked by revocation-related status."
+        <ComplianceRevocationPressureChart
+          className="xl:col-span-2"
           data={metrics.complianceRevocationTrends}
-          series={[
-            { key: "releasedPermits", label: "Approved/Released Permits", color: DASHBOARD_CHART_COLORS[0] },
-            { key: "verifiedNonCompliant", label: "Verified Non-Compliant", color: DASHBOARD_CHART_COLORS[3] },
-            { key: "revokedBusinesses", label: "Revoked Businesses", color: DASHBOARD_CHART_COLORS[4] },
-            { key: "restrictedRenewals", label: "Restricted/Disabled Renewals", color: DASHBOARD_CHART_COLORS[5] },
-          ]}
-          emptyTitle="No compliance or revocation records yet."
-          emptyDescription="Compliance and revocation trends appear once inspection and revocation data exists."
         />
 
         <DashboardLineChart

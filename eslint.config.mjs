@@ -3,7 +3,20 @@ import nextTypeScript from "eslint-config-next/typescript";
 
 const config = [
   {
-    ignores: ["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts"],
+    ignores: [
+      "node_modules/**",
+      ".next/**",
+      "out/**",
+      "build/**",
+      "next-env.d.ts",
+      "e2e-results/**",
+      "playwright-report/**",
+      "test-results/**",
+      "katalon/**",
+      ".tmp-*/**",
+      "coverage/**",
+      "whitebox/**",
+    ],
   },
   ...nextCoreWebVitals,
   ...nextTypeScript,

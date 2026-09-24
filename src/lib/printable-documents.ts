@@ -138,14 +138,6 @@ function hasIssuanceRecord(application: PrintableDocumentApplication): boolean {
   return Boolean(application.permitIssuance?.id);
 }
 
-function isDocumentReleaseReady(application: PrintableDocumentApplication): boolean {
-  if (application.status !== "FOR_RELEASE" && application.status !== "RELEASED") {
-    return false;
-  }
-
-  const issuanceStatus = application.permitIssuance?.status;
-  return issuanceStatus === "FOR_RELEASE" || issuanceStatus === "RELEASED";
-}
 
 function readText(formData: unknown, key: string, fallback = "-"): string {
   const record = (formData ?? {}) as Record<string, unknown>;

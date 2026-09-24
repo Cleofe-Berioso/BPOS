@@ -18,7 +18,6 @@ import {
   superadminFormControlClass,
   superadminFormPanelClass,
   superadminPanelClass,
-  superadminSummaryLabelClass,
   superadminTableClass,
 } from "@/components/superadmin/superadmin-ui-styles";
 

@@ -5,6 +5,16 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import Module from "node:module";
+
+// Shim 'server-only' when running scripts outside Next.js
+const originalLoad = (Module as any)._load;
+(Module as any)._load = function (request: string, parent: any, isMain: boolean, ...rest: any[]) {
+  if (request === "server-only") {
+    return {};
+  }
+  return originalLoad.call(this, request, parent, isMain, ...rest);
+};
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const envPath = path.join(ROOT, ".env");

@@ -295,50 +295,6 @@ function formatAuditStatus(value: string | null): string | null {
   return humanizeAuditValue(value);
 }
 
-function describeApplicationType(type: ApplicationType): string {
-  if (type === "NEW") return "New";
-  if (type === "RENEWAL") return "Renewal";
-  return "Closure";
-}
-
-function deriveActivityLabel(row: {
-  actorRole: string | null;
-  fromStatus: DbApplicationStatus | null;
-  toStatus: DbApplicationStatus;
-  remarks: string | null;
-  applicationType: ApplicationType;
-}): string {
-  const remarks = (row.remarks ?? "").toLowerCase();
-
-  if (row.actorRole === "JIT") {
-    if (remarks.includes("submitted compliant inspection")) return "JIT submitted compliant inspection";
-    if (remarks.includes("submitted non_compliant inspection") || remarks.includes("submitted non-compliant inspection")) {
-      return "JIT submitted non-compliant inspection";
-    }
-    if (remarks.includes("uploaded inspection evidence")) return "JIT uploaded inspection evidence";
-    return "JIT inspection activity";
-  }
-
-  if (row.actorRole === "DEPARTMENT_HEAD") {
-    if (remarks.includes("verified compliant inspection")) return "Department Head verified compliant inspection";
-    if (remarks.includes("verified non_compliant inspection") || remarks.includes("verified non-compliant inspection")) {
-      return "Department Head verified non-compliant inspection";
-    }
-    if (remarks.includes("reviewed flagged case")) return "Department Head reviewed flagged case";
-    if (remarks.includes("revocation approved")) return "Department Head approved revocation";
-    if (remarks.includes("revocation denied")) return "Department Head denied revocation";
-
-    if (row.toStatus === "DEPARTMENT_HEAD_APPROVED") {
-      return `Department Head approved ${describeApplicationType(row.applicationType)} application`;
-    }
-    if (row.toStatus === "RETURNED_FOR_CORRECTION") return "Department Head returned application";
-    if (row.toStatus === "REJECTED") return "Department Head rejected application";
-  }
-
-  return row.toStatus === "RELEASED" && row.fromStatus === "RELEASED"
-    ? "Workflow note"
-    : `Status changed to ${mapDbStatusToUi(row.toStatus)}`;
-}
 
 export interface SuperAdminUserRow {
   id: string;

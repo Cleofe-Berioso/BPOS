@@ -40,7 +40,7 @@ export function ForgotPasswordForm() {
 
       setSuccessMessage(data.message);
       setStep("otp");
-    } catch (err) {
+    } catch {
       setError("An error occurred. Please try again.");
     } finally {
       setLoading(false);
@@ -67,7 +67,7 @@ export function ForgotPasswordForm() {
       }
 
       setStep("password");
-    } catch (err) {
+    } catch {
       setError("An error occurred. Please try again.");
     } finally {
       setLoading(false);
@@ -94,7 +94,7 @@ export function ForgotPasswordForm() {
       }
 
       setStep("success");
-    } catch (err) {
+    } catch {
       setError("An error occurred. Please try again.");
     } finally {
       setLoading(false);

@@ -73,7 +73,7 @@ export function ReportTable({
             </tr>
           ) : (
             rows.map((row, rowIdx) => (
-              // eslint-disable-next-line react/no-array-index-key
+               
               <tr key={rowIdx} className="report-table-row border-b last:border-0">
                 {columns.map((col) => (
                   <td key={col.key} className={`px-2 py-2 ${col.className ?? ""}`}>

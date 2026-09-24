@@ -345,9 +345,6 @@ function resolveFixedFeeAmount(input: {
     : input.legacyAmount;
 }
 
-function isConfigurableFeeCategory(category: FeeCategoryKey): boolean {
-  return CONFIGURABLE_FEE_CATEGORY_KEYS.has(category);
-}
 
 function parseClassificationsJson(value: unknown): string[] {
   if (!Array.isArray(value)) return [];

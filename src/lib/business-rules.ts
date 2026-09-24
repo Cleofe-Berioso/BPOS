@@ -9,7 +9,6 @@ import {
   EB_MAGALONA_ZIP_CODE,
   isEbMagalonaCity,
   isEbMagalonaProvince,
-  normalizeEbMagalonaCityName,
   isPhilippinesCountry,
 } from "@/lib/address-options";
 import { formatOwnerName } from "@/lib/person-name";
@@ -509,13 +508,9 @@ export function normalizeBusinessInfo(input: BusinessInfo): BusinessInfo {
   const countryCode = EB_MAGALONA_COUNTRY_CODE;
   const province = EB_MAGALONA_PROVINCE;
   const provinceCode = input.provinceCode?.trim() ?? "";
-  const cityMunicipality = normalizeEbMagalonaCityName(input.cityMunicipality) || EB_MAGALONA_CITY;
+  const cityMunicipality = EB_MAGALONA_CITY;
 
-  const legacyMainOfficeAddressParts = (input.mainOfficeAddress?.trim() ?? "")
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean);
-    const mainOfficeCountry = input.mainOfficeCountry?.trim() || "";
+  const mainOfficeCountry = input.mainOfficeCountry?.trim() || "";
     const mainOfficeCountryCode = input.mainOfficeCountryCode?.trim().toUpperCase() || "";
     const mainOfficeProvince = input.mainOfficeProvince?.trim() || "";
     const mainOfficeProvinceCode = input.mainOfficeProvinceCode?.trim() || "";

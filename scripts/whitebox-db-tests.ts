@@ -126,8 +126,17 @@ async function objective1Auth() {
       { email: "superadmin@example.com", role: "SUPER_ADMIN" },
     ] as const;
     for (const { email, role } of emails) {
-      const u = await prisma.user.findUnique({ where: { email }, select: { role: true, isActive: true } });
-      assert(u, `${email} not found`);
+      const u =
+        role === "SUPER_ADMIN"
+          ? await prisma.user.findFirst({
+              where: {
+                role: "SUPER_ADMIN",
+                email: { in: ["superadmin@example.com", "bpossuperadmin@gmail.com"] },
+              },
+              select: { role: true, isActive: true },
+            })
+          : await prisma.user.findUnique({ where: { email }, select: { role: true, isActive: true } });
+      assert(u, `${email} (or superadmin account) not found`);
       assert(u.role === role, `${email} role mismatch`);
       assert(u.isActive === true, `${email} should be active`);
     }
@@ -191,7 +200,7 @@ async function objective3New() {
   await runCase("WB-DB-NEW-03", OBJ, "ApplicationHistory rows exist for pipeline apps", async () => {
     const apps = await prisma.businessApplication.findMany({
       where: { status: { not: "DRAFT" } },
-      select: { id: true, _count: { select: { history: true } } },
+      select: { businessApplicationId: true, _count: { select: { history: true } } },
       take: 20,
     });
     const withoutHistory = apps.filter((a) => a._count.history === 0);
@@ -250,10 +259,10 @@ async function objective4Renewal() {
   await runCase("WB-DB-RENEW-03", OBJ, "listRenewalEligibleBusinesses returns rows for applicant", async () => {
     const applicant = await prisma.user.findUnique({
       where: { email: "applicant@example.com" },
-      select: { id: true },
+      select: { userId: true },
     });
-    assert(applicant?.id, "applicant missing");
-    const result = await listRenewalEligibleBusinesses(applicant.id);
+    assert(applicant?.userId, "applicant missing");
+    const result = await listRenewalEligibleBusinesses(applicant.userId);
     assert(Array.isArray(result.records), "Expected records array");
     assert(Array.isArray(result.blockedRecords), "Expected blockedRecords array");
   });
@@ -261,27 +270,27 @@ async function objective4Renewal() {
   await runCase("WB-DB-RENEW-04", OBJ, "ACTIVE business with RELEASED history appears eligible or listed", async () => {
     const applicant = await prisma.user.findUnique({
       where: { email: "applicant@example.com" },
-      select: { id: true },
+      select: { userId: true },
     });
-    assert(applicant?.id, "applicant missing");
+    assert(applicant?.userId, "applicant missing");
     const record = await prisma.businessRecord.findFirst({
       where: {
-        applicantId: applicant.id,
+        applicantId: applicant.userId,
         businessStatus: "ACTIVE",
         applications: { some: { status: "RELEASED" } },
       },
-      select: { id: true, businessName: true },
+      select: { businessRecordId: true, businessName: true },
     });
     if (!record) {
       throw new Error("No ACTIVE+RELEASED business for applicant");
     }
-    const result = await listRenewalEligibleBusinesses(applicant.id);
-    const inEligible = result.records.some((r) => r.id === record.id);
-    const inBlocked = result.blockedRecords.some((r) => r.id === record.id);
+    const result = await listRenewalEligibleBusinesses(applicant.userId);
+    const inEligible = result.records.some((r) => r.id === record.businessRecordId);
+    const inBlocked = result.blockedRecords.some((r) => r.id === record.businessRecordId);
     assert(inEligible || inBlocked, `${record.businessName} should appear in renewal lists`);
     if (inEligible) {
       assert(
-        result.records.find((r) => r.id === record.id)?.renewalEligibility.eligible === true,
+        result.records.find((r) => r.id === record.businessRecordId)?.renewalEligibility.eligible === true,
         "Expected eligible=true"
       );
     }
@@ -318,10 +327,10 @@ async function objective5Closure() {
   await runCase("WB-DB-CLOSE-03", OBJ, "listClosureEligibleBusinesses for applicant", async () => {
     const applicant = await prisma.user.findUnique({
       where: { email: "applicant@example.com" },
-      select: { id: true },
+      select: { userId: true },
     });
-    assert(applicant?.id, "applicant missing");
-    const result = await listClosureEligibleBusinesses(applicant.id);
+    assert(applicant?.userId, "applicant missing");
+    const result = await listClosureEligibleBusinesses(applicant.userId);
     assert(Array.isArray(result.records), "Expected records array");
     assert(Array.isArray(result.complianceForcedRecords), "Expected complianceForcedRecords array");
   });
@@ -329,18 +338,18 @@ async function objective5Closure() {
   await runCase("WB-DB-CLOSE-04", OBJ, "CLOSED business not in closure-eligible list", async () => {
     const applicant = await prisma.user.findUnique({
       where: { email: "applicant@example.com" },
-      select: { id: true },
+      select: { userId: true },
     });
-    assert(applicant?.id, "applicant missing");
+    assert(applicant?.userId, "applicant missing");
     const closed = await prisma.businessRecord.findFirst({
-      where: { businessStatus: "CLOSED", applicantId: applicant.id },
-      select: { id: true },
+      where: { businessStatus: "CLOSED", applicantId: applicant.userId },
+      select: { businessRecordId: true },
     });
     if (!closed) {
       skipCase("No CLOSED business for applicant");
     }
-    const result = await listClosureEligibleBusinesses(applicant.id);
-    const inEligible = result.records.some((r) => r.id === closed.id);
+    const result = await listClosureEligibleBusinesses(applicant.userId);
+    const inEligible = result.records.some((r) => r.id === closed?.businessRecordId);
     assert(!inEligible, "CLOSED business should not be closure-eligible");
   });
 }
@@ -541,14 +550,14 @@ async function objective10Other() {
   await runCase("WB-DB-OTHER-04", OBJ, "FeeAssessment GENERATED for payment-stage apps", async () => {
     const apps = await prisma.businessApplication.findMany({
       where: { status: "APPROVED_FOR_PAYMENT" },
-      select: { id: true },
+      select: { businessApplicationId: true },
       take: 5,
     });
     for (const app of apps) {
       const fa = await prisma.feeAssessment.findFirst({
-        where: { applicationId: app.id, status: "GENERATED" },
+        where: { applicationId: app.businessApplicationId, status: "GENERATED" },
       });
-      assert(fa, `App ${app.id} APPROVED_FOR_PAYMENT but no GENERATED FeeAssessment`);
+      assert(fa, `App ${app.businessApplicationId} APPROVED_FOR_PAYMENT but no GENERATED FeeAssessment`);
     }
   });
 

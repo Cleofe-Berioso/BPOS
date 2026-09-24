@@ -22,8 +22,8 @@ async function getAuthState(
 
 export function createRoleTest(role: Role) {
   return base.extend({
-    storageState: async ({ browser }, use) => {
-      await use(await getAuthState(browser, role));
+    storageState: async ({ browser }, provide) => {
+      await provide(await getAuthState(browser, role));
     },
   });
 }
