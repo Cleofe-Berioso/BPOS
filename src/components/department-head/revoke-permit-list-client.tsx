@@ -14,7 +14,6 @@ import {
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { InfoBanner } from "@/components/ui/info-banner";
-import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SectionCard } from "@/components/ui/section-card";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import type { PaginationPageSize } from "@/lib/pagination";
@@ -62,9 +61,6 @@ export function RevokePermitListClient() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ type: "error"; text: string } | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [remarksInput, setRemarksInput] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<PaginationPageSize>(10);
   const [totalCount, setTotalCount] = useState(0);
@@ -239,7 +235,7 @@ export function RevokePermitListClient() {
                 <p className="mt-1 text-sm text-[var(--foreground)]">{formatDateTime(selected.jitInspectionDate)}</p>
               </div>
               <div className={dhSummaryTileClass}>
-                <p className={dhSummaryLabelClass}>JIT Inspector</p>
+                <p className={dhSummaryLabelClass}>JIT Inspector Portal</p>
                 <p className="mt-1 text-sm text-[var(--foreground)]">{selected.jitInspectorName}</p>
               </div>
               <div className={`${dhSummaryTileClass} md:col-span-2 xl:col-span-3`}>
@@ -309,74 +305,7 @@ export function RevokePermitListClient() {
               )}
             </SectionCard>
 
-            {selected.inspectionStatus === "REVOKED" && !selected.isSettled ? (
-              <div className="mt-4 flex items-center gap-3">
-                <button
-                  type="button"
-                  className={actionButtonStyles("danger", "md")}
-                  onClick={() => {
-                    setRemarksInput("");
-                    setIsModalOpen(true);
-                  }}
-                >
-                  Mark as Settled
-                </button>
-                <p className="text-sm text-[var(--ink-muted)]">
-                  Mark violation as settled without reactivating permit.
-                </p>
-              </div>
-            ) : null}
 
-            <ConfirmModal
-              open={isModalOpen}
-              title="Mark as Settled"
-              message="Provide settlement remarks (required)."
-              confirmLabel="Confirm"
-              cancelLabel="Cancel"
-              variant="danger"
-              loading={isSubmitting}
-              onClose={() => setIsModalOpen(false)}
-              onConfirm={async () => {
-                const remarks = remarksInput.trim();
-                if (!remarks) {
-                  setMessage({ type: "error", text: "Settlement remarks are required." });
-                  return;
-                }
-                if (!selected) return;
-                try {
-                  setIsSubmitting(true);
-                  const res = await fetch(
-                    `/api/department-head/revoke-permit-list/${selected.inspectionId}/mark-settled`,
-                    {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ remarks }),
-                    }
-                  );
-                  const data = await res.json();
-                  if (!res.ok) {
-                    setMessage({ type: "error", text: data.error ?? "Unable to mark as settled." });
-                    return;
-                  }
-                  setIsModalOpen(false);
-                  await loadRows();
-                  setMessage(null);
-                } catch {
-                  setMessage({ type: "error", text: "Unable to mark as settled." });
-                } finally {
-                  setIsSubmitting(false);
-                }
-              }}
-            >
-              <textarea
-                aria-label="Settlement remarks"
-                value={remarksInput}
-                onChange={(e) => setRemarksInput(e.target.value)}
-                className="w-full rounded-md border p-2 text-sm"
-                rows={5}
-                placeholder="Enter settlement remarks"
-              />
-            </ConfirmModal>
           </div>
         )}
 

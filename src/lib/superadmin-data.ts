@@ -1372,7 +1372,7 @@ function humanizeActorRole(role: string | null): string {
     BPLO: "BPLO",
     SUPER_ADMIN: "IT Administrator",
     DEPARTMENT_HEAD: "Department Head",
-    JIT: "JIT Inspector",
+    JIT: "JIT Inspector Portal",
   };
   return map[role] ?? role;
 }

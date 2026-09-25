@@ -55,17 +55,6 @@ function formatDateTime(value: string): string {
   }).format(new Date(value));
 }
 
-/** UI-only risk level — no Prisma field needed */
-function computeRiskLevel(inspectionStatus: string, applicationStatus: string): { label: string; className: string } {
-  const status = inspectionStatus.toUpperCase();
-  if (status === "REVOCATION_REVIEW" || status === "REVOKED") {
-    return { label: "High Risk", className: "text-[var(--danger)] bg-[var(--danger-soft)] border-[var(--danger)]" };
-  }
-  if (status === "NON_COMPLIANT" || applicationStatus.toUpperCase().includes("REVOCATION")) {
-    return { label: "Medium Risk", className: "text-[var(--warning)] bg-[var(--warning-soft)] border-[var(--warning)]" };
-  }
-  return { label: "Low Risk", className: "text-[var(--success)] bg-[var(--success-soft)] border-[var(--success)]" };
-}
 
 export function PermitToRevokeClient() {
   const [rows, setRows] = useState<PermitToRevokeRow[]>([]);
@@ -297,10 +286,7 @@ export function PermitToRevokeClient() {
                 <p className={dhSummaryValueClass}>{selected.applicationNumber}</p>
                 <p className="ui-caption">Permit: {selected.permitOrCertificateNumber ?? "N/A"}</p>
               </div>
-              <div className={`rounded-xl border p-3 ${computeRiskLevel(selected.inspectionStatus, selected.applicationStatus).className}`}>
-                <p className="text-xs uppercase tracking-wide opacity-70">Risk Level</p>
-                <p className="mt-1 text-sm font-bold">{computeRiskLevel(selected.inspectionStatus, selected.applicationStatus).label}</p>
-              </div>
+
               <div className={`${dhSummaryTileClass} md:col-span-2 xl:col-span-3`}>
                 <p className={dhSummaryLabelClass}>Business Address</p>
                 <p className="mt-1 text-sm text-[var(--foreground)]">{selected.businessAddress}</p>
@@ -322,7 +308,7 @@ export function PermitToRevokeClient() {
                 <p className="mt-1 text-sm text-[var(--foreground)]">{selected.verifiedBy ?? "Not available"}</p>
               </div>
               <div className={dhSummaryTileClass}>
-                <p className={dhSummaryLabelClass}>JIT Inspector</p>
+                <p className={dhSummaryLabelClass}>JIT Inspector Portal</p>
                 <p className="mt-1 text-sm text-[var(--foreground)]">{selected.inspectorName}</p>
               </div>
               <div className={dhSummaryTileClass}>

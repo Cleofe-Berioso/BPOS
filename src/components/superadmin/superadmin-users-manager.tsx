@@ -381,7 +381,7 @@ export function SuperAdminUsersManager({ currentUserId }: { currentUserId: strin
           <option value="BPLO">BPLO</option>
           <option value="SUPER_ADMIN">IT Administrator</option>
           <option value="DEPARTMENT_HEAD">Department Head</option>
-          <option value="JIT">JIT Inspector</option>
+          <option value="JIT">JIT Inspector Portal</option>
         </select>
         <select
           value={statusFilter}

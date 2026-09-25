@@ -89,7 +89,7 @@ export function JitSidebar({
           portalTitle="JIT Portal"
           description="Inspect, record, and monitor compliance findings."
           roleType="JIT"
-          roleLabel="JIT Inspector"
+          roleLabel="JIT Inspector Portal"
           collapsed={collapsed}
         />
       </div>

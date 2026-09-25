@@ -4,7 +4,6 @@ import {
   BarChart3,
   FlagTriangleRight,
   ShieldCheck,
-  TriangleAlert,
   ArrowRight,
   MapPinned,
   ClipboardList,
@@ -51,8 +50,8 @@ export default async function JitDashboardPage() {
         }
       />
 
-      <SectionCard title="Action Required Now" description="Inspection queues and high-priority compliance indicators.">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <SectionCard title="Action Required Now" description="Inspection queues and compliance indicators.">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <DashboardQueueCard
             title="Inspection Queue"
             description="Released businesses available for inspection."
@@ -60,14 +59,6 @@ export default async function JitDashboardPage() {
             href="/jit/inspect-a-business"
             tone="info"
             icon={<ClipboardList className="h-4 w-4" />}
-          />
-          <DashboardQueueCard
-            title="High-Risk Businesses"
-            description="Latest inspection is non-compliant or under revocation review."
-            count={summary.highRiskCount}
-            href="/jit/inspect-a-business"
-            tone="danger"
-            icon={<TriangleAlert className="h-4 w-4" />}
           />
           <DashboardQueueCard
             title="Flagged Businesses"
@@ -89,20 +80,13 @@ export default async function JitDashboardPage() {
       </SectionCard>
 
       <SectionCard title="Key Metrics" description="Live counts from released-business and inspection data.">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <DashboardSummaryCard
             title="Inspection Summary"
             value={summary.inspectionSummary.toLocaleString("en-PH")}
             subtitle="Total inspections submitted by JIT"
             icon={<BarChart3 className="h-4 w-4" />}
             tone="blue"
-          />
-          <DashboardSummaryCard
-            title="High-Risk Count"
-            value={summary.highRiskCount.toLocaleString("en-PH")}
-            subtitle="Latest inspection is NON_COMPLIANT or REVOCATION_REVIEW"
-            icon={<TriangleAlert className="h-4 w-4" />}
-            tone="red"
           />
           <DashboardSummaryCard
             title="Flagged Businesses Count"

@@ -55,7 +55,7 @@ export function JitLayoutClient({
 
           <PortalHeaderActions
             name={userName}
-            roleLabel="JIT Inspector"
+            roleLabel="JIT Inspector Portal"
             profileHref="/jit/dashboard"
             signOutAction={signOutAction}
           />

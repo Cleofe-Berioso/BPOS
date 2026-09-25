@@ -45,7 +45,7 @@ function roleLabel(role: UserRole): string {
     case "DEPARTMENT_HEAD":
       return "Department Head";
     case "JIT":
-      return "JIT Inspector";
+      return "JIT Inspector Portal";
     case "BPLO":
       return "BPLO Staff";
     default:

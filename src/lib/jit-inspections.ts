@@ -1,4 +1,4 @@
-import { listActivePermittedBusinessLocations, listActivePermittedBusinessLocationsPaginated, type BusinessLocationMapRow } from "@/lib/business-location";
+﻿import { listActivePermittedBusinessLocations, listActivePermittedBusinessLocationsPaginated, type BusinessLocationMapRow } from "@/lib/business-location";
 import {
   getChecklistQuestionForDepartment,
   type ChecklistItemInput,
@@ -181,11 +181,18 @@ export async function listJitInspectableBusinessesPaginated(options?: {
     options
   );
 
-  const records = await attachLatestInspections(locationResult.records);
+  const allRecords = await attachLatestInspections(locationResult.records);
+
+  // Exclude businesses whose latest inspection is REVOKED -- they cannot be
+  // inspected again and must not appear in the inspection queue.
+  const records = allRecords.filter(
+    (row) => row.latestInspection?.status !== "REVOKED"
+  );
 
   return {
     ...locationResult,
     records,
+    totalCount: records.length,
   };
 }
 

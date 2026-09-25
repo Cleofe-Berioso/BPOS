@@ -53,15 +53,6 @@ function readFlag(formData: Record<string, unknown>, key: string) {
   return "-";
 }
 
-function formatBirthDate(value: string): string {
-  if (!value || value === "-") return "-";
-  const parsed = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T12:00:00`) : new Date(value);
-  if (Number.isNaN(parsed.getTime())) return value;
-  return new Intl.DateTimeFormat("en-PH", {
-    dateStyle: "medium",
-    timeZone: "Asia/Manila",
-  }).format(parsed);
-}
 
 function getStatusGuidance(status: string): { meaning: string; nextStep: string } {
   if (status === "Draft") {
@@ -307,8 +298,6 @@ export default async function BploApplicationDetailPage({ params }: PageProps) {
               ) : (
                 <p><strong>Owner / President:</strong> {ownerName}</p>
               )}
-              <p><strong>Age:</strong> {readText(formData, ["ownerAge"])}</p>
-              <p><strong>Birthdate:</strong> {formatBirthDate(readText(formData, ["birthDate"]))}</p>
               <p><strong>Sex:</strong> {readText(formData, ["sex"])}</p>
               <p><strong>Nationality:</strong> {readText(formData, ["nationality"])}</p>
               <p><strong>Email:</strong> {readText(formData, ["email"])}</p>

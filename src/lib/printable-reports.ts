@@ -296,7 +296,7 @@ export const ACTOR_ROLE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "BPLO", label: "BPLO" },
   { value: "SUPER_ADMIN", label: "IT Administrator" },
   { value: "DEPARTMENT_HEAD", label: "Department Head" },
-  { value: "JIT", label: "JIT Inspector" },
+  { value: "JIT", label: "JIT Inspector Portal" },
 ];
 
 /**

@@ -233,11 +233,6 @@ export function SettlementManagementClient() {
                 <p className={dhSummaryLabelClass}>Verified Date</p>
                 <p className="mt-1 text-sm text-[var(--foreground)]">{formatDateTime(selected.verifiedAt)}</p>
               </div>
-
-              <div className={dhSummaryTileClass}>
-                <p className={dhSummaryLabelClass}>Deadline</p>
-                <p className="mt-1 text-sm text-[var(--foreground)]">{formatDateTime(selected.deadlineAt)}</p>
-              </div>
             </div>
 
             <SectionCard title="Actions" description="Settle eligible cases here.">
