@@ -86,7 +86,7 @@ export function JitSidebar({
     <aside className={sidebarAsideClass(mobileOpen, collapsed)}>
       <div className={sidebarHeaderClass(collapsed)}>
         <PortalSidebarBrand
-          portalTitle="JIT Portal"
+          portalTitle="JIT Inspector Portal"
           description="Inspect, record, and monitor compliance findings."
           roleType="JIT"
           roleLabel="JIT Inspector Portal"

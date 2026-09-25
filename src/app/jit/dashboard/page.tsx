@@ -33,10 +33,10 @@ export default async function JitDashboardPage() {
   return (
     <section className="space-y-4">
       <PageHeader
-        eyebrow="JIT"
+        eyebrow="JIT Inspector Portal"
         title="JIT Dashboard"
         description="Inspection summary and compliance indicators for active released businesses."
-        badge={<RoleBadge roleType="VIEW_ONLY" label="JIT" />}
+        badge={<RoleBadge roleType="VIEW_ONLY" label="JIT Inspector Portal" />}
         showHeroWatermark
         actions={
           <>

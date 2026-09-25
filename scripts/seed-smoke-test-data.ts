@@ -614,12 +614,12 @@ async function main() {
   });
   const jit = await ensureUser({
     email: "jit@example.com",
-    name: "JIT Inspector",
+    name: "JIT Inspector Portal",
     role: "JIT",
   });
   await ensureUser({
     email: "jit-disabled@example.com",
-    name: "Disabled JIT Inspector",
+    name: "Disabled JIT Inspector Portal",
     role: "JIT",
     isActive: false,
   });

@@ -11,10 +11,10 @@ export default async function JitBusinessMapPage() {
   return (
     <section className="ui-page-stack">
       <PageHeader
-        eyebrow="JIT"
+        eyebrow="JIT Inspector Portal"
         title="Business Map"
         description="Read-only released business map for Joint Inspection Team planning and monitoring."
-        badge={<RoleBadge roleType="VIEW_ONLY" label="JIT" />}
+        badge={<RoleBadge roleType="VIEW_ONLY" label="JIT Inspector Portal" />}
       />
 
       <JitBusinessMapClient />

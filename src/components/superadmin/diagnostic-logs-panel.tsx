@@ -127,7 +127,7 @@ function renderRolePill(role: string) {
     case "JIT":
       return (
         <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-sky-50 text-sky-700 border border-sky-200/60">
-          JIT
+          JIT Inspector Portal
         </span>
       );
     case "APPLICANT":

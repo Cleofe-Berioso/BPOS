@@ -63,7 +63,7 @@ export async function POST(
       module: "USER_MANAGEMENT",
       entityType: "USER",
       entityId: target!.email,
-      description: `IT Administrator disabled JIT inspector account${reason ? `: ${reason}` : ""}`,
+      description: `IT Administrator disabled JIT Inspector Portal account${reason ? `: ${reason}` : ""}`,
       metadata: {
         targetUserId: target!.userId,
         targetName: target!.name,

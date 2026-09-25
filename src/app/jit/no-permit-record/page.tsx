@@ -11,10 +11,10 @@ export default async function JitNoPermitRecordPage() {
   return (
     <section className="ui-page-stack">
       <PageHeader
-        eyebrow="JIT"
+        eyebrow="JIT Inspector Portal"
         title="No Permit Record"
         description="Record businesses found during inspections that do not have an existing business permit record."
-        badge={<RoleBadge roleType="VIEW_ONLY" label="JIT" />}
+        badge={<RoleBadge roleType="VIEW_ONLY" label="JIT Inspector Portal" />}
       />
 
       <JitNoPermitRecordClient />

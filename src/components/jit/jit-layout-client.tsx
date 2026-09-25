@@ -47,7 +47,7 @@ export function JitLayoutClient({
               onCollapseToggle={() => setCollapsed((value) => !value)}
             />
             <PortalHeaderBrand
-              eyebrow="JIT Portal"
+              eyebrow="JIT Inspector Portal"
               title={`Welcome, ${userName}`}
               subtitle="Inspection and compliance operations"
             />

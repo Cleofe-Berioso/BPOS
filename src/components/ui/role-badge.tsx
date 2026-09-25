@@ -14,7 +14,7 @@ const ROLE_LABELS: Record<RoleBadgeValue, string> = {
   BPLO: "BPLO",
   SUPER_ADMIN: "IT Administrator",
   DEPARTMENT_HEAD: "DEPARTMENT HEAD",
-  JIT: "JIT",
+  JIT: "JIT Inspector Portal",
   VIEW_ONLY: "VIEW ONLY",
 };
 

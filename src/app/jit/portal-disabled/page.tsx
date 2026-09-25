@@ -16,9 +16,9 @@ export default async function JitPortalDisabledPage() {
         style={{ borderColor: "var(--sidebar-border)", backgroundColor: "var(--sidebar-bg)" }}
       >
         <div className="mb-4 text-5xl">🔒</div>
-        <h1 className="mb-2 text-2xl font-bold text-white">JIT Portal Disabled</h1>
+        <h1 className="mb-2 text-2xl font-bold text-white">JIT Inspector Portal Disabled</h1>
         <p className="mb-6 text-white/75">
-          The JIT Portal is currently disabled by the system administrator. Please contact your administrator for more information.
+          The JIT Inspector Portal is currently disabled by the system administrator. Please contact your administrator for more information.
         </p>
         <form action={handleSignOut}>
           <button

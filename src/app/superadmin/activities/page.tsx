@@ -34,7 +34,7 @@ interface PageProps {
 function actorRoleLabel(role: string): string {
   if (role === "DEPARTMENT_HEAD") return "Department Head";
   if (role === "SUPER_ADMIN") return "IT Administrator";
-  if (role === "JIT") return "Joint Inspection Team";
+  if (role === "JIT") return "JIT Inspector Portal";
   if (role === "BPLO") return "BPLO";
   if (role === "APPLICANT") return "Applicant";
   if (role === "SYSTEM") return "System";
@@ -224,7 +224,7 @@ export default async function SuperAdminActivitiesPage({ searchParams }: PagePro
             <option value="APPLICANT">Applicant</option>
             <option value="BPLO">BPLO</option>
             <option value="DEPARTMENT_HEAD">Department Head</option>
-            <option value="JIT">Joint Inspection Team</option>
+            <option value="JIT">JIT Inspector Portal</option>
             <option value="SUPER_ADMIN">IT Administrator</option>
             <option value="SYSTEM">System</option>
           </select>

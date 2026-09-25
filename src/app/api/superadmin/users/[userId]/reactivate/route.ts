@@ -50,7 +50,7 @@ export async function POST(
       module: "USER_MANAGEMENT",
       entityType: "USER",
       entityId: target!.email,
-      description: "IT Administrator enabled JIT inspector account",
+      description: "IT Administrator enabled JIT Inspector Portal account",
       metadata: {
         targetUserId: target!.userId,
         targetName: target!.name,

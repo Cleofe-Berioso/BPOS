@@ -31,5 +31,5 @@ export default async function JitLayout({ children }: { children: React.ReactNod
     await signOut({ redirectTo: "/login" });
   }
 
-  return <JitLayoutClient userName={session.user?.name ?? "JIT"} signOutAction={handleSignOut}>{children}</JitLayoutClient>;
+  return <JitLayoutClient userName={session.user?.name ?? "JIT Inspector Portal"} signOutAction={handleSignOut}>{children}</JitLayoutClient>;
 }

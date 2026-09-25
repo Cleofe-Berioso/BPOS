@@ -462,7 +462,7 @@ export function DepartmentHeadInspectionVerificationClient() {
                 <p className={dhSummaryValueClass}>{formatDateTime(selected.inspectionDate)}</p>
               </div>
               <div className={dhSummaryTileClass}>
-                <p className={dhSummaryLabelClass}>Inspector</p>
+                <p className={dhSummaryLabelClass}>JIT Inspector Portal</p>
                 <p className={dhSummaryValueClass}>{selected.inspectorName}</p>
               </div>
               <div className={`${dhSummaryTileClass} md:col-span-2 xl:col-span-3`}>
