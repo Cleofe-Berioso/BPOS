@@ -3,69 +3,66 @@ import { normalizeBusinessInfo } from "@/lib/business-rules";
 import { baseBusinessInfo } from "../whitebox/fixtures";
 
 /**
- * Unit and integration tests for OR Number:
- * - Entering & format preservation (e.g. OR-2026-00001)
- * - Creating a record
- * - Viewing a record
- * - Editing a record
- * - Verifying all three fields (Tax Declaration Number, Property Identification Number, OR Number)
- *   work correctly together.
+ * Unit and integration tests for Payment Receipt upload:
+ * - Replaces manual OR Number text entry with Payment Receipt upload
+ * - Normalization & file name preservation (e.g. official-receipt-2026-00001.pdf)
+ * - Cohesion with Tax Declaration Number and Property Identification Number
+ * - Complete lifecycle: Create -> Save -> View -> Edit/Replace -> Save again
  */
-describe("TC-OR — OR Number implementation and multi-field cohesion", () => {
+describe("TC-PR — Payment Receipt upload implementation and multi-field cohesion", () => {
   const exampleTdn = "2026-18045-00001";
   const examplePin = "180-08-002-001-001";
-  const exampleOr = "OR-2026-00001";
+  const exampleReceiptFileName = "official-receipt-2026-00001.pdf";
 
-  it("TC-OR-01 preserves exact value and format of OR Number in normalizeBusinessInfo", () => {
+  it("TC-PR-01 preserves exact file name of Payment Receipt in normalizeBusinessInfo", () => {
     const info = baseBusinessInfo({
       propertyOwnership: "Owned",
       taxDeclarationNumber: exampleTdn,
       propertyIdentificationNumber: examplePin,
-      orNumber: exampleOr,
+      paymentReceiptFileName: exampleReceiptFileName,
     });
 
     const normalized = normalizeBusinessInfo(info);
-    expect(normalized.orNumber).toBe("OR-2026-00001");
+    expect(normalized.paymentReceiptFileName).toBe("official-receipt-2026-00001.pdf");
     expect(normalized.taxDeclarationNumber).toBe("2026-18045-00001");
     expect(normalized.propertyIdentificationNumber).toBe("180-08-002-001-001");
   });
 
-  it("TC-OR-02 preserves alphanumeric formats and leading zeroes without distortion", () => {
+  it("TC-PR-02 preserves file names with spaces, special characters, and extensions", () => {
     const rawInputs = [
-      "OR-2026-00001",
-      "2026-000456",
-      "9876543210",
-      "  OR-2026-00001  ",
+      "Official Receipt 2026_01.pdf",
+      "OR_scan_v2.png",
+      "LGU_Cashier_Receipt.jpeg",
+      "  receipt-copy.pdf  ",
     ];
 
     for (const raw of rawInputs) {
       const normalized = normalizeBusinessInfo(
-        baseBusinessInfo({ orNumber: raw })
+        baseBusinessInfo({ paymentReceiptFileName: raw })
       );
-      expect(normalized.orNumber).toBe(raw.trim());
-      expect(normalized.orNumber).toMatch(/^OR-2026-00001|2026-000456|9876543210$/);
+      expect(normalized.paymentReceiptFileName).toBe(raw.trim());
     }
   });
 
-  it("TC-OR-03 handles empty or undefined OR Number gracefully", () => {
+  it("TC-PR-03 handles empty or undefined Payment Receipt gracefully", () => {
     const emptyNormalized = normalizeBusinessInfo(
-      baseBusinessInfo({ orNumber: "" })
+      baseBusinessInfo({ paymentReceiptFileName: "" })
     );
-    expect(emptyNormalized.orNumber).toBe("");
+    expect(emptyNormalized.paymentReceiptFileName).toBe("");
 
     const undefinedNormalized = normalizeBusinessInfo(
-      baseBusinessInfo({ orNumber: undefined })
+      baseBusinessInfo({ paymentReceiptFileName: undefined })
     );
-    expect(undefinedNormalized.orNumber).toBe("");
+    expect(undefinedNormalized.paymentReceiptFileName).toBe("");
   });
 
-  it("TC-OR-04 creates a record storing all three fields (TDN, PIN, OR) simultaneously", () => {
+  it("TC-PR-04 creates a record storing Tax Declaration Number, Property Identification Number, and Payment Receipt", () => {
     const createdInfo = normalizeBusinessInfo(
       baseBusinessInfo({
         propertyOwnership: "Owned",
         taxDeclarationNumber: exampleTdn,
         propertyIdentificationNumber: examplePin,
-        orNumber: exampleOr,
+        paymentReceiptFileName: exampleReceiptFileName,
       })
     );
 
@@ -74,76 +71,90 @@ describe("TC-OR — OR Number implementation and multi-field cohesion", () => {
       applicationNumber: "EBPLS-2026-0003",
       status: "DRAFT",
       formData: createdInfo,
+      documents: [
+        {
+          id: "doc-pr-1",
+          documentName: "Payment Receipt",
+          fileName: exampleReceiptFileName,
+          uploadedAt: new Date().toISOString(),
+        },
+      ],
       createdAt: new Date(),
       updatedAt: new Date(),
     };
 
     expect(applicationRecord.formData.taxDeclarationNumber).toBe("2026-18045-00001");
     expect(applicationRecord.formData.propertyIdentificationNumber).toBe("180-08-002-001-001");
-    expect(applicationRecord.formData.orNumber).toBe("OR-2026-00001");
+    expect(applicationRecord.formData.paymentReceiptFileName).toBe("official-receipt-2026-00001.pdf");
+    expect(applicationRecord.documents[0].fileName).toBe("official-receipt-2026-00001.pdf");
   });
 
-  it("TC-OR-05 views a record and correctly extracts all three fields for display", () => {
+  it("TC-PR-05 views a record and correctly displays Payment Receipt file name and link", () => {
     const recordFormData = normalizeBusinessInfo(
       baseBusinessInfo({
         propertyOwnership: "Owned",
         taxDeclarationNumber: exampleTdn,
         propertyIdentificationNumber: examplePin,
-        orNumber: exampleOr,
+        paymentReceiptFileName: exampleReceiptFileName,
       })
     );
 
-    const readField = (formData: Record<string, any>, key: string) => {
-      const val = formData[key];
-      return typeof val === "string" && val.trim().length > 0 ? val.trim() : "-";
+    const readReceipt = (formData: Record<string, any>, documents: Array<{ documentName: string; fileName: string }>) => {
+      const doc = documents.find((d) => d.documentName.toLowerCase().includes("payment receipt"));
+      if (doc) return doc.fileName;
+      const fallback = formData.paymentReceiptFileName;
+      return typeof fallback === "string" && fallback.trim().length > 0 ? fallback.trim() : "None uploaded";
     };
 
-    expect(readField(recordFormData, "taxDeclarationNumber")).toBe("2026-18045-00001");
-    expect(readField(recordFormData, "propertyIdentificationNumber")).toBe("180-08-002-001-001");
-    expect(readField(recordFormData, "orNumber")).toBe("OR-2026-00001");
+    const docs = [{ documentName: "Payment Receipt", fileName: "official-receipt-2026-00001.pdf" }];
+    expect(readReceipt(recordFormData, docs)).toBe("official-receipt-2026-00001.pdf");
+    expect(recordFormData.taxDeclarationNumber).toBe("2026-18045-00001");
+    expect(recordFormData.propertyIdentificationNumber).toBe("180-08-002-001-001");
   });
 
-  it("TC-OR-06 edits a record by modifying OR Number while preserving TDN and PIN intact", () => {
+  it("TC-PR-06 edits and replaces Payment Receipt upload while preserving TDN and PIN", () => {
     let currentInfo = normalizeBusinessInfo(
       baseBusinessInfo({
         propertyOwnership: "Owned",
         taxDeclarationNumber: exampleTdn,
         propertyIdentificationNumber: examplePin,
-        orNumber: exampleOr,
+        paymentReceiptFileName: exampleReceiptFileName,
       })
     );
 
-    const newOr = "OR-2026-00002";
+    const replacedReceiptFileName = "updated_payment_receipt_2026.png";
     currentInfo = normalizeBusinessInfo({
       ...currentInfo,
-      orNumber: newOr,
+      paymentReceiptFileName: replacedReceiptFileName,
     });
 
-    expect(currentInfo.orNumber).toBe("OR-2026-00002");
+    expect(currentInfo.paymentReceiptFileName).toBe("updated_payment_receipt_2026.png");
     expect(currentInfo.taxDeclarationNumber).toBe("2026-18045-00001");
     expect(currentInfo.propertyIdentificationNumber).toBe("180-08-002-001-001");
   });
 
-  it("TC-OR-07 allows editing any combination of all three fields independently", () => {
-    let currentInfo = normalizeBusinessInfo(
+  it("TC-PR-07 complete lifecycle: create -> save -> view -> remove receipt -> save again", () => {
+    let appState = normalizeBusinessInfo(
       baseBusinessInfo({
         propertyOwnership: "Owned",
         taxDeclarationNumber: exampleTdn,
         propertyIdentificationNumber: examplePin,
-        orNumber: exampleOr,
+        paymentReceiptFileName: exampleReceiptFileName,
       })
     );
 
-    // Update all three
-    currentInfo = normalizeBusinessInfo({
-      ...currentInfo,
-      taxDeclarationNumber: "2026-99999-00001",
-      propertyIdentificationNumber: "180-08-999-999-999",
-      orNumber: "OR-2026-99999",
+    // Initial save
+    expect(appState.paymentReceiptFileName).toBe("official-receipt-2026-00001.pdf");
+    expect(appState.taxDeclarationNumber).toBe("2026-18045-00001");
+
+    // Remove receipt
+    appState = normalizeBusinessInfo({
+      ...appState,
+      paymentReceiptFileName: "",
     });
 
-    expect(currentInfo.taxDeclarationNumber).toBe("2026-99999-00001");
-    expect(currentInfo.propertyIdentificationNumber).toBe("180-08-999-999-999");
-    expect(currentInfo.orNumber).toBe("OR-2026-99999");
+    expect(appState.paymentReceiptFileName).toBe("");
+    expect(appState.taxDeclarationNumber).toBe("2026-18045-00001");
+    expect(appState.propertyIdentificationNumber).toBe("180-08-002-001-001");
   });
 });

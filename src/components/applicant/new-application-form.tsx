@@ -58,6 +58,7 @@ import {
   applicantSummaryValueClass,
 } from "@/components/applicant/applicant-ui-styles";
 import { actionButtonStyles } from "@/components/ui/action-button";
+import { DocumentDownloadButton } from "@/components/ui/document-download-button";
 import { FormField } from "@/components/ui/form-field";
 import { InfoBanner } from "@/components/ui/info-banner";
 import { SectionCard } from "@/components/ui/section-card";
@@ -175,7 +176,7 @@ const FIELD_LABELS: Partial<Record<keyof BusinessInfo, string>> = {
   assetSize: "Asset Size",
   taxDeclarationNumber: "Tax Declaration Number",
   propertyIdentificationNumber: "Property Identification Number",
-  orNumber: "OR Number",
+  paymentReceiptFileName: "Payment Receipt",
 };
 
 const BUSINESS_LOCATION_ERROR = "Please pin the business location inside EB Magalona.";
@@ -360,10 +361,10 @@ const FIELD_NAVIGATION_MAP: Record<NewApplicationFieldKey, FieldNavigationConfig
     label: "Property Identification Number",
     selector: '[data-field-key="propertyIdentificationNumber"]',
   },
-  orNumber: {
+  paymentReceiptFileName: {
     step: 1,
-    label: "OR Number",
-    selector: '[data-field-key="orNumber"]',
+    label: "Payment Receipt",
+    selector: '[data-field-key="paymentReceipt"]',
   },
   taxIncentives: { step: 1, label: "Tax Incentives", selector: '[data-field-key="taxIncentives"]' },
   hasTaxIncentives: {
@@ -659,7 +660,7 @@ const READ_ONLY_LOCKED_FIELDS: Array<keyof BusinessInfo> = [
   "propertyOwnership",
   "taxDeclarationNumber",
   "propertyIdentificationNumber",
-  "orNumber",
+  "paymentReceiptFileName",
   "capitalInvestment",
   "paymentFrequency",
   "isMarket",
@@ -930,7 +931,7 @@ export function NewApplicationForm() {
       taxIncentives: next.taxIncentives,
       taxDeclarationNumber: next.taxDeclarationNumber,
       propertyIdentificationNumber: next.propertyIdentificationNumber,
-      orNumber: next.orNumber,
+      paymentReceiptFileName: next.paymentReceiptFileName,
       phone: sanitizePhMobileInput(next.phone ?? ""),
     };
 
@@ -1060,10 +1061,6 @@ export function NewApplicationForm() {
 
     if (field === "propertyIdentificationNumber") {
       delete nextErrors.propertyIdentificationNumber;
-    }
-
-    if (field === "orNumber") {
-      delete nextErrors.orNumber;
     }
 
     setFieldErrors(nextErrors);
@@ -1965,20 +1962,94 @@ export function NewApplicationForm() {
                 }
               />
 
-              <FieldCard
-                label="OR Number"
-                value={info.orNumber ?? ""}
-                fieldKey="orNumber"
-                placeholder="OR-2026-00001"
-                helperText="Official Receipt Number of the record/transaction"
-                error={fieldErrors.orNumber}
-                required={false}
-                disabled={isReadOnly}
-                onBlur={() => validateFieldOnBlur("orNumber")}
-                onChange={(value) =>
-                  setInfo((current) => ({ ...current, orNumber: value }))
-                }
-              />
+              <div className="space-y-1.5" data-field-key="paymentReceipt">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-semibold text-[var(--foreground)]">
+                    Payment Receipt
+                  </label>
+                  {uploadedDocuments["Payment Receipt"]?.fileName ? (
+                    <span className="rounded-full border border-[var(--success)] bg-[var(--surface)] px-2 py-0.5 text-[11px] font-semibold text-[var(--success)]">
+                      {uploadedDocuments["Payment Receipt"]?.uploadedAt ? "Uploaded" : "Selected"}
+                    </span>
+                  ) : (
+                    <span className="rounded-full border border-[var(--border-color)] bg-[var(--surface)] px-2 py-0.5 text-[11px] font-semibold text-[var(--ink-muted)]">
+                      Optional
+                    </span>
+                  )}
+                </div>
+                <div className="rounded-2xl border border-dashed border-[var(--border-color)] bg-[var(--muted-surface)]/50 p-3 transition-colors">
+                  <p className="text-xs text-[var(--ink-muted)]">
+                    Upload official payment receipt or proof of payment
+                  </p>
+                  <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                    <label
+                      htmlFor="new-payment-receipt-upload"
+                      className={`inline-flex cursor-pointer items-center rounded-lg bg-[var(--success)] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[var(--primary-strong)] ${
+                        isReadOnly || submitting ? "pointer-events-none opacity-60" : ""
+                      }`}
+                    >
+                      {uploadedDocuments["Payment Receipt"]?.fileName ? "Replace Receipt" : "Upload Receipt"}
+                    </label>
+                    <input
+                      id="new-payment-receipt-upload"
+                      type="file"
+                      accept={DOCUMENT_FILE_INPUT_ACCEPT}
+                      disabled={isReadOnly || submitting}
+                      className="sr-only"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0] ?? null;
+                        if (file) {
+                          void handleDocumentUpload("Payment Receipt", file);
+                          setInfo((current) => ({
+                            ...current,
+                            paymentReceiptFileName: file.name,
+                          }));
+                        }
+                        event.target.value = "";
+                      }}
+                    />
+                    <span className="text-xs text-[var(--ink-muted)]">
+                      PDF, JPG, PNG (max 10 MB)
+                    </span>
+                  </div>
+
+                  {uploadedDocuments["Payment Receipt"]?.fileName ? (
+                    <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--surface)] px-2.5 py-1.5 text-xs">
+                      <span className="max-w-[200px] truncate font-medium text-[var(--foreground)]" title={uploadedDocuments["Payment Receipt"].fileName}>
+                        📄 {uploadedDocuments["Payment Receipt"].fileName}
+                      </span>
+                      {pendingDocumentPreviews["Payment Receipt"] || (uploadedDocuments["Payment Receipt"]?.id && applicationId) ? (
+                        <DocumentDownloadButton
+                          url={
+                            pendingDocumentPreviews["Payment Receipt"] ??
+                            `/api/applicant/applications/${applicationId}/documents/${uploadedDocuments["Payment Receipt"].id}/download`
+                          }
+                          fileName={uploadedDocuments["Payment Receipt"].fileName}
+                          label="Preview"
+                          className="inline-flex rounded-md border border-[var(--border-color)] px-2 py-0.5 text-[11px] font-medium text-[var(--foreground)] hover:bg-[var(--muted-surface)]"
+                        />
+                      ) : null}
+                      {!isReadOnly && !submitting ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void handleDocumentDelete("Payment Receipt");
+                            setInfo((current) => ({
+                              ...current,
+                              paymentReceiptFileName: "",
+                            }));
+                          }}
+                          className="ml-auto text-xs text-[var(--danger)] hover:underline"
+                        >
+                          Remove
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-xs text-[var(--ink-muted)]">No receipt uploaded</p>
+                  )}
+                </div>
+              </div>
 
               <div className={`md:col-span-2 ${applicantPanelClass}`}>
                 {info.propertyOwnership === "Owned"
@@ -2257,9 +2328,9 @@ export function NewApplicationForm() {
                 helper="Declared property identification number"
               />
               <ReviewStat
-                label="OR Number"
-                value={info.orNumber?.trim() || "-"}
-                helper="Official receipt number"
+                label="Payment Receipt"
+                value={uploadedDocuments["Payment Receipt"]?.fileName || info.paymentReceiptFileName || "None uploaded"}
+                helper="Uploaded official payment receipt"
               />
             </div>
 

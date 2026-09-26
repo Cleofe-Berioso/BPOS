@@ -646,7 +646,7 @@ export function normalizeBusinessInfo(input: BusinessInfo): BusinessInfo {
         : null,
     taxDeclarationNumber: input.taxDeclarationNumber?.trim() ?? "",
     propertyIdentificationNumber: input.propertyIdentificationNumber?.trim() ?? "",
-    orNumber: input.orNumber?.trim() ?? "",
+    paymentReceiptFileName: input.paymentReceiptFileName?.trim() ?? "",
     hasTaxIncentives:
       input.hasTaxIncentives === "YES" || input.hasTaxIncentives === "NO"
         ? input.hasTaxIncentives

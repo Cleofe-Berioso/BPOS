@@ -101,7 +101,7 @@ function buildBusinessInfo(row: any): BusinessInfo {
     propertyOwnership: (row.propertyOwnership as BusinessInfo["propertyOwnership"]) ?? "Owned",
     taxDeclarationNumber: row.taxDeclarationNumber ?? "",
     propertyIdentificationNumber: row.propertyIdentificationNumber ?? "",
-    orNumber: (row as any).orNumber ?? "",
+    paymentReceiptFileName: (row as any).paymentReceiptFileName ?? "",
     taxIncentives: row.taxIncentives ?? "",
     businessActivity: row.businessActivity ?? "",
     lineOfBusiness: row.lineOfBusiness ?? "",

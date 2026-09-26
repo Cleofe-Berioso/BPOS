@@ -409,7 +409,28 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
               <p><strong>Property Ownership:</strong> {readText(formData, ["propertyOwnership"])}</p>
               <p><strong>Tax Declaration Number:</strong> {readText(formData, ["taxDeclarationNumber"])}</p>
               <p><strong>Property Identification Number:</strong> {readText(formData, ["propertyIdentificationNumber"])}</p>
-              <p><strong>OR Number:</strong> {readText(formData, ["orNumber", "officialReceiptNumber"])}</p>
+              <p>
+                <strong>Payment Receipt:</strong>{" "}
+                {(() => {
+                  const receiptDoc = (application.documents ?? []).find((d: any) =>
+                    d.documentName?.toLowerCase().includes("payment receipt")
+                  );
+                  if (receiptDoc) {
+                    return (
+                      <a
+                        href={`/api/applicant/applications/${application.id}/documents/${receiptDoc.id}/download`}
+                        className="text-[var(--primary)] underline hover:text-[var(--primary-strong)]"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {receiptDoc.fileName || "View Uploaded Receipt"}
+                      </a>
+                    );
+                  }
+                  const receiptName = readText(formData, ["paymentReceiptFileName", "paymentReceipt"]);
+                  return receiptName !== "-" ? receiptName : "None uploaded";
+                })()}
+              </p>
               <p><strong>Tax Incentives:</strong> {readText(formData, ["taxIncentives"])}</p>
               <p><strong>Market Business:</strong> {readFlag(formData, "isMarket")}</p>
               <p><strong>Agriculture-related:</strong> {readFlag(formData, "isAgriculture")}</p>

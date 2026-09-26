@@ -95,7 +95,7 @@ function buildBusinessInformation(formData: BusinessInfo, record: {
     propertyOwnership: pickString(formData.propertyOwnership),
     taxDeclarationNumber: pickString(formData.taxDeclarationNumber),
     propertyIdentificationNumber: pickString(formData.propertyIdentificationNumber),
-    orNumber: pickString(formData.orNumber),
+    paymentReceipt: pickString(formData.paymentReceiptFileName ?? (formData as any).paymentReceipt ?? (formData as any).orNumber),
   };
 }
 
