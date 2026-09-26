@@ -141,6 +141,7 @@ export interface SuperAdminApplicationDetail {
     propertyOwnership: string;
     taxDeclarationNumber: string;
     propertyIdentificationNumber: string;
+    orNumber: string;
     taxIncentives: string;
     isMarket: string;
     isAgriculture: string;
@@ -620,6 +621,7 @@ export async function getSuperAdminApplicationDetail(
       propertyOwnership: formValue("propertyOwnership"),
       taxDeclarationNumber: formValue("taxDeclarationNumber"),
       propertyIdentificationNumber: formValue("propertyIdentificationNumber"),
+      orNumber: formValue("orNumber"),
       taxIncentives: formValue("taxIncentives"),
       isMarket: formBool("isMarket"),
       isAgriculture: formBool("isAgriculture"),

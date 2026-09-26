@@ -255,6 +255,7 @@ export default async function SuperAdminApplicationDetailPage({ params }: PagePr
               {labelValue("Property Ownership", app.businessInfo.propertyOwnership)}
               {labelValue("Tax Declaration Number", app.businessInfo.taxDeclarationNumber)}
               {labelValue("Property Identification Number", app.businessInfo.propertyIdentificationNumber)}
+              {labelValue("OR Number", app.businessInfo.orNumber)}
               {labelValue("Tax Incentives", app.businessInfo.taxIncentives)}
               {labelValue("Market Business", app.businessInfo.isMarket)}
               {labelValue("Agriculture-related", app.businessInfo.isAgriculture)}

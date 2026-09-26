@@ -448,7 +448,7 @@ function humanizeNonComplianceType(value: string | null): string {
 
 export function RenewalApplicationForm() {
   const searchParams = useSearchParams();
-  const editId = searchParams.get("applicationId");
+  const editId = searchParams.get("applicationId") || searchParams.get("editId");
   const [step, setStep] = useState(0);
   const [applicationId, setApplicationId] = useState<string | undefined>(editId ?? undefined);
   const [draftLoading, setDraftLoading] = useState(Boolean(editId));
@@ -1593,6 +1593,7 @@ export function RenewalApplicationForm() {
                 <select
                   className={applicantFormControlClass}
                   value={info.propertyOwnership}
+                  disabled={isReadOnly}
                   onChange={(event) =>
                     setInfo((current) =>
                       normalizeBusinessInfo({
@@ -1607,40 +1608,70 @@ export function RenewalApplicationForm() {
                 </select>
               </FormField>
 
-              <div className={applicantPanelClass}>
-                {info.propertyOwnership === "Owned" ? (
-                  <div className="space-y-3">
-                    <FormField label="Tax Declaration Number">
-                      <input
-                        aria-label="Tax Declaration Number"
-                        className={applicantFormControlClass}
-                        value={info.taxDeclarationNumber ?? ""}
-                        onChange={(event) =>
-                          setInfo((current) =>
-                            normalizeBusinessInfo({ ...current, taxDeclarationNumber: event.target.value })
-                          )
-                        }
-                      />
-                    </FormField>
-                    <FormField label="Property Identification Number">
-                      <input
-                        aria-label="Property Identification Number"
-                        className={applicantFormControlClass}
-                        value={info.propertyIdentificationNumber ?? ""}
-                        onChange={(event) =>
-                          setInfo((current) =>
-                            normalizeBusinessInfo({
-                              ...current,
-                              propertyIdentificationNumber: event.target.value,
-                            })
-                          )
-                        }
-                      />
-                    </FormField>
-                  </div>
-                ) : (
-                  <p>Property is not owned — no tax declaration or property identification required.</p>
-                )}
+              <FormField
+                label="Tax Declaration Number"
+                hint="Example format: 2026-18045-00001"
+                error={fieldErrors.taxDeclarationNumber}
+              >
+                <input
+                  aria-label="Tax Declaration Number"
+                  className={applicantFormControlClass}
+                  value={info.taxDeclarationNumber ?? ""}
+                  placeholder="2026-18045-00001"
+                  disabled={isReadOnly}
+                  onChange={(event) =>
+                    setInfo((current) => ({
+                      ...current,
+                      taxDeclarationNumber: event.target.value,
+                    }))
+                  }
+                />
+              </FormField>
+
+              <FormField
+                label="Property Identification Number"
+                hint="Example format: 180-08-002-001-001"
+                error={fieldErrors.propertyIdentificationNumber}
+              >
+                <input
+                  aria-label="Property Identification Number"
+                  className={applicantFormControlClass}
+                  value={info.propertyIdentificationNumber ?? ""}
+                  placeholder="180-08-002-001-001"
+                  disabled={isReadOnly}
+                  onChange={(event) =>
+                    setInfo((current) => ({
+                      ...current,
+                      propertyIdentificationNumber: event.target.value,
+                    }))
+                  }
+                />
+              </FormField>
+
+              <FormField
+                label="OR Number"
+                hint="Official Receipt Number of the record/transaction"
+                error={fieldErrors.orNumber}
+              >
+                <input
+                  aria-label="OR Number"
+                  className={applicantFormControlClass}
+                  value={info.orNumber ?? ""}
+                  placeholder="OR-2026-00001"
+                  disabled={isReadOnly}
+                  onChange={(event) =>
+                    setInfo((current) => ({
+                      ...current,
+                      orNumber: event.target.value,
+                    }))
+                  }
+                />
+              </FormField>
+
+              <div className={`md:col-span-2 ${applicantPanelClass}`}>
+                {info.propertyOwnership === "Owned"
+                  ? "Provide the tax declaration and property identification details for your owned property."
+                  : "If the property is not owned, enter the tax declaration number if available, and ensure the lease contract is attached."}
               </div>
 
               <div className="md:col-span-2">
@@ -1927,6 +1958,21 @@ export function RenewalApplicationForm() {
                 label="Mode of Payment"
                 value={info.paymentFrequency.replace("_", "-")}
                 helper="Applicant-selected payment preference"
+              />
+              <ReviewStat
+                label="Tax Declaration Number"
+                value={info.taxDeclarationNumber?.trim() || "-"}
+                helper="Declared tax declaration number"
+              />
+              <ReviewStat
+                label="Property Identification Number"
+                value={info.propertyIdentificationNumber?.trim() || "-"}
+                helper="Declared property identification number"
+              />
+              <ReviewStat
+                label="OR Number"
+                value={info.orNumber?.trim() || "-"}
+                helper="Official receipt number"
               />
             </div>
 

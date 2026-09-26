@@ -28,6 +28,7 @@ export function baseBusinessInfo(overrides: Partial<BusinessInfo> = {}): Busines
     propertyOwnership: "Owned",
     taxDeclarationNumber: "TD-1",
     propertyIdentificationNumber: "PIN-1",
+    orNumber: "OR-1",
     hasTaxIncentives: "NO",
     taxIncentives: "",
     businessActivity: "Retail",

@@ -340,6 +340,7 @@ export default async function BploApplicationDetailPage({ params }: PageProps) {
               <p><strong>Property Ownership:</strong> {readText(formData, ["propertyOwnership"])}</p>
               <p><strong>Tax Declaration Number:</strong> {readText(formData, ["taxDeclarationNumber"])}</p>
               <p><strong>Property Identification Number:</strong> {readText(formData, ["propertyIdentificationNumber"])}</p>
+              <p><strong>OR Number:</strong> {readText(formData, ["orNumber", "officialReceiptNumber"])}</p>
               <p><strong>Tax Incentives:</strong> {readText(formData, ["taxIncentives"])}</p>
               <p><strong>Market Business:</strong> {readFlag(formData, "isMarket")}</p>
               <p><strong>Agriculture-related:</strong> {readFlag(formData, "isAgriculture")}</p>

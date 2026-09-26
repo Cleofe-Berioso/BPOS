@@ -175,6 +175,7 @@ const FIELD_LABELS: Partial<Record<keyof BusinessInfo, string>> = {
   assetSize: "Asset Size",
   taxDeclarationNumber: "Tax Declaration Number",
   propertyIdentificationNumber: "Property Identification Number",
+  orNumber: "OR Number",
 };
 
 const BUSINESS_LOCATION_ERROR = "Please pin the business location inside EB Magalona.";
@@ -358,6 +359,11 @@ const FIELD_NAVIGATION_MAP: Record<NewApplicationFieldKey, FieldNavigationConfig
     step: 1,
     label: "Property Identification Number",
     selector: '[data-field-key="propertyIdentificationNumber"]',
+  },
+  orNumber: {
+    step: 1,
+    label: "OR Number",
+    selector: '[data-field-key="orNumber"]',
   },
   taxIncentives: { step: 1, label: "Tax Incentives", selector: '[data-field-key="taxIncentives"]' },
   hasTaxIncentives: {
@@ -569,6 +575,8 @@ function FieldCard({
   disabled,
   fieldKey,
   numericKind,
+  placeholder,
+  required = true,
 }: {
   label: string;
   value: string;
@@ -579,12 +587,15 @@ function FieldCard({
   disabled?: boolean;
   fieldKey?: keyof BusinessInfo;
   numericKind?: "integer" | "decimal";
+  placeholder?: string;
+  required?: boolean;
 }) {
   return (
-    <FormField label={label} required hint={helperText} error={error}>
+    <FormField label={label} required={required} hint={helperText} error={error}>
       <input
         data-field-key={fieldKey}
         aria-label={label}
+        placeholder={placeholder}
         className={applicantFormControlClass}
         value={value}
         disabled={disabled}
@@ -648,6 +659,7 @@ const READ_ONLY_LOCKED_FIELDS: Array<keyof BusinessInfo> = [
   "propertyOwnership",
   "taxDeclarationNumber",
   "propertyIdentificationNumber",
+  "orNumber",
   "capitalInvestment",
   "paymentFrequency",
   "isMarket",
@@ -696,7 +708,7 @@ function buildSubmitValidationMessage(params: { missingFields: string[]; missing
 
 export function NewApplicationForm() {
   const searchParams = useSearchParams();
-  const editId = searchParams.get("applicationId");
+  const editId = searchParams.get("applicationId") || searchParams.get("editId");
   const lineOfBusinessOptions = useLineOfBusinessOptions();
 
   const [step, setStep] = useState(0);
@@ -916,6 +928,9 @@ export function NewApplicationForm() {
       barangay: next.barangay,
       lineOfBusiness: next.lineOfBusiness,
       taxIncentives: next.taxIncentives,
+      taxDeclarationNumber: next.taxDeclarationNumber,
+      propertyIdentificationNumber: next.propertyIdentificationNumber,
+      orNumber: next.orNumber,
       phone: sanitizePhMobileInput(next.phone ?? ""),
     };
 
@@ -1035,6 +1050,22 @@ export function NewApplicationForm() {
       nextErrors.nationality = "Nationality is required.";
     }
 
+    if (field === "taxDeclarationNumber") {
+      if (normalizedInfo.propertyOwnership === "Owned" && normalizedInfo.taxDeclarationNumber.trim().length === 0) {
+        nextErrors.taxDeclarationNumber = "Tax Declaration Number is required for owned properties.";
+      } else {
+        delete nextErrors.taxDeclarationNumber;
+      }
+    }
+
+    if (field === "propertyIdentificationNumber") {
+      delete nextErrors.propertyIdentificationNumber;
+    }
+
+    if (field === "orNumber") {
+      delete nextErrors.orNumber;
+    }
+
     setFieldErrors(nextErrors);
   }
 
@@ -1086,11 +1117,8 @@ export function NewApplicationForm() {
     Object.assign(nextErrors, validateBusinessLocation(normalizedInfo));
 
     if (currentStep === 1 && normalizedInfo.propertyOwnership === "Owned") {
-      if (normalizedInfo.taxDeclarationNumber.trim().length === 0) {
+      if (normalizedInfo.taxDeclarationNumber.trim().length === 0 && normalizedInfo.propertyIdentificationNumber.trim().length === 0) {
         nextErrors.taxDeclarationNumber = "Tax Declaration Number is required for owned properties.";
-      }
-      if (normalizedInfo.propertyIdentificationNumber.trim().length === 0) {
-        nextErrors.propertyIdentificationNumber = "Property Identification Number is required for owned properties.";
       }
     }
 
@@ -1892,6 +1920,7 @@ export function NewApplicationForm() {
                   data-field-key="propertyOwnership"
                   className={applicantFormControlClass}
                   value={info.propertyOwnership}
+                  disabled={isReadOnly}
                   onChange={(event) =>
                     setInfo((current) =>
                       normalizeBusinessInfo({
@@ -1906,41 +1935,56 @@ export function NewApplicationForm() {
                 </select>
               </label>
 
-              <div className={applicantPanelClass}>
-                {info.propertyOwnership === "Owned"
-                  ? "Provide the tax declaration and property identification details below."
-                  : "If the property is not owned, make sure the required lease or consent document is uploaded in the document step."}
-              </div>
+              <FieldCard
+                label="Tax Declaration Number"
+                value={info.taxDeclarationNumber}
+                fieldKey="taxDeclarationNumber"
+                placeholder="2026-18045-00001"
+                helperText="Example format: 2026-18045-00001"
+                error={fieldErrors.taxDeclarationNumber}
+                required={info.propertyOwnership === "Owned"}
+                disabled={isReadOnly}
+                onBlur={() => validateFieldOnBlur("taxDeclarationNumber")}
+                onChange={(value) =>
+                  setInfo((current) => ({ ...current, taxDeclarationNumber: value }))
+                }
+              />
 
-              {info.propertyOwnership === "Owned" ? (
-                <>
-                  <FieldCard
-                    label="Tax Declaration Number"
-                    value={info.taxDeclarationNumber}
-                    fieldKey="taxDeclarationNumber"
-                    error={fieldErrors.taxDeclarationNumber}
-                    onBlur={() => validateFieldOnBlur("taxDeclarationNumber")}
-                    onChange={(value) =>
-                      setInfo((current) => normalizeBusinessInfo({ ...current, taxDeclarationNumber: value }))
-                    }
-                  />
-                  <FieldCard
-                    label="Property Identification Number"
-                    value={info.propertyIdentificationNumber}
-                    fieldKey="propertyIdentificationNumber"
-                    error={fieldErrors.propertyIdentificationNumber}
-                    onBlur={() => validateFieldOnBlur("propertyIdentificationNumber")}
-                    onChange={(value) =>
-                      setInfo((current) =>
-                        normalizeBusinessInfo({
-                          ...current,
-                          propertyIdentificationNumber: value,
-                        })
-                      )
-                    }
-                  />
-                </>
-              ) : null}
+              <FieldCard
+                label="Property Identification Number"
+                value={info.propertyIdentificationNumber}
+                fieldKey="propertyIdentificationNumber"
+                placeholder="180-08-002-001-001"
+                helperText="Example format: 180-08-002-001-001"
+                error={fieldErrors.propertyIdentificationNumber}
+                required={false}
+                disabled={isReadOnly}
+                onBlur={() => validateFieldOnBlur("propertyIdentificationNumber")}
+                onChange={(value) =>
+                  setInfo((current) => ({ ...current, propertyIdentificationNumber: value }))
+                }
+              />
+
+              <FieldCard
+                label="OR Number"
+                value={info.orNumber ?? ""}
+                fieldKey="orNumber"
+                placeholder="OR-2026-00001"
+                helperText="Official Receipt Number of the record/transaction"
+                error={fieldErrors.orNumber}
+                required={false}
+                disabled={isReadOnly}
+                onBlur={() => validateFieldOnBlur("orNumber")}
+                onChange={(value) =>
+                  setInfo((current) => ({ ...current, orNumber: value }))
+                }
+              />
+
+              <div className={`md:col-span-2 ${applicantPanelClass}`}>
+                {info.propertyOwnership === "Owned"
+                  ? "Provide the tax declaration and property identification details for your owned property."
+                  : "If the property is not owned, provide the tax declaration number if available, and make sure the required lease or consent document is uploaded in the document step."}
+              </div>
 
               <div className="md:col-span-2">
                 <FormField
@@ -2201,6 +2245,21 @@ export function NewApplicationForm() {
               <ReviewStat
                 label="Street Address"
                 value={info.streetAddress?.trim() || "-"}
+              />
+              <ReviewStat
+                label="Tax Declaration Number"
+                value={info.taxDeclarationNumber?.trim() || "-"}
+                helper="Declared tax declaration number"
+              />
+              <ReviewStat
+                label="Property Identification Number"
+                value={info.propertyIdentificationNumber?.trim() || "-"}
+                helper="Declared property identification number"
+              />
+              <ReviewStat
+                label="OR Number"
+                value={info.orNumber?.trim() || "-"}
+                helper="Official receipt number"
               />
             </div>
 

@@ -141,6 +141,7 @@ export function ApplicationVerificationTemplate({
             <VerificationField label="Property Ownership" value={info.propertyOwnership} />
             <VerificationField label="Tax Declaration Number" value={info.taxDeclarationNumber} />
             <VerificationField label="Property Identification Number" value={info.propertyIdentificationNumber} />
+            <VerificationField label="OR Number" value={info.orNumber} />
             <VerificationField label="Asset Size / Capitalization" value={info.assetSize} />
             <VerificationField label="Capital Investment" value={info.capitalInvestment} />
             <VerificationField label="Gross Profit / Gross Receipts" value={info.grossProfit} />

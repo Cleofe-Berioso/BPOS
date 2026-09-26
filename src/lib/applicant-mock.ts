@@ -64,6 +64,7 @@ export const defaultBusinessInfo: BusinessInfo = {
   propertyOwnership: "Owned",
   taxDeclarationNumber: "",
   propertyIdentificationNumber: "",
+  orNumber: "",
   hasTaxIncentives: "",
   taxIncentives: "",
   businessActivity: "",

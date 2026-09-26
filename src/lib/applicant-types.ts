@@ -149,6 +149,7 @@ export interface BusinessInfo {
   propertyOwnership: PropertyOwnership;
   taxDeclarationNumber: string;
   propertyIdentificationNumber: string;
+  orNumber?: string;
   hasTaxIncentives?: "YES" | "NO" | "";
   taxIncentives: string;
   businessActivity: string;
