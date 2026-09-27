@@ -11,6 +11,10 @@ interface ReportPageHeaderProps {
   onPrint?: () => void;
   /** If provided, renders an <a> link instead of a button for the back action. */
   backHref?: string;
+  /** If provided, renders a direct CSV download link. */
+  csvExportUrl?: string;
+  /** Custom handler for CSV download. */
+  onDownloadCsv?: () => void;
 }
 
 /**
@@ -22,6 +26,8 @@ export function ReportPageHeader({
   onBack,
   onPrint,
   backHref,
+  csvExportUrl,
+  onDownloadCsv,
 }: ReportPageHeaderProps) {
   return (
     <>
@@ -43,13 +49,38 @@ export function ReportPageHeader({
           </button>
         )}
 
-        <button
-          type="button"
-          onClick={onPrint ?? (() => window.print())}
-          className="inline-flex items-center gap-2 rounded-lg border border-black px-3 py-1.5 text-sm font-semibold text-black"
-        >
-          Print Report
-        </button>
+        <div className="flex items-center gap-2">
+          {csvExportUrl ? (
+            <a
+              href={csvExportUrl}
+              download
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-color)] bg-white px-3 py-1.5 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--muted-surface)] transition-colors shadow-xs"
+              title="Download report dataset as Excel-compatible CSV file"
+            >
+              <span>📥</span>
+              <span>Download CSV</span>
+            </a>
+          ) : onDownloadCsv ? (
+            <button
+              type="button"
+              onClick={onDownloadCsv}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-color)] bg-white px-3 py-1.5 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--muted-surface)] transition-colors shadow-xs"
+              title="Download report dataset as Excel-compatible CSV file"
+            >
+              <span>📥</span>
+              <span>Download CSV</span>
+            </button>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={onPrint ?? (() => window.print())}
+            className="inline-flex items-center gap-2 rounded-lg border border-black px-3 py-1.5 text-sm font-semibold text-black hover:bg-neutral-100 transition-colors"
+          >
+            <span>🖨️</span>
+            <span>Print Report</span>
+          </button>
+        </div>
       </div>
 
       <MunicipalDocumentHeader

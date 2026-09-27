@@ -62,11 +62,17 @@ export default async function BusinessRegistryReportPage({ searchParams }: PageP
     withPermit,
   });
 
+  const currentQuery = new URLSearchParams();
+  if (params.barangay) currentQuery.set("barangay", params.barangay);
+  if (params.businessType) currentQuery.set("businessType", params.businessType);
+  if (params.status) currentQuery.set("status", params.status);
+  const csvExportUrl = `/api/superadmin/reports/export?reportType=business-registry${currentQuery.toString() ? `&${currentQuery.toString()}` : ""}`;
+
   const resetHref = "/superadmin/reports/print/business-registry";
 
   return (
     <div className="report-print-container mx-auto max-w-[1300px] space-y-6 p-4 sm:p-8">
-      <ReportPageHeader meta={meta} backHref="/superadmin/reports" />
+      <ReportPageHeader meta={meta} backHref="/superadmin/reports" csvExportUrl={csvExportUrl} />
 
       {/* ── Filter form (screen only) ──────────────────────────────── */}
       <div className="no-print rounded-xl border border-slate-200 bg-slate-50 p-4">

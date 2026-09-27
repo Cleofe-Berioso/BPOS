@@ -79,11 +79,18 @@ export default async function InspectionComplianceReportPage({ searchParams }: P
     dateRange: meta.dateRange,
   });
 
+  const currentQuery = new URLSearchParams();
+  if (params.from) currentQuery.set("from", params.from);
+  if (params.to) currentQuery.set("to", params.to);
+  if (params.complianceStatus) currentQuery.set("complianceStatus", params.complianceStatus);
+  if (params.inspectionStatus) currentQuery.set("inspectionStatus", params.inspectionStatus);
+  const csvExportUrl = `/api/superadmin/reports/export?reportType=inspections${currentQuery.toString() ? `&${currentQuery.toString()}` : ""}`;
+
   const resetHref = "/superadmin/reports/print/inspections";
 
   return (
     <div className="report-print-container mx-auto max-w-[1200px] space-y-6 p-4 sm:p-8">
-      <ReportPageHeader meta={meta} backHref="/superadmin/reports" />
+      <ReportPageHeader meta={meta} backHref="/superadmin/reports" csvExportUrl={csvExportUrl} />
 
       {/* ── Filter form (screen only) ──────────────────────────────── */}
       <div className="no-print rounded-xl border border-slate-200 bg-slate-50 p-4">

@@ -5,6 +5,7 @@ import { RoleBadge } from "@/components/ui/role-badge";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatCard } from "@/components/ui/stat-card";
 import { SuperAdminLocationReport } from "@/components/superadmin/superadmin-location-report";
+import { SuperAdminReportExportCard } from "@/components/superadmin/superadmin-report-export-card";
 import { MunicipalDocumentHeader, IT_DEPARTMENT_HEADING } from "@/components/ui/municipal-document-header";
 import { listSuperAdminBusinessLocations } from "@/lib/business-location";
 import { getSuperAdminReportsSummary } from "@/lib/superadmin-data";
@@ -234,9 +235,11 @@ export default async function SuperAdminReportsPage() {
 
       <SuperAdminLocationReport rows={locationRows} />
 
+      <SuperAdminReportExportCard />
+
       <SectionCard
         title="Printable system reports"
-        description="Open a filtered official report when you need evidence, not just a dashboard glance. Each report uses numbered sections, narrative interpretation, and detailed record tables."
+        description="Open a filtered official report when you need evidence, not just a dashboard glance. Each report uses numbered sections, narrative interpretation, detailed record tables, and direct CSV export."
       >
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <PrintableReportCard
@@ -245,6 +248,7 @@ export default async function SuperAdminReportsPage() {
             whenToUse="Monthly management briefings, IT oversight archives, and municipal reporting cycles."
             description="Pick month and year. Generates a multi-section summary with KPIs, filing mix, and compliance signals."
             href="/superadmin/reports/print/monthly-summary"
+            csvHref="/api/superadmin/reports/export?reportType=monthly-summary"
             tone="green"
           />
           <PrintableReportCard
@@ -253,6 +257,7 @@ export default async function SuperAdminReportsPage() {
             whenToUse="Weekly IT / BPLO coordination, backlog briefings, audit sampling."
             description="All application records: type, status, owner, submitted and updated dates."
             href="/superadmin/reports/print/applications"
+            csvHref="/api/superadmin/reports/export?reportType=applications"
             tone="blue"
           />
           <PrintableReportCard
@@ -261,6 +266,7 @@ export default async function SuperAdminReportsPage() {
             whenToUse="Masterlist checks, revoked/inactive follow-up, GIS cross-check."
             description="Business records with permit number, validity, type, and current status."
             href="/superadmin/reports/print/business-registry"
+            csvHref="/api/superadmin/reports/export?reportType=business-registry"
             tone="indigo"
           />
           <PrintableReportCard
@@ -269,6 +275,7 @@ export default async function SuperAdminReportsPage() {
             whenToUse="Forced/revoked closure monitoring and certificate inventory."
             description="Closure applications with certificate status and released dates."
             href="/superadmin/reports/print/closures"
+            csvHref="/api/superadmin/reports/export?reportType=closures"
             tone="amber"
           />
           <PrintableReportCard
@@ -277,6 +284,7 @@ export default async function SuperAdminReportsPage() {
             whenToUse="Compliance hearings, revocation readiness, inspection productivity."
             description="JIT inspection records: compliance status, inspector, and Department Head decisions."
             href="/superadmin/reports/print/inspections"
+            csvHref="/api/superadmin/reports/export?reportType=inspections"
             tone="slate"
           />
           <PrintableReportCard
@@ -285,6 +293,7 @@ export default async function SuperAdminReportsPage() {
             whenToUse="Incident review, accountability checks, security follow-up."
             description="System-wide actor actions across modules — role, action, entity, and status changes."
             href="/superadmin/reports/print/audit-trail"
+            csvHref="/api/superadmin/reports/export?reportType=audit-trail"
             tone="purple"
           />
           <PrintableReportCard
@@ -293,6 +302,7 @@ export default async function SuperAdminReportsPage() {
             whenToUse="When dashboard shows SMS failures or applicants report missing alerts."
             description="SMS delivery records with masked phone numbers, provider, and delivery status."
             href="/superadmin/reports/print/sms"
+            csvHref="/api/superadmin/reports/export?reportType=sms"
             tone="red"
           />
         </div>
@@ -354,6 +364,7 @@ function PrintableReportCard({
   whenToUse,
   description,
   href,
+  csvHref,
   tone,
 }: {
   title: string;
@@ -361,6 +372,7 @@ function PrintableReportCard({
   whenToUse: string;
   description: string;
   href: string;
+  csvHref?: string;
   tone: CardTone;
 }) {
   const styles = cardToneStyles[tone];
@@ -377,12 +389,25 @@ function PrintableReportCard({
           <span className="font-semibold text-[var(--foreground)]">When to use:</span> {whenToUse}
         </p>
       </div>
-      <Link
-        href={href}
-        className={`inline-flex items-center justify-center rounded-lg border px-3 py-2 text-xs font-semibold transition-colors ${styles.btn}`}
-      >
-        Open Report →
-      </Link>
+      <div className="mt-auto flex items-center gap-2 pt-2">
+        <Link
+          href={href}
+          className={`flex-1 inline-flex items-center justify-center rounded-lg border px-3 py-2 text-xs font-semibold transition-colors ${styles.btn}`}
+        >
+          Open Report →
+        </Link>
+        {csvHref && (
+          <a
+            href={csvHref}
+            download
+            className="inline-flex items-center justify-center gap-1 rounded-lg border border-[var(--border-color)] bg-[var(--surface)] hover:bg-[var(--muted-surface)] px-2.5 py-2 text-xs font-semibold text-[var(--foreground)] transition-colors shadow-xs"
+            title="Download CSV report"
+          >
+            <span>📥</span>
+            <span>CSV</span>
+          </a>
+        )}
+      </div>
     </div>
   );
 }

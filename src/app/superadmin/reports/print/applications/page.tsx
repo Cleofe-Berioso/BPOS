@@ -82,10 +82,11 @@ export default async function ApplicationSummaryReportPage({ searchParams }: Pag
   if (params.to) currentQuery.set("to", params.to);
   if (params.status) currentQuery.set("status", params.status);
   if (params.applicationType) currentQuery.set("applicationType", params.applicationType);
+  const csvExportUrl = `/api/superadmin/reports/export?reportType=applications${currentQuery.toString() ? `&${currentQuery.toString()}` : ""}`;
 
   return (
     <div className="report-print-container mx-auto max-w-[1200px] space-y-6 p-4 sm:p-8">
-      <ReportPageHeader meta={meta} backHref="/superadmin/reports" />
+      <ReportPageHeader meta={meta} backHref="/superadmin/reports" csvExportUrl={csvExportUrl} />
 
       {/* ── Filter form (screen only) ──────────────────────────────── */}
       <div className="no-print rounded-xl border border-slate-200 bg-slate-50 p-4">

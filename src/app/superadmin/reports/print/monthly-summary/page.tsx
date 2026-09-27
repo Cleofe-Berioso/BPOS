@@ -69,9 +69,11 @@ export default async function MonthlySummaryReportPage({ searchParams }: PagePro
       share: reportPercentOf(row.count, summary.applicationsSubmitted),
     }));
 
+  const csvExportUrl = `/api/superadmin/reports/export?reportType=monthly-summary&month=${month}&year=${year}`;
+
   return (
     <div className="report-print-container mx-auto max-w-[1200px] space-y-6 p-4 sm:p-8">
-      <ReportPageHeader meta={meta} backHref="/superadmin/reports" />
+      <ReportPageHeader meta={meta} backHref="/superadmin/reports" csvExportUrl={csvExportUrl} />
 
       <ReportMonthYearFilter
         action="/superadmin/reports/print/monthly-summary"

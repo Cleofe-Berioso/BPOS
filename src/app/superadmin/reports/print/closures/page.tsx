@@ -62,11 +62,17 @@ export default async function BusinessClosureReportPage({ searchParams }: PagePr
     dateRange: meta.dateRange,
   });
 
+  const currentQuery = new URLSearchParams();
+  if (params.from) currentQuery.set("from", params.from);
+  if (params.to) currentQuery.set("to", params.to);
+  if (params.status) currentQuery.set("status", params.status);
+  const csvExportUrl = `/api/superadmin/reports/export?reportType=closures${currentQuery.toString() ? `&${currentQuery.toString()}` : ""}`;
+
   const resetHref = "/superadmin/reports/print/closures";
 
   return (
     <div className="report-print-container mx-auto max-w-[1200px] space-y-6 p-4 sm:p-8">
-      <ReportPageHeader meta={meta} backHref="/superadmin/reports" />
+      <ReportPageHeader meta={meta} backHref="/superadmin/reports" csvExportUrl={csvExportUrl} />
 
       {/* ── Filter form (screen only) ──────────────────────────────── */}
       <div className="no-print rounded-xl border border-slate-200 bg-slate-50 p-4">
