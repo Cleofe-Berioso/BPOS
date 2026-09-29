@@ -310,7 +310,7 @@ export function PortalContentColumn({
 }) {
   return (
     <div
-      className={`portal-content-column min-w-0 transition-[padding] duration-200 print:pl-0 ${getPortalContentOffset(collapsed)}`}
+      className={`portal-content-column min-w-0 min-h-screen flex flex-col transition-[padding] duration-200 print:pl-0 ${getPortalContentOffset(collapsed)}`}
     >
       {children}
     </div>
@@ -319,7 +319,7 @@ export function PortalContentColumn({
 
 export function PortalTopHeader({ children }: { children: ReactNode }) {
   return (
-    <header className="app-header no-print sticky top-0 z-30" data-app-chrome>
+    <header className="app-header no-print sticky top-0 z-40 bg-[var(--surface)] shadow-xs" data-app-chrome>
       <div className="app-portal-header-bar">{children}</div>
     </header>
   );
@@ -327,7 +327,7 @@ export function PortalTopHeader({ children }: { children: ReactNode }) {
 
 export function PortalMain({ children }: { children: ReactNode }) {
   return (
-    <main className="app-shell-main app-portal-main">
+    <main className="app-shell-main app-portal-main flex-1">
       <div className="mx-auto w-full max-w-7xl">{children}</div>
     </main>
   );
@@ -335,7 +335,7 @@ export function PortalMain({ children }: { children: ReactNode }) {
 
 export function PortalGuardMain({ children }: { children: ReactNode }) {
   return (
-    <main className="app-shell-main app-portal-main">
+    <main className="app-shell-main app-portal-main flex-1">
       <div className="mx-auto w-full max-w-7xl">{children}</div>
     </main>
   );

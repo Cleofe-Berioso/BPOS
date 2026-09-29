@@ -440,15 +440,24 @@ export async function upsertBusinessLocationForBusinessRecord(
 }
 
 export async function listActivePermittedBusinessLocations(
-  filters: BusinessMapFilters = {}
+  filters: BusinessMapFilters = {},
+  options?: { includeRevoked?: boolean }
 ): Promise<BusinessLocationMapRow[]> {
+  const allowedAppStatuses = options?.includeRevoked
+    ? ["RELEASED", "REVOKED"]
+    : [...ACTIVE_PERMITTED_MAP_APP_STATUSES];
+
+  const allowedBusinessStatuses = options?.includeRevoked
+    ? ["ACTIVE", "INACTIVE"]
+    : ["ACTIVE"];
+
   const locations = await prisma.businessLocation.findMany({
     where: {
       businessRecord: {
-        businessStatus: "ACTIVE",
+        businessStatus: { in: allowedBusinessStatuses as any },
         applications: {
           some: {
-            status: { in: [...ACTIVE_PERMITTED_MAP_APP_STATUSES] },
+            status: { in: allowedAppStatuses as any },
             applicationType: { in: ["NEW", "RENEWAL"] },
           },
         },
@@ -478,7 +487,7 @@ export async function listActivePermittedBusinessLocations(
           },
           applications: {
             where: {
-              status: { in: [...ACTIVE_PERMITTED_MAP_APP_STATUSES] },
+              status: { in: allowedAppStatuses as any },
               applicationType: { in: ["NEW", "RENEWAL"] },
             },
             orderBy: {
@@ -880,9 +889,12 @@ async function resolveLatestInspectionsByBusinessRecord(
     string,
     {
       status: string;
+      createdAt: Date;
       isSettled: boolean;
       complianceCaseStatus: string | null;
       revocationSettledAt: Date | null;
+      revocationDecision?: string | null;
+      forcedClosure?: boolean | null;
     }
   >
 > {
@@ -897,7 +909,17 @@ async function resolveLatestInspectionsByBusinessRecord(
       businessRecordId: {
         in: businessRecordIds,
       },
-      ...(cycleStartedAt ? { createdAt: { gte: cycleStartedAt } } : {}),
+      ...(cycleStartedAt
+        ? {
+            OR: [
+              { createdAt: { gte: cycleStartedAt } },
+              { status: "REVOKED" },
+              { revocationDecision: "APPROVED" },
+              { complianceCaseStatus: { in: ["FORCED_CLOSURE_PENDING", "EXPIRED_UNSETTLED"] } },
+              { forcedClosure: true },
+            ],
+          }
+        : {}),
     },
     select: {
       businessRecordId: true,
@@ -906,6 +928,8 @@ async function resolveLatestInspectionsByBusinessRecord(
       isSettled: true,
       complianceCaseStatus: true,
       revocationSettledAt: true,
+      revocationDecision: true,
+      forcedClosure: true,
     },
     orderBy: {
       createdAt: "desc",
@@ -920,6 +944,8 @@ async function resolveLatestInspectionsByBusinessRecord(
       isSettled: boolean;
       complianceCaseStatus: string | null;
       revocationSettledAt: Date | null;
+      revocationDecision?: string | null;
+      forcedClosure?: boolean | null;
     }
   >();
 
@@ -931,6 +957,8 @@ async function resolveLatestInspectionsByBusinessRecord(
         isSettled: Boolean(inspection.isSettled),
         complianceCaseStatus: inspection.complianceCaseStatus ?? null,
         revocationSettledAt: inspection.revocationSettledAt,
+        revocationDecision: inspection.revocationDecision ?? null,
+        forcedClosure: Boolean(inspection.forcedClosure),
       });
     }
   }
@@ -941,11 +969,12 @@ async function resolveLatestInspectionsByBusinessRecord(
 /**
  * List business locations with JIT inspection status and marker colors.
  * Settled compliance / revocation cases render as green (COMPLIANT).
+ * Revoked or restricted businesses render as red (REVOKED).
  */
 export async function listJitBusinessMapLocations(
   filters: BusinessMapFilters = {}
 ): Promise<JitBusinessMapRow[]> {
-  const rows = await listActivePermittedBusinessLocations(filters);
+  const rows = await listActivePermittedBusinessLocations(filters, { includeRevoked: true });
   const businessRecordIds = rows.map((row) => row.businessRecordId);
 
   const inspectionsByRecord = await resolveLatestInspectionsByBusinessRecord(businessRecordIds);
@@ -953,10 +982,18 @@ export async function listJitBusinessMapLocations(
   return rows.map((row) => {
     const inspection = inspectionsByRecord.get(row.businessRecordId);
     const inspectionStatus = inspection?.status ?? null;
+    const isAppRevoked =
+      row.applicationStatus.toUpperCase() === "REVOKED" ||
+      row.applicationStatus.toUpperCase().includes("REVOK");
+
     const markerStatus = getJitMapMarkerStatus(inspectionStatus, {
       isSettled: inspection?.isSettled,
       complianceCaseStatus: inspection?.complianceCaseStatus,
       revocationSettledAt: inspection?.revocationSettledAt,
+      revocationDecision: inspection?.revocationDecision,
+      forcedClosure: inspection?.forcedClosure,
+      applicationStatus: row.applicationStatus,
+      isRestricted: isAppRevoked,
     });
     const markerColor = getJitMapMarkerColor(markerStatus);
 

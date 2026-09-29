@@ -4,7 +4,6 @@ import {
   BarChart3,
   FlagTriangleRight,
   ShieldCheck,
-  ArrowRight,
   MapPinned,
   ClipboardList,
 } from "lucide-react";
@@ -23,6 +22,10 @@ import { DASHBOARD_CHART_COLORS } from "@/components/ui/dashboard-chart-card";
 import { bploListCardClass, bploPanelClass } from "@/components/bplo/bplo-ui-styles";
 import { requireJitSession } from "@/lib/jit-api";
 import { getJitDashboardMetrics, getJitDashboardSummary } from "@/lib/jit-dashboard";
+import { JitDashboardAutoRefresh } from "@/components/jit/jit-dashboard-auto-refresh";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function JitDashboardPage() {
   const session = await requireJitSession();
@@ -32,6 +35,7 @@ export default async function JitDashboardPage() {
 
   return (
     <section className="space-y-4">
+      <JitDashboardAutoRefresh />
       <PageHeader
         eyebrow="JIT Inspector Portal"
         title="JIT Dashboard"
@@ -51,7 +55,7 @@ export default async function JitDashboardPage() {
       />
 
       <SectionCard title="Action Required Now" description="Inspection queues and compliance indicators.">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <DashboardQueueCard
             title="Inspection Queue"
             description="Released businesses available for inspection."
@@ -68,19 +72,11 @@ export default async function JitDashboardPage() {
             tone="warning"
             icon={<FlagTriangleRight className="h-4 w-4" />}
           />
-          <DashboardQueueCard
-            title="Non-Compliant Records"
-            description="Inspection records marked non-compliant or under review."
-            count={summary.nonCompliantCount}
-            href="/jit/inspect-a-business"
-            tone="success"
-            icon={<ShieldCheck className="h-4 w-4" />}
-          />
         </div>
       </SectionCard>
 
       <SectionCard title="Key Metrics" description="Live counts from released-business and inspection data.">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <DashboardSummaryCard
             title="Inspection Summary"
             value={summary.inspectionSummary.toLocaleString("en-PH")}
@@ -101,13 +97,6 @@ export default async function JitDashboardPage() {
             subtitle="Businesses with latest COMPLIANT inspection"
             icon={<ShieldCheck className="h-4 w-4" />}
             tone="green"
-          />
-          <DashboardSummaryCard
-            title="Non-Compliant Count"
-            value={summary.nonCompliantCount.toLocaleString("en-PH")}
-            subtitle="NON_COMPLIANT and REVOCATION_REVIEW records"
-            icon={<ArrowRight className="h-4 w-4" />}
-            tone="blue"
           />
         </div>
       </SectionCard>

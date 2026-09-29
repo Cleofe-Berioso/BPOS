@@ -102,11 +102,12 @@ function remarksRequired(action: BploReviewAction): boolean {
 
 // Cached query for dashboard summary - deduplicates per-request
 const getCachedBploDashboardSummary = cache(async () => {
-  const [submittedApplications, underReview, returnedForCorrection, assessedApplications, paidApplications, forRelease, releasedPermits, pendingPaymentVerification] = await Promise.all([
+  const [submittedApplications, underReview, returnedForCorrection, assessedApplications, approvedForPayment, paidApplications, forRelease, releasedPermits, pendingPaymentVerification] = await Promise.all([
     prisma.businessApplication.count({ where: { status: "SUBMITTED" } }),
     prisma.businessApplication.count({ where: { status: "UNDER_REVIEW" } }),
     prisma.businessApplication.count({ where: { status: "RETURNED_FOR_CORRECTION" } }),
     prisma.businessApplication.count({ where: { status: "ASSESSED" } }),
+    prisma.businessApplication.count({ where: { status: "APPROVED_FOR_PAYMENT" } }),
     prisma.businessApplication.count({ where: { status: "PAID" } }),
     prisma.businessApplication.count({ where: { status: "FOR_RELEASE" } }),
     prisma.businessApplication.count({ where: { status: "RELEASED" } }),
@@ -118,7 +119,8 @@ const getCachedBploDashboardSummary = cache(async () => {
     underReview,
     returnedForCorrection,
     assessedApplications,
-    approvedForPayment: pendingPaymentVerification,
+    approvedForPayment,
+    pendingPaymentVerification,
     paidApplications,
     forRelease,
     releasedPermits,

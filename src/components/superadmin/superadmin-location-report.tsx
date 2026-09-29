@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import dynamic from "next/dynamic";
 import {
   superadminAuditPillClass,
@@ -20,7 +21,7 @@ const LeafletBusinessMap = dynamic(
   () => import("@/components/maps/leaflet-business-map").then((mod) => mod.LeafletBusinessMap),
   {
     ssr: false,
-    loading: () => <div className={`h-[420px] w-full ${superadminSkeletonClass}`} />,
+    loading: () => <div className={`h-[480px] w-full ${superadminSkeletonClass}`} />,
   }
 );
 
@@ -73,6 +74,12 @@ function statusClass(status: SuperAdminLocationRow["status"]): string {
 }
 
 export function SuperAdminLocationReport({ rows }: { rows: SuperAdminLocationRow[] }) {
+  const [recenterKey, setRecenterKey] = useState<number>(0);
+
+  const handleRecenter = () => {
+    setRecenterKey((prev) => prev + 1);
+  };
+
   const markers = rows.map((row) => ({
     id: row.locationId,
     latitude: row.latitude,
@@ -115,6 +122,7 @@ export function SuperAdminLocationReport({ rows }: { rows: SuperAdminLocationRow
     <SectionCard
       title="Business Location Report"
       description="Read-only map and Business Location records for released-business submissions."
+      className="overflow-visible"
       action={
         <span className={`${superadminAuditPillClass} px-2.5 py-1 text-xs font-semibold`}>
           {rows.length} records
@@ -165,10 +173,21 @@ export function SuperAdminLocationReport({ rows }: { rows: SuperAdminLocationRow
                     <div>
                       <p className="text-sm font-semibold text-[var(--foreground)]">EB Magalona Oversight Map</p>
                       <p className="mt-1 ui-caption">
-                        Read-only OpenStreetMap workspace for stored business location submissions.
+                        Interactive OpenStreetMap workspace for inspecting stored business location submissions.
                       </p>
                     </div>
-                    <span className={`${superadminAuditPillClass} uppercase tracking-wide`}>View Only</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleRecenter}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--surface)] hover:bg-[var(--muted-surface)] px-3 py-1.5 text-xs font-semibold text-[var(--foreground)] transition-colors shadow-xs active:scale-95 cursor-pointer"
+                        title="Recenter map view to EB Magalona center"
+                      >
+                        <span className="text-sm">🎯</span>
+                        <span>Recenter Map</span>
+                      </button>
+                      <span className={`${superadminAuditPillClass} uppercase tracking-wide`}>View Only</span>
+                    </div>
                   </div>
 
                   <div className="mt-3">
@@ -176,13 +195,16 @@ export function SuperAdminLocationReport({ rows }: { rows: SuperAdminLocationRow
                       center={[EB_MAGALONA_CENTER.latitude, EB_MAGALONA_CENTER.longitude]}
                       zoom={13}
                       markers={markers}
-                      className="h-[clamp(320px,55vh,520px)] w-full overflow-hidden rounded-[var(--radius-card)]"
-                      useEbMagalonaBounds
+                      className="h-[clamp(440px,65vh,640px)] w-full overflow-hidden rounded-[var(--radius-card)]"
+                      useEbMagalonaBounds={false}
+                      showRecenterButton
+                      recenterKey={recenterKey}
+                      onRecenter={handleRecenter}
                     />
                   </div>
                 </div>
                 <p className="ui-caption leading-5">
-                  This map stays limited to EB Magalona and is displayed strictly for reporting and audit review.
+                  Drag and pan freely to explore any area. Click &quot;Recenter Map&quot; anytime to return to the EB Magalona center.
                 </p>
               </div>
 

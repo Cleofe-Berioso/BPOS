@@ -89,6 +89,7 @@ describe("WB-JIT — compliance, checklist, map markers", () => {
     expect(getJitMapMarkerStatus(null)).toBe("UNINSPECTED");
     expect(getJitMapMarkerStatus("DH_VERIFICATION_PENDING")).toBe("PENDING_INSPECTION");
     expect(getJitMapMarkerStatus("VERIFIED_COMPLIANT")).toBe("COMPLIANT");
+    expect(getJitMapMarkerStatus("COMPLIANT")).toBe("COMPLIANT");
     expect(getJitMapMarkerStatus("REVOKED")).toBe("REVOKED");
     expect(getJitMapMarkerStatus("VERIFIED_NON_COMPLIANT")).toBe("PENDING_INSPECTION");
     expect(
@@ -102,6 +103,34 @@ describe("WB-JIT — compliance, checklist, map markers", () => {
         revocationSettledAt: new Date().toISOString(),
       })
     ).toBe("COMPLIANT");
+
+    // Revocation and restriction list detection
+    expect(
+      getJitMapMarkerStatus("REVOCATION_REVIEW", {
+        revocationDecision: "APPROVED",
+      })
+    ).toBe("REVOKED");
+    expect(
+      getJitMapMarkerStatus(null, {
+        applicationStatus: "REVOKED",
+      })
+    ).toBe("REVOKED");
+    expect(
+      getJitMapMarkerStatus(null, {
+        isRestricted: true,
+      })
+    ).toBe("REVOKED");
+    expect(
+      getJitMapMarkerStatus("VERIFIED_NON_COMPLIANT", {
+        complianceCaseStatus: "FORCED_CLOSURE_PENDING",
+      })
+    ).toBe("REVOKED");
+    expect(
+      getJitMapMarkerStatus("NON_COMPLIANT", {
+        complianceCaseStatus: "EXPIRED_UNSETTLED",
+      })
+    ).toBe("REVOKED");
+
     expect(getJitMapMarkerColor("UNINSPECTED")).toBe("#9ca3af");
     expect(getJitMapMarkerColor("PENDING_INSPECTION")).toBe("#fbbf24");
     expect(getJitMapMarkerColor("COMPLIANT")).toBe("#10b981");

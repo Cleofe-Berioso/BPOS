@@ -224,14 +224,14 @@ export async function getPendingApplicationApprovalsCount(): Promise<number> {
 }
 
 /**
- * Get count of inspections in revocation review.
- * These are flagged cases waiting for Department Head decision.
+ * Get count of flagged cases (DH-verified non-compliant inspections).
+ * These are inspections where compliance status is NON_COMPLIANT and DH has already decided.
  */
 export async function getPendingFlaggedCasesCount(): Promise<number> {
   const count = await prisma.inspection.count({
     where: {
-      status: "REVOCATION_REVIEW",
-      revocationDecision: null,
+      complianceStatus: "NON_COMPLIANT",
+      decidedById: { not: null },
     },
   });
   return count;

@@ -4,7 +4,6 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { RoleBadge } from "@/components/ui/role-badge";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatCard } from "@/components/ui/stat-card";
-import { SuperAdminLocationReport } from "@/components/superadmin/superadmin-location-report";
 import { SuperAdminReportExportCard } from "@/components/superadmin/superadmin-report-export-card";
 import { MunicipalDocumentHeader, IT_DEPARTMENT_HEADING } from "@/components/ui/municipal-document-header";
 import { listSuperAdminBusinessLocations } from "@/lib/business-location";
@@ -76,7 +75,7 @@ export default async function SuperAdminReportsPage() {
   const needsCorrectionLocations = locationRows.filter((row) => row.status === "NEEDS_CORRECTION").length;
 
   return (
-    <section className="ui-page-stack">
+    <section className="ui-page-stack pb-12">
       <MunicipalDocumentHeader
         heading={{
           ...IT_DEPARTMENT_HEADING,
@@ -232,8 +231,6 @@ export default async function SuperAdminReportsPage() {
           )}
         </SectionCard>
       </div>
-
-      <SuperAdminLocationReport rows={locationRows} />
 
       <SuperAdminReportExportCard />
 

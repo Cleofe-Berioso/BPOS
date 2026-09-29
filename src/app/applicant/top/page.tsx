@@ -200,6 +200,11 @@ export default function TaxOrderOfPaymentPage() {
       return;
     }
 
+    if (!/^\d{1,7}$/.test(transactionNumber.trim())) {
+      setMessage("OR number must be a number with at most 7 digits.");
+      return;
+    }
+
     if (!paymentProof) {
       setMessage("Payment proof is required.");
       return;
@@ -660,9 +665,14 @@ export default function TaxOrderOfPaymentPage() {
                       id="top-or-number"
                       className={applicantFormControlClass}
                       value={transactionNumber}
-                      onChange={(event) => setTransactionNumber(event.target.value)}
-                      placeholder="Enter OR number from the cashier receipt"
+                      inputMode="numeric"
+                      maxLength={7}
+                      onChange={(event) =>
+                        setTransactionNumber(event.target.value.replace(/\D/g, "").slice(0, 7))
+                      }
+                      placeholder="e.g. 1234567 (up to 7 digits)"
                     />
+                    <p className="mt-1 ui-caption">Numbers only — maximum 7 digits</p>
                   </div>
                   <div>
                     <label className="mb-1 block text-sm font-medium text-[var(--foreground)]" htmlFor="top-payment-proof">

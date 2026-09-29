@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -10,7 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { FileText, Calendar, ChevronDown } from "lucide-react";
+import { FileText, Calendar, ChevronDown, X } from "lucide-react";
 
 export interface TransactionOutcomeDatum {
   label: string;
@@ -176,39 +176,98 @@ export function DailyTransactionOutcomesChart({
 }) {
   const [hiddenCategories, setHiddenCategories] = useState<Record<string, boolean>>({});
 
-  const toggleCategory = (key: string) => {
-    setHiddenCategories((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
-  };
+  // ── Date range picker state ────────────────────────────────────────────────
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
 
+  // Derive min/max date keys from data
+  const { minDateKey, maxDateKey } = useMemo(() => {
+    const keys = data.map((d) => d.dateKey).filter(Boolean) as string[];
+    return {
+      minDateKey: keys[0] ?? "",
+      maxDateKey: keys[keys.length - 1] ?? "",
+    };
+  }, [data]);
+
+  const [appliedStart, setAppliedStart] = useState<string>("");
+  const [appliedEnd, setAppliedEnd] = useState<string>("");
+  const [draftStart, setDraftStart] = useState<string>("");
+  const [draftEnd, setDraftEnd] = useState<string>("");
+
+  // Initialise from data on mount / data change
+  useEffect(() => {
+    if (minDateKey && !appliedStart) setAppliedStart(minDateKey);
+    if (maxDateKey && !appliedEnd) setAppliedEnd(maxDateKey);
+    if (minDateKey && !draftStart) setDraftStart(minDateKey);
+    if (maxDateKey && !draftEnd) setDraftEnd(maxDateKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [minDateKey, maxDateKey]);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!pickerOpen) return;
+    function handleOutside(e: MouseEvent) {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setPickerOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [pickerOpen]);
+
+  function openPicker() {
+    setDraftStart(appliedStart);
+    setDraftEnd(appliedEnd);
+    setPickerOpen(true);
+  }
+
+  function applyRange() {
+    if (draftStart) setAppliedStart(draftStart);
+    if (draftEnd) setAppliedEnd(draftEnd);
+    setPickerOpen(false);
+  }
+
+  function resetRange() {
+    setAppliedStart(minDateKey);
+    setAppliedEnd(maxDateKey);
+    setDraftStart(minDateKey);
+    setDraftEnd(maxDateKey);
+    setPickerOpen(false);
+  }
+
+  // Filter data to applied range
+  const filteredData = useMemo(() => {
+    if (!appliedStart && !appliedEnd) return data;
+    return data.filter((row) => {
+      const key = row.dateKey ?? "";
+      if (appliedStart && key < appliedStart) return false;
+      if (appliedEnd && key > appliedEnd) return false;
+      return true;
+    });
+  }, [data, appliedStart, appliedEnd]);
+
+  // Build display label
   const dateRangeLabel = useMemo(() => {
-    if (!data || data.length === 0) return "Recent 14 days";
-    const first = data[0];
-    const last = data[data.length - 1];
+    if (!filteredData || filteredData.length === 0) return "Recent 14 days";
+    const first = filteredData[0];
+    const last = filteredData[filteredData.length - 1];
     const start = formatFullDate(first?.dateKey, first?.label);
     const end = formatFullDate(last?.dateKey, last?.label);
-    if (start && end) {
-      return `${start} - ${end}`;
-    }
-    return "Recent 14 days";
-  }, [data]);
+    return start && end ? `${start} – ${end}` : "Recent 14 days";
+  }, [filteredData]);
+
+  const toggleCategory = (key: string) => {
+    setHiddenCategories((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   // Aggregate totals per category across the period
   const { categoryTotals, totalAllOutcomes } = useMemo(() => {
     const totals: Record<string, number> = {
-      submitted: 0,
-      approvals: 0,
-      inspections: 0,
-      logins: 0,
-      paymentVerification: 0,
-      permitReleases: 0,
-      returnsRejections: 0,
-      smsSent: 0,
+      submitted: 0, approvals: 0, inspections: 0, logins: 0,
+      paymentVerification: 0, permitReleases: 0, returnsRejections: 0, smsSent: 0,
     };
     let grandTotal = 0;
-    for (const row of data) {
+    for (const row of filteredData) {
       for (const cat of CATEGORIES) {
         const val = Number(row[cat.key]) || 0;
         totals[cat.key] += val;
@@ -216,25 +275,22 @@ export function DailyTransactionOutcomesChart({
       }
     }
     return { categoryTotals: totals, totalAllOutcomes: grandTotal };
-  }, [data]);
+  }, [filteredData]);
 
   // Compute maximum daily stacked sum for dynamic Y-axis domain
   const maxStackSum = useMemo(() => {
     let max = 0;
-    for (const row of data) {
+    for (const row of filteredData) {
       let daySum = 0;
       for (const cat of CATEGORIES) {
-        if (!hiddenCategories[cat.key]) {
-          daySum += Number(row[cat.key]) || 0;
-        }
+        if (!hiddenCategories[cat.key]) daySum += Number(row[cat.key]) || 0;
       }
       if (daySum > max) max = daySum;
     }
     return max;
-  }, [data, hiddenCategories]);
+  }, [filteredData, hiddenCategories]);
 
   const yAxisUpper = Math.max(20, Math.ceil((maxStackSum + 1) / 5) * 5);
-
   const visibleCategories = CATEGORIES.filter((c) => !hiddenCategories[c.key]);
 
   return (
@@ -259,13 +315,82 @@ export function DailyTransactionOutcomesChart({
           </div>
         </div>
 
-        {/* Date range picker badge */}
-        <div className="flex items-center shrink-0">
-          <div className="inline-flex items-center gap-2 rounded-lg border border-slate-200/90 bg-white px-3.5 py-1.5 text-xs font-medium text-slate-700 shadow-2xs transition-colors hover:bg-slate-50 select-none">
+        {/* ── Date range picker ── */}
+        <div className="relative flex items-center shrink-0" ref={pickerRef}>
+          <button
+            type="button"
+            onClick={openPicker}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-200/90 bg-white px-3.5 py-1.5 text-xs font-medium text-slate-700 shadow-2xs transition-colors hover:bg-slate-50 cursor-pointer select-none"
+            aria-label="Select date range"
+          >
             <Calendar className="h-3.5 w-3.5 text-slate-600" />
             <span>{dateRangeLabel}</span>
-            <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
-          </div>
+            <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform ${pickerOpen ? "rotate-180" : ""}`} />
+          </button>
+
+          {/* Dropdown panel */}
+          {pickerOpen && (
+            <div className="absolute right-0 top-full z-50 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-4 shadow-xl">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-xs font-semibold text-slate-700">Select date range</p>
+                <button
+                  type="button"
+                  onClick={() => setPickerOpen(false)}
+                  className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+                  aria-label="Close date picker"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-500">
+                    Start date
+                  </label>
+                  <input
+                    type="date"
+                    value={draftStart}
+                    min={minDateKey}
+                    max={draftEnd || maxDateKey}
+                    onChange={(e) => setDraftStart(e.target.value)}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 shadow-2xs outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-500">
+                    End date
+                  </label>
+                  <input
+                    type="date"
+                    value={draftEnd}
+                    min={draftStart || minDateKey}
+                    max={maxDateKey}
+                    onChange={(e) => setDraftEnd(e.target.value)}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 shadow-2xs outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={applyRange}
+                  disabled={!draftStart || !draftEnd || draftStart > draftEnd}
+                  className="flex-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  Apply
+                </button>
+                <button
+                  type="button"
+                  onClick={resetRange}
+                  className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-xs hover:bg-slate-50 transition-colors"
+                >
+                  Reset
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -273,7 +398,7 @@ export function DailyTransactionOutcomesChart({
       <div className="h-[280px] w-full min-w-0">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
-            data={data}
+            data={filteredData}
             margin={{ top: 15, right: 15, left: -10, bottom: 5 }}
             barSize={26}
           >

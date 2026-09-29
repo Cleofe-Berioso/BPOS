@@ -1,4 +1,4 @@
-﻿import { listActivePermittedBusinessLocations, listActivePermittedBusinessLocationsPaginated, type BusinessLocationMapRow } from "@/lib/business-location";
+import { listActivePermittedBusinessLocations, listActivePermittedBusinessLocationsPaginated, type BusinessLocationMapRow } from "@/lib/business-location";
 import {
   getChecklistQuestionForDepartment,
   type ChecklistItemInput,
@@ -38,6 +38,11 @@ export type JitMapMarkerSettlementHints = {
   isSettled?: boolean | null;
   complianceCaseStatus?: string | null;
   revocationSettledAt?: Date | string | null;
+  revocationDecision?: string | null;
+  applicationStatus?: string | null;
+  businessStatus?: string | null;
+  forcedClosure?: boolean | null;
+  isRestricted?: boolean | null;
 };
 
 export interface JitInspectableBusinessRow extends BusinessLocationMapRow {
@@ -50,11 +55,11 @@ export interface JitInspectableBusinessRow extends BusinessLocationMapRow {
 
 /**
  * Maps inspection status to JIT map marker status.
- * - No inspection record = UNINSPECTED (gray)
+ * - Settled compliance / revocation settlement = COMPLIANT (green)
+ * - REVOKED or included in Restriction List = REVOKED (red)
  * - Pending verification/review states = PENDING_INSPECTION (yellow)
  * - VERIFIED_COMPLIANT = COMPLIANT (green)
- * - Settled compliance / revocation settlement = COMPLIANT (green)
- * - REVOKED (unsettled) = REVOKED (red)
+ * - No inspection record = UNINSPECTED (gray)
  */
 export function getJitMapMarkerStatus(
   inspectionStatus: string | null,
@@ -71,6 +76,21 @@ export function getJitMapMarkerStatus(
     return "COMPLIANT";
   }
 
+  // Check if business is marked as "Revoked" or included in the "Restriction List"
+  const isRevokedOrRestricted =
+    inspectionStatus === "REVOKED" ||
+    settlement?.revocationDecision === "APPROVED" ||
+    settlement?.applicationStatus === "REVOKED" ||
+    settlement?.applicationStatus === "Revoked" ||
+    settlement?.isRestricted === true ||
+    settlement?.forcedClosure === true ||
+    settlement?.complianceCaseStatus === "FORCED_CLOSURE_PENDING" ||
+    settlement?.complianceCaseStatus === "EXPIRED_UNSETTLED";
+
+  if (isRevokedOrRestricted) {
+    return "REVOKED";
+  }
+
   if (!inspectionStatus) {
     return "UNINSPECTED";
   }
@@ -85,12 +105,8 @@ export function getJitMapMarkerStatus(
     return "PENDING_INSPECTION";
   }
 
-  if (inspectionStatus === "VERIFIED_COMPLIANT") {
+  if (inspectionStatus === "VERIFIED_COMPLIANT" || inspectionStatus === "COMPLIANT") {
     return "COMPLIANT";
-  }
-
-  if (inspectionStatus === "REVOKED") {
-    return "REVOKED";
   }
 
   // Default to UNINSPECTED for other statuses

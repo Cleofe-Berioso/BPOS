@@ -89,6 +89,7 @@ const EMPTY_FETCHED_ADDRESS_LIST: FetchedAddressList = {
 export function BusinessInformationFields({
   value,
   onChange,
+  applicationType,
   lockedFields = [],
   fieldErrors = {},
   enableCascadingAddress = false,
@@ -98,7 +99,21 @@ export function BusinessInformationFields({
   const registrationLabel = getRegistrationLabel(value.businessType);
   const registrationHelperText = getRegistrationHelperText(value.businessType);
   const ownerRoleLabel = getOwnerRoleLabel(value.businessType);
-  const showCorporationNationality = requiresCorporationNationality(value.businessType);
+  const sexLocked = fieldLocked(lockedFields, "sex");
+  const corporationNationalityLocked = fieldLocked(lockedFields, "corporationNationality");
+  const businessAddressLocked =
+    fieldLocked(lockedFields, "businessAddress") ||
+    fieldLocked(lockedFields, "businessStreetAddress") ||
+    fieldLocked(lockedFields, "businessBarangay");
+  const isMapPinningLocked =
+    applicationType === "RENEWAL" ||
+    fieldLocked(lockedFields, "businessLatitude") ||
+    fieldLocked(lockedFields, "businessLongitude") ||
+    businessAddressLocked;
+  const showCorporationNationality =
+    requiresCorporationNationality(value.businessType) ||
+    Boolean(value.corporationNationality) ||
+    (corporationNationalityLocked && (value.businessType === "Corporation" || value.businessType === "One Person Corporation"));
   const ownerIdentityLocked =
     fieldLocked(lockedFields, "ownerName") ||
     fieldLocked(lockedFields, "ownerFirstName") ||
@@ -372,6 +387,9 @@ export function BusinessInformationFields({
   // Use refs so the callback is stable and doesn't trigger downstream re-renders.
   const handlePickerChange = useCallback(
     (nextValue: { latitude: number; longitude: number } | null) => {
+      if (isMapPinningLocked) {
+        return;
+      }
       const latitude = nextValue == null ? null : Number(nextValue.latitude);
       const longitude = nextValue == null ? null : Number(nextValue.longitude);
 
@@ -381,7 +399,7 @@ export function BusinessInformationFields({
         businessLongitude: longitude != null && Number.isFinite(longitude) ? longitude : null,
       });
     },
-    [] // stable for the lifetime of the component
+    [isMapPinningLocked] // stable with lock dependency
   );
 
   const generatedBusinessAddress = buildEbMagalonaBusinessAddress({
@@ -673,21 +691,32 @@ export function BusinessInformationFields({
           hint="Select the owner or president's sex."
           error={fieldErrors.sex}
         >
+          {sexLocked ? (
+            <div className="mb-2">
+              <span className="ui-badge bg-[var(--muted-surface)] text-[var(--ink-muted)]">
+                Locked
+              </span>
+            </div>
+          ) : null}
           <select
             data-field-key="sex"
             aria-label="Sex"
-            className={fieldClasses(fieldLocked(lockedFields, "sex"))}
+            className={fieldClasses(sexLocked)}
             value={value.sex ?? ""}
-            disabled={fieldLocked(lockedFields, "sex")}
+            disabled={sexLocked}
             onChange={(event) =>
               onChange({ ...value, sex: event.target.value || undefined })
             }
           >
             <option value="">Not specified</option>
+            {value.sex && !["", "Male", "Female", "Prefer not to say"].includes(value.sex) ? (
+              <option value={value.sex}>{value.sex}</option>
+            ) : null}
             <option value="Male">Male</option>
             <option value="Female">Female</option>
             <option value="Prefer not to say">Prefer not to say</option>
           </select>
+          <LockedHint visible={sexLocked} />
         </FormField>
 
         <FormField
@@ -730,12 +759,19 @@ export function BusinessInformationFields({
           required
           error={fieldErrors.corporationNationality}
         >
+          {corporationNationalityLocked ? (
+            <div className="mb-2">
+              <span className="ui-badge bg-[var(--muted-surface)] text-[var(--ink-muted)]">
+                Locked
+              </span>
+            </div>
+          ) : null}
           <select
             data-field-key="corporationNationality"
             aria-label="Corporation Nationality"
-            className={fieldClasses(fieldLocked(lockedFields, "corporationNationality"))}
+            className={fieldClasses(corporationNationalityLocked)}
             value={value.corporationNationality ?? ""}
-            disabled={fieldLocked(lockedFields, "corporationNationality")}
+            disabled={corporationNationalityLocked}
             onChange={(event) =>
               onChange({
                 ...value,
@@ -746,12 +782,17 @@ export function BusinessInformationFields({
             <option value="" disabled>
               Select corporation nationality
             </option>
+            {value.corporationNationality &&
+            !CORPORATION_NATIONALITY_OPTIONS.includes(value.corporationNationality as any) ? (
+              <option value={value.corporationNationality}>{value.corporationNationality}</option>
+            ) : null}
             {CORPORATION_NATIONALITY_OPTIONS.map((option) => (
               <option key={option} value={option}>
                 {option}
               </option>
             ))}
           </select>
+          <LockedHint visible={corporationNationalityLocked} />
         </FormField>
       ) : null}
 
@@ -1017,14 +1058,22 @@ export function BusinessInformationFields({
       <div className="md:col-span-2">
         <div className="mb-4">
           <div data-field-key="businessAddress" />
-          <p className="mb-1 text-sm font-semibold text-[var(--foreground)]">
-            Business Address / Place of Operation
-          </p>
+          <div className="flex items-center gap-2 mb-1">
+            <p className="text-sm font-semibold text-[var(--foreground)]">
+              Business Address / Place of Operation
+            </p>
+            {businessAddressLocked ? (
+              <span className="ui-badge bg-[var(--muted-surface)] text-[var(--ink-muted)]">
+                Locked
+              </span>
+            ) : null}
+          </div>
+          <LockedHint visible={businessAddressLocked} />
           <label className="mb-3 inline-flex items-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-color)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)]">
             <input
               type="checkbox"
               checked={Boolean(value.sameAsMainOffice)}
-              disabled={fieldLocked(lockedFields, "businessAddress")}
+              disabled={businessAddressLocked}
               onChange={(event) => onChange({ ...value, sameAsMainOffice: event.target.checked })}
             />
             Use Main Office Barangay for Business Address
@@ -1096,12 +1145,19 @@ export function BusinessInformationFields({
           required
           error={fieldErrors.businessBarangay}
         >
+          {businessAddressLocked ? (
+            <div className="mb-2">
+              <span className="ui-badge bg-[var(--muted-surface)] text-[var(--ink-muted)]">
+                Locked
+              </span>
+            </div>
+          ) : null}
           <select
             data-field-key="businessBarangay"
             aria-label="Business Barangay"
-            className={fieldClasses(businessBarangayLoading || fieldLocked(lockedFields, "businessBarangay"))}
+            className={fieldClasses(businessBarangayLoading || businessAddressLocked)}
             value={value.businessBarangay ?? ""}
-            disabled={businessBarangayLoading || fieldLocked(lockedFields, "businessBarangay")}
+            disabled={businessBarangayLoading || businessAddressLocked}
             onChange={(event) => {
               const newBarangay = event.target.value ? normalizeEbMagalonaBarangayName(event.target.value) : undefined;
               onChange({
@@ -1118,12 +1174,16 @@ export function BusinessInformationFields({
             <option value="" disabled>
               {businessBarangayLoading ? "Loading barangays…" : "Select barangay"}
             </option>
+            {value.businessBarangay && !businessBarangayOptions.includes(value.businessBarangay) ? (
+              <option value={value.businessBarangay}>{value.businessBarangay}</option>
+            ) : null}
             {businessBarangayOptions.map((brgy) => (
               <option key={brgy} value={brgy}>
                 {brgy}
               </option>
             ))}
           </select>
+          <LockedHint visible={businessAddressLocked} />
         </FormField>
 
         <FormField
@@ -1132,12 +1192,20 @@ export function BusinessInformationFields({
           required
           error={fieldErrors.businessStreetAddress}
         >
+          {businessAddressLocked ? (
+            <div className="mb-2">
+              <span className="ui-badge bg-[var(--muted-surface)] text-[var(--ink-muted)]">
+                Locked
+              </span>
+            </div>
+          ) : null}
           <input
             data-field-key="businessStreetAddress"
             aria-label="Business Street / Purok / Building / Unit"
-            className={fieldClasses(fieldLocked(lockedFields, "businessStreetAddress"))}
+            className={fieldClasses(businessAddressLocked)}
             value={value.businessStreetAddress ?? ""}
-            disabled={fieldLocked(lockedFields, "businessStreetAddress")}
+            disabled={businessAddressLocked}
+            readOnly={businessAddressLocked}
             onChange={(event) => {
               const newStreet = event.target.value;
               onChange({
@@ -1152,6 +1220,7 @@ export function BusinessInformationFields({
             }}
             placeholder="e.g., 123 Main St, Purok 5, or Building A Unit 201"
           />
+          <LockedHint visible={businessAddressLocked} />
           {value.businessLatitude != null && !value.businessStreetAddress ? (
             <p className="mt-1 text-xs text-[var(--warning)]">
               Enter the exact street, purok, building, or unit.
@@ -1162,6 +1231,17 @@ export function BusinessInformationFields({
         <div className="mt-4">
           <div data-field-key="businessLatitude" />
           <div data-field-key="businessLongitude" />
+          <div className="mb-2 flex items-center justify-between">
+            <label className="text-sm font-semibold text-[var(--ink-base)]">
+              Mapping Pinning
+            </label>
+            {isMapPinningLocked ? (
+              <span className="inline-flex items-center rounded-full bg-[var(--surface-muted)] px-2.5 py-0.5 text-xs font-semibold text-[var(--ink-muted)] border border-[var(--border-color)]">
+                Locked
+              </span>
+            ) : null}
+          </div>
+          <LockedHint visible={isMapPinningLocked} />
           <BusinessLocationPicker
             value={
               value.businessLatitude != null && value.businessLongitude != null
@@ -1169,7 +1249,7 @@ export function BusinessInformationFields({
                 : null
             }
             onChange={handlePickerChange}
-            readOnly={fieldLocked(lockedFields, "businessAddress")}
+            readOnly={isMapPinningLocked}
             error={fieldErrors.businessLatitude ?? fieldErrors.businessLongitude}
           />
           {Number.isFinite(value.businessLatitude) && Number.isFinite(value.businessLongitude) ? (

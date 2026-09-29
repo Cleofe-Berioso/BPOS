@@ -18,6 +18,8 @@ import {
   validateBusinessIdentityFormats,
   isValidCorporationNationality,
   normalizeNationality,
+  applyLockedBusinessFields,
+  normalizeBusinessInfo,
 } from "@/lib/business-rules";
 
 describe("WB-RULES — business identity & rules", () => {
@@ -82,5 +84,57 @@ describe("WB-RULES — business identity & rules", () => {
     expect(identity.tin).toBe(true);
     expect(isValidCorporationNationality("Filipino")).toBe(true);
     expect(normalizeNationality("Corporation", "  Foreign  ")).toBe("Foreign");
+  });
+
+  it("WB-RULES-08 renewal locks sex, corporationNationality, and business address without allowing overwrite", () => {
+    expect(RENEWAL_LOCKED_FIELDS).toEqual(
+      expect.arrayContaining([
+        "sex",
+        "corporationNationality",
+        "businessAddress",
+        "businessStreetAddress",
+        "businessBarangay",
+      ])
+    );
+
+    const sourceRecord = normalizeBusinessInfo({
+      businessType: "Corporation",
+      registrationNumber: "CS2026-12345",
+      tin: "123456789012",
+      businessName: "Original Corp",
+      tradeName: "Original Corp",
+      ownerName: "Jane Doe",
+      nationality: "Filipino",
+      sex: "Female",
+      corporationNationality: "Filipino",
+      businessAddress: "123 Pioneer St, Alicante, E. B. Magalona, Negros Occidental, Philippines, 6118",
+      businessStreetAddress: "123 Pioneer St",
+      businessBarangay: "Alicante",
+      streetAddress: "123 Pioneer St",
+      barangay: "Alicante",
+      email: "corp@example.com",
+      phone: "09171234567",
+      mainOfficeAddress: "123 Pioneer St, Alicante, E. B. Magalona",
+    } as any);
+
+    const candidateMutation = normalizeBusinessInfo({
+      ...sourceRecord,
+      sex: "Male",
+      corporationNationality: "Foreign",
+      businessAddress: "999 Altered Rd, Consing, E. B. Magalona, Negros Occidental, Philippines, 6118",
+      businessStreetAddress: "999 Altered Rd",
+      businessBarangay: "Consing",
+      streetAddress: "999 Altered Rd",
+      barangay: "Consing",
+    } as any);
+
+    const result = applyLockedBusinessFields("RENEWAL", candidateMutation, sourceRecord);
+
+    expect(result.sex).toBe("Female");
+    expect(result.corporationNationality).toBe("Filipino");
+    expect(result.businessAddress).toBe(sourceRecord.businessAddress);
+    expect(result.businessAddress).not.toBe(candidateMutation.businessAddress);
+    expect(result.businessStreetAddress).toBe("123 Pioneer St");
+    expect(result.businessBarangay).toBe("Alicante");
   });
 });

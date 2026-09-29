@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { FileText, Search, ShieldCheck, AlertTriangle } from "lucide-react";
+import { FileText, Search, ShieldCheck } from "lucide-react";
 import {
   jitFormControlClass,
   jitSelectableCardActiveClass,
@@ -148,18 +148,30 @@ export function JitInspectBusinessClient() {
   );
 
   const summaryCounts = useMemo(() => {
-    const inspectedCount = rows.filter((row) => row.latestInspection !== null).length;
-    const pendingInspectionCount = rows.filter((row) => row.latestInspection === null).length;
-    const referredCount = rows.filter((row) => {
-      const latestStatus = row.latestInspection?.status;
-      return latestStatus === "NON_COMPLIANT" || latestStatus === "REVOCATION_REVIEW" || latestStatus === "REVOKED";
+    // "Inspected" = has a latest inspection that is fully resolved (not still awaiting DH verification)
+    const inspectedCount = rows.filter((row) => {
+      const s = row.latestInspection?.status;
+      return (
+        s === "COMPLIANT" ||
+        s === "NON_COMPLIANT" ||
+        s === "VERIFIED_COMPLIANT" ||
+        s === "VERIFIED_NON_COMPLIANT" ||
+        s === "REVOCATION_REVIEW" ||
+        s === "REVOCATION_DENIED" ||
+        s === "REVOKED"
+      );
+    }).length;
+
+    // "Pending" = no inspection at all OR waiting on DH verification
+    const pendingInspectionCount = rows.filter((row) => {
+      const s = row.latestInspection?.status;
+      return s === undefined || s === null || s === "DH_VERIFICATION_PENDING";
     }).length;
 
     return {
       totalBusinesses: totalCount,
       pendingInspection: pendingInspectionCount,
       inspected: inspectedCount,
-      referred: referredCount,
     };
   }, [rows, totalCount]);
 
@@ -437,10 +449,7 @@ export function JitInspectBusinessClient() {
                 <ShieldCheck className="h-3.5 w-3.5" />
                 {summaryCounts.inspected} Inspected
               </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-color)] bg-[var(--muted-surface)] px-3 py-1.5 font-semibold text-[var(--danger)]">
-                <AlertTriangle className="h-3.5 w-3.5" />
-                {summaryCounts.referred} Referred
-              </span>
+
             </div>
           </div>
         </div>

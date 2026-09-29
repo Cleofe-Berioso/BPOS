@@ -291,8 +291,21 @@ export const RENEWAL_LOCKED_FIELDS: Array<keyof BusinessInfo> = [
   "registrationNumber",
   "tin",
   "ownerName",
+  "ownerFirstName",
+  "ownerMiddleName",
+  "ownerSurname",
+  "ownerSuffix",
   "tradeName",
   "nationality",
+  "sex",
+  "corporationNationality",
+  "businessAddress",
+  "businessStreetAddress",
+  "businessBarangay",
+  "streetAddress",
+  "barangay",
+  "businessLatitude",
+  "businessLongitude",
 ];
 
 /** Fields restored from the business record for CLOSURE so normalize cannot wipe them. */
@@ -588,9 +601,10 @@ export function normalizeBusinessInfo(input: BusinessInfo): BusinessInfo {
   }
 
   const deliveryFields = normalizeDeliveryVehicleFields(input);
-  const corporationNationality = requiresCorporationNationality(input.businessType)
-    ? (input.corporationNationality?.trim() as BusinessInfo["corporationNationality"]) ?? undefined
-    : undefined;
+  const corporationNationality =
+    requiresCorporationNationality(input.businessType) || Boolean(input.corporationNationality)
+      ? (input.corporationNationality?.trim() as BusinessInfo["corporationNationality"]) ?? undefined
+      : undefined;
 
   return {
     ...input,
@@ -710,17 +724,25 @@ export function applyLockedBusinessFields(
     }
   }
 
-  // Prefer the record's full business address when street/barangay rebuild is empty.
+  // Prefer the record's full business address when street/barangay rebuild is empty or for RENEWAL/CLOSURE.
   if (
-    applicationType === "CLOSURE" &&
-    !(merged.businessAddress ?? "").trim() &&
+    (applicationType === "CLOSURE" || applicationType === "RENEWAL") &&
     source.businessAddress?.trim()
   ) {
     merged.businessAddress = source.businessAddress.trim();
   }
 
-  // Avoid a second normalize pass wiping restored CLOSURE identity fields.
-  if (applicationType === "CLOSURE") {
+  if (applicationType === "RENEWAL") {
+    if (source.sex?.trim()) {
+      merged.sex = source.sex.trim();
+    }
+    if (source.corporationNationality?.trim()) {
+      merged.corporationNationality = source.corporationNationality.trim() as BusinessInfo["corporationNationality"];
+    }
+  }
+
+  // Avoid a second normalize pass wiping restored CLOSURE or RENEWAL identity fields.
+  if (applicationType === "CLOSURE" || applicationType === "RENEWAL") {
     return merged;
   }
 

@@ -60,7 +60,7 @@ const JIT_MAP_LEGEND_GROUPS = [
       { id: "uninspected", label: "Uninspected", color: DASHBOARD_CHART_COLORS[5] },
       { id: "pending-inspection", label: "Pending Inspection / Pending Verification", color: DASHBOARD_CHART_COLORS[1] },
       { id: "compliant", label: "Compliant", color: DASHBOARD_CHART_COLORS[0] },
-      { id: "revoked", label: "Revoked / Restricted", color: DASHBOARD_CHART_COLORS[4] },
+      { id: "revoked", label: "Revoked / Restricted", color: "#ef4444" },
     ],
   },
 ];
@@ -74,7 +74,7 @@ function inspectionStatusTone(status: JitBusinessMapRow["mapMarkerStatus"]): str
 
 function inspectionStatusLabel(status: JitBusinessMapRow["mapMarkerStatus"]): string {
   if (status === "COMPLIANT") return "Compliant";
-  if (status === "REVOKED") return "Revoked";
+  if (status === "REVOKED") return "Revoked / Restricted";
   if (status === "PENDING_INSPECTION") return "Pending Inspection";
   return "Uninspected";
 }
@@ -163,7 +163,7 @@ export function JitBusinessMapClient() {
         permitOrCertificateNumber: row.permitOrCertificateNumber,
         address: row.address,
         barangay: row.barangay,
-        status: row.status,
+        status: row.mapMarkerStatus,
         ownerName: row.ownerName,
         mapMarkerColor: row.mapMarkerColor,
       })),
@@ -178,8 +178,8 @@ export function JitBusinessMapClient() {
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
         <SectionCard
-          title="Active Permitted Businesses"
-          description="Released businesses only. This map is read-only for JIT monitoring and planning."
+          title="Permitted & Restricted Businesses"
+          description="Released and revoked/restricted businesses. This map is read-only for JIT monitoring and planning."
         >
           {isLoading ? (
             <div className="h-[clamp(320px,55vh,520px)] animate-pulse rounded-2xl border border-[var(--border-color)] bg-[var(--muted-surface)]" />

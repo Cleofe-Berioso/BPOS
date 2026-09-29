@@ -173,7 +173,7 @@ const getCachedApplicantDashboardMetrics = cache(async (applicantId: string): Pr
   const summary = {
     totalApplications: applications.length,
     pendingApplications: applications.filter(
-      (item) => !["Released", "Rejected"].includes(item.status)
+      (item) => !["Draft", "Released", "Rejected"].includes(item.status)
     ).length,
     returnedApplications: applications.filter((item) => item.status === "Returned for Correction").length,
     processingApplications: applications.filter((item) =>

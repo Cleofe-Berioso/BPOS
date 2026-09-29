@@ -670,6 +670,32 @@ function sanitizeSubmitFiles(submitFiles: SubmitFileInput[]) {
 }
 
 function buildBusinessInfoFromRecord(record: any): BusinessInfo {
+  const latestAppFormData = (record.applications?.[0]?.formData ?? {}) as Record<string, any>;
+  const corporationNationality = (
+    (record as any).corporationNationality ??
+    latestAppFormData.corporationNationality ??
+    undefined
+  ) as BusinessInfo["corporationNationality"];
+
+  const rawBusinessStreetAddress = (
+    latestAppFormData.businessStreetAddress ||
+    latestAppFormData.streetAddress ||
+    ""
+  ).trim();
+  const rawBusinessBarangay = (
+    record.location?.barangay ||
+    latestAppFormData.businessBarangay ||
+    latestAppFormData.barangay ||
+    ""
+  ).trim();
+
+  const legacyParts = (record.businessAddress ?? "")
+    .split(",")
+    .map((part: string) => part.trim())
+    .filter(Boolean);
+  const inferredStreet = rawBusinessStreetAddress || (legacyParts.length > 0 ? legacyParts[0] ?? "" : "");
+  const inferredBarangay = rawBusinessBarangay || (legacyParts.length >= 5 ? (legacyParts[1] ?? "").replace(/^barangay\s+/i, "") : "");
+
   return normalizeBusinessInfo({
     businessType: record.businessType as BusinessInfo["businessType"],
     registrationNumber: record.registrationNumber,
@@ -678,14 +704,27 @@ function buildBusinessInfoFromRecord(record: any): BusinessInfo {
     businessName: record.businessName,
     tradeName: record.tradeName,
     ownerName: record.ownerName,
-    sex: record.sex ?? undefined,
+    ownerFirstName: record.ownerFirstName ?? latestAppFormData.ownerFirstName ?? "",
+    ownerMiddleName: record.ownerMiddleName ?? latestAppFormData.ownerMiddleName ?? "",
+    ownerSurname: record.ownerLastName ?? latestAppFormData.ownerSurname ?? "",
+    ownerSuffix: record.ownerSuffix ?? latestAppFormData.ownerSuffix ?? "",
+    sex: record.sex ?? latestAppFormData.sex ?? undefined,
+    corporationNationality,
     nationality: record.nationality,
     email: record.email,
     phone: record.phone,
     mainOfficeAddress: record.mainOfficeAddress,
     businessAddress: record.businessAddress,
-    businessLatitude: record.location?.latitude ?? null,
-    businessLongitude: record.location?.longitude ?? null,
+    businessStreetAddress: inferredStreet,
+    businessBarangay: inferredBarangay,
+    streetAddress: inferredStreet,
+    barangay: inferredBarangay,
+    businessLatitude:
+      record.location?.latitude ??
+      (typeof latestAppFormData.businessLatitude === "number" ? latestAppFormData.businessLatitude : null),
+    businessLongitude:
+      record.location?.longitude ??
+      (typeof latestAppFormData.businessLongitude === "number" ? latestAppFormData.businessLongitude : null),
     sameAsMainOffice: record.sameAsMainOffice,
     businessArea: optionalDecimalFromDb(record.businessArea),
     totalFloorArea: optionalDecimalFromDb(record.totalFloorArea),
@@ -721,6 +760,24 @@ async function getApplicantBusinessRecordSource(applicantId: string, businessRec
     where: {
       businessRecordId,
       applicantId,
+    },
+    include: {
+      location: true,
+      applications: {
+        where: {
+          status: {
+            in: ELIGIBLE_EXISTING_BUSINESS_STATUSES,
+          },
+        },
+        select: {
+          status: true,
+          formData: true,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: 1,
+      },
     },
   });
 

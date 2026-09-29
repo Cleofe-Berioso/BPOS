@@ -47,7 +47,7 @@ export default async function BploDashboard() {
     {
       title: "Payment Verification",
       description: "Payments waiting for verification or confirmation.",
-      count: summary.approvedForPayment,
+      count: summary.pendingPaymentVerification,
       href: "/bplo/payment-verification",
       tone: "warning" as const,
       icon: <Wallet className="h-4 w-4" />,

@@ -83,7 +83,7 @@ export function BusinessLocationPicker({
           markers={[]}
           selectedPosition={selectedPosition}
           onSelectPosition={readOnly ? undefined : handleSelectPosition}
-          selectedLabel="Selected Business Location"
+          selectedLabel={readOnly ? "Pinned Business Location (Locked)" : "Selected Business Location"}
           className="h-[clamp(320px,52vh,480px)] w-full overflow-hidden rounded-2xl border border-[var(--border-color)]"
           useEbMagalonaBounds
           markerVariant="emoji"
@@ -91,9 +91,23 @@ export function BusinessLocationPicker({
       </div>
 
       <div className="space-y-2 rounded-2xl border border-[var(--border-color)] bg-[var(--muted-surface)] px-4 py-3 text-sm text-[var(--ink-muted)]">
-        <p className="font-medium text-[var(--foreground)]">Pin the actual business location within EB Magalona.</p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="font-medium text-[var(--foreground)]">
+            {readOnly ? "Pinned Business Location (Locked)" : "Pin the actual business location within EB Magalona."}
+          </p>
+          {readOnly ? (
+            <span className="inline-flex items-center rounded-full bg-[var(--surface)] px-2.5 py-0.5 text-xs font-semibold text-[var(--ink-muted)] border border-[var(--border-color)]">
+              Locked / View-Only
+            </span>
+          ) : null}
+        </div>
+        {readOnly ? (
+          <p className="text-xs text-[var(--ink-muted)]">
+            Retained from original business application. View-only during renewal.
+          </p>
+        ) : null}
         <p className="text-sm text-[var(--ink-muted)]">
-          Selected Business Location:{" "}
+          {readOnly ? "Pinned Location: " : "Selected Business Location: "}
           {value ? `${value.latitude.toFixed(6)}, ${value.longitude.toFixed(6)}` : "Not selected"}
         </p>
         {displayError ? <p className="text-sm font-medium text-[var(--danger)]">{displayError}</p> : null}

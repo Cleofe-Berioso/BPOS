@@ -224,6 +224,15 @@ function toBusinessPermitPrintData(app: {
   const ownerOrApplicantName = ownerName || applicantName || "-";
   const mayorName = "Hon. Matthew Louis P. Malacon";
 
+  // For RENEWAL permits: the permit covers the NEXT calendar year after issuance.
+  // e.g. issued in 2026 → valid until Dec 31, 2027 and tax year = 2027.
+  const isRenewal = app.applicationType === "RENEWAL";
+  const baseYear = issuedAt ? issuedAt.getUTCFullYear() : new Date().getUTCFullYear();
+  const permitYear = isRenewal ? baseYear + 1 : baseYear;
+  const validUntilDate = issuedAt
+    ? new Date(Date.UTC(permitYear, 11, 31, 23, 59, 59, 999))
+    : null;
+
   return {
     heading: {
       republic: "Republic of the Philippines",
@@ -235,9 +244,9 @@ function toBusinessPermitPrintData(app: {
     permitNumber: app.permitIssuance?.documentNumber ?? "-",
     applicationNumber: app.applicationNumber,
     classification: app.applicationType === "RENEWAL" ? "RENEWAL" : "NEW",
-    taxYear: toYear(issuedAt),
+    taxYear: String(permitYear),
     dateIssued: toIsoOrNull(issuedAt),
-    validUntil: toPermitExpiry(issuedAt),
+    validUntil: validUntilDate ? validUntilDate.toISOString() : null,
     plateNumber: readText(formData, "plateNumber", "—"),
     businessName: readText(formData, "businessName"),
     tradeName: readText(formData, "tradeName"),

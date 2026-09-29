@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 import { listActivePermittedBusinessLocations } from "@/lib/business-location";
+import { getJitInspectionCycleStartedAt } from "@/lib/jit-settings";
 
 type JitInspectionStatus = "COMPLIANT" | "NON_COMPLIANT" | "REVOCATION_REVIEW" | "REVOCATION_DENIED" | "REVOKED";
 
@@ -82,10 +83,22 @@ const getCachedJitDashboardMetrics = cache(async (): Promise<JitDashboardMetrics
     };
   }
 
+  const cycleStartedAt = await getJitInspectionCycleStartedAt();
+
   const inspections = await prisma.inspection.findMany({
     where: {
       businessRecordId: { in: businessRecordIds },
-      inspector: { role: "JIT" },
+      ...(cycleStartedAt
+        ? {
+            OR: [
+              { createdAt: { gte: cycleStartedAt } },
+              { status: "REVOKED" },
+              { revocationDecision: "APPROVED" },
+              { complianceCaseStatus: { in: ["FORCED_CLOSURE_PENDING", "EXPIRED_UNSETTLED"] } },
+              { forcedClosure: true },
+            ],
+          }
+        : {}),
     },
     select: {
       status: true,
@@ -201,37 +214,117 @@ const getCachedJitDashboardSummary = cache(async (): Promise<JitDashboardSummary
     return getEmptySummary();
   }
 
+  const cycleStartedAt = await getJitInspectionCycleStartedAt();
+
   const inspections = await prisma.inspection.findMany({
     where: {
       businessRecordId: {
         in: businessRecordIds,
       },
-      inspector: {
-        role: "JIT",
-      },
+      ...(cycleStartedAt
+        ? {
+            OR: [
+              { createdAt: { gte: cycleStartedAt } },
+              { status: "REVOKED" },
+              { revocationDecision: "APPROVED" },
+              { complianceCaseStatus: { in: ["FORCED_CLOSURE_PENDING", "EXPIRED_UNSETTLED"] } },
+              { forcedClosure: true },
+            ],
+          }
+        : {}),
     },
     select: {
+      inspectionId: true,
       businessRecordId: true,
       status: true,
+      complianceStatus: true,
       createdAt: true,
+      updatedAt: true,
+      isSettled: true,
+      complianceCaseStatus: true,
+      revocationSettledAt: true,
+      revocationDecision: true,
+      forcedClosure: true,
     },
-    orderBy: [{ businessRecordId: "asc" }, { createdAt: "desc" }],
+    orderBy: [{ createdAt: "desc" }, { updatedAt: "desc" }],
   });
 
-  const latestByBusiness = new Map<string, JitInspectionStatus>();
+  const latestByBusiness = new Map<
+    string,
+    {
+      status: string;
+      complianceStatus: string | null;
+      isSettled: boolean;
+      complianceCaseStatus: string | null;
+      revocationSettledAt: Date | null;
+      revocationDecision?: string | null;
+      forcedClosure?: boolean | null;
+    }
+  >();
 
   for (const inspection of inspections) {
-    const status = inspection.status as JitInspectionStatus;
-
     if (!latestByBusiness.has(inspection.businessRecordId)) {
-      latestByBusiness.set(inspection.businessRecordId, status);
+      latestByBusiness.set(inspection.businessRecordId, {
+        status: inspection.status,
+        complianceStatus: inspection.complianceStatus,
+        isSettled: Boolean(inspection.isSettled),
+        complianceCaseStatus: inspection.complianceCaseStatus ?? null,
+        revocationSettledAt: inspection.revocationSettledAt,
+        revocationDecision: inspection.revocationDecision ?? null,
+        forcedClosure: Boolean(inspection.forcedClosure),
+      });
     }
   }
 
   const inspectionSummary = inspections.length;
-  const flaggedBusinessesCount = businesses.filter((row) => FLAGGED_STATUSES.includes(latestByBusiness.get(row.businessRecordId) ?? "COMPLIANT")).length;
-  const compliantCount = businesses.filter((row) => latestByBusiness.get(row.businessRecordId) === "COMPLIANT").length;
-  const nonCompliantCount = inspections.filter((inspection) => NON_COMPLIANT_RECORD_STATUSES.includes(inspection.status as JitInspectionStatus)).length;
+
+  let compliantCount = 0;
+  let flaggedBusinessesCount = 0;
+  let nonCompliantCount = 0;
+
+  for (const row of businesses) {
+    const latest = latestByBusiness.get(row.businessRecordId);
+    if (!latest) {
+      continue;
+    }
+
+    const s = (latest.status || "").toUpperCase();
+    const cs = (latest.complianceStatus || "").toUpperCase();
+
+    const isSettled =
+      latest.isSettled === true ||
+      latest.complianceCaseStatus === "SETTLED" ||
+      Boolean(latest.revocationSettledAt);
+
+    const isRevokedOrRestricted =
+      s === "REVOKED" ||
+      latest.revocationDecision === "APPROVED" ||
+      latest.forcedClosure === true ||
+      latest.complianceCaseStatus === "FORCED_CLOSURE_PENDING" ||
+      latest.complianceCaseStatus === "EXPIRED_UNSETTLED";
+
+    if (isRevokedOrRestricted) {
+      flaggedBusinessesCount++;
+      continue;
+    }
+
+    if (isSettled) {
+      compliantCount++;
+      continue;
+    }
+
+    if (s === "COMPLIANT" || s === "VERIFIED_COMPLIANT" || cs === "COMPLIANT") {
+      if (s !== "NON_COMPLIANT" && s !== "VERIFIED_NON_COMPLIANT" && s !== "REVOCATION_REVIEW") {
+        compliantCount++;
+        continue;
+      }
+    }
+
+    if (s === "NON_COMPLIANT" || s === "VERIFIED_NON_COMPLIANT" || s === "REVOCATION_REVIEW" || cs === "NON_COMPLIANT") {
+      flaggedBusinessesCount++;
+      nonCompliantCount++;
+    }
+  }
 
   return {
     visibleBusinessCount: businesses.length,

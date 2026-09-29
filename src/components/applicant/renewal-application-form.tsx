@@ -110,6 +110,13 @@ const lockedFields: Array<keyof BusinessInfo> = [
   "ownerSurname",
   "ownerSuffix",
   "nationality",
+  "sex",
+  "corporationNationality",
+  "businessAddress",
+  "businessStreetAddress",
+  "businessBarangay",
+  "businessLatitude",
+  "businessLongitude",
 ];
 
 const RENEWAL_OPERATION_FIELDS: Array<{
@@ -340,15 +347,44 @@ function buildCleanPayload(params: {
   mode: PersistMode;
   info: BusinessInfo;
   documents: ApplicationDocumentInput[];
+  selectedRecordBusinessInfo?: BusinessInfo;
 }): SaveApplicationInput {
+  const normalized = normalizeBusinessInfo(params.info);
+  const formData = params.selectedRecordBusinessInfo
+    ? {
+        ...normalized,
+        sex: params.selectedRecordBusinessInfo.sex ?? normalized.sex,
+        corporationNationality:
+          params.selectedRecordBusinessInfo.corporationNationality ?? normalized.corporationNationality,
+        businessAddress: params.selectedRecordBusinessInfo.businessAddress ?? normalized.businessAddress,
+        businessStreetAddress:
+          params.selectedRecordBusinessInfo.businessStreetAddress ?? normalized.businessStreetAddress,
+        businessBarangay:
+          params.selectedRecordBusinessInfo.businessBarangay ?? normalized.businessBarangay,
+        streetAddress:
+          params.selectedRecordBusinessInfo.streetAddress ??
+          params.selectedRecordBusinessInfo.businessStreetAddress ??
+          normalized.streetAddress,
+        barangay:
+          params.selectedRecordBusinessInfo.barangay ??
+          params.selectedRecordBusinessInfo.businessBarangay ??
+          normalized.barangay,
+        businessLatitude:
+          params.selectedRecordBusinessInfo.businessLatitude ?? normalized.businessLatitude,
+        businessLongitude:
+          params.selectedRecordBusinessInfo.businessLongitude ?? normalized.businessLongitude,
+        paymentFrequency: params.info.paymentFrequency ?? "ANNUAL",
+      }
+    : {
+        ...normalized,
+        paymentFrequency: params.info.paymentFrequency ?? "ANNUAL",
+      };
+
   return {
     applicationId: params.applicationId,
     applicationType: "RENEWAL",
     businessRecordId: params.selectedBusinessId || undefined,
-    formData: {
-      ...normalizeBusinessInfo(params.info),
-      paymentFrequency: params.info.paymentFrequency ?? "ANNUAL",
-    },
+    formData,
     documents: sanitizeDocumentMetadata(params.documents),
     mode: params.mode,
   };
@@ -963,6 +999,7 @@ export function RenewalApplicationForm() {
       mode,
       info,
       documents: Object.values(uploadedDocuments),
+      selectedRecordBusinessInfo: selectedRecord?.businessInfo,
     });
 
     const hasPendingFiles = Object.keys(pendingDocuments).length > 0;
@@ -1313,7 +1350,7 @@ export function RenewalApplicationForm() {
         <div className={`space-y-4 ${lockInteractivityClass}`}>
           <InfoBanner
             title="Locked fields come from the selected business record"
-            description="Business type, registration details, and owner identity remain read-only during renewal. Editable fields can still be updated if needed."
+            description="Business type, registration details, owner identity, sex, corporation nationality, and business address remain read-only during renewal. Editable fields can still be updated if needed."
             variant="readOnly"
           />
           <SectionCard
@@ -1342,6 +1379,31 @@ export function RenewalApplicationForm() {
                   lineOfBusiness: nextInfo.lineOfBusiness,
                   taxIncentives: nextInfo.taxIncentives,
                   phone: sanitizePhMobileInput(nextInfo.phone ?? ""),
+                  // Keep locked fields unchanged from the selected record
+                  ...(selectedRecord
+                    ? {
+                        sex: selectedRecord.businessInfo.sex ?? nextInfo.sex,
+                        corporationNationality:
+                          selectedRecord.businessInfo.corporationNationality ?? nextInfo.corporationNationality,
+                        businessAddress: selectedRecord.businessInfo.businessAddress ?? nextInfo.businessAddress,
+                        businessStreetAddress:
+                          selectedRecord.businessInfo.businessStreetAddress ?? nextInfo.businessStreetAddress,
+                        businessBarangay:
+                          selectedRecord.businessInfo.businessBarangay ?? nextInfo.businessBarangay,
+                        streetAddress:
+                          selectedRecord.businessInfo.streetAddress ??
+                          selectedRecord.businessInfo.businessStreetAddress ??
+                          nextInfo.streetAddress,
+                        barangay:
+                          selectedRecord.businessInfo.barangay ??
+                          selectedRecord.businessInfo.businessBarangay ??
+                          nextInfo.barangay,
+                        businessLatitude:
+                          selectedRecord.businessInfo.businessLatitude ?? nextInfo.businessLatitude,
+                        businessLongitude:
+                          selectedRecord.businessInfo.businessLongitude ?? nextInfo.businessLongitude,
+                      }
+                    : {}),
                 });
                 if (
                   typeof normalizedNext.businessLatitude === "number" &&
@@ -1609,134 +1671,50 @@ export function RenewalApplicationForm() {
                 </select>
               </FormField>
 
-              <FormField
-                label="Tax Declaration Number"
-                hint="Example format: 2026-18045-00001"
-                error={fieldErrors.taxDeclarationNumber}
-              >
-                <input
-                  aria-label="Tax Declaration Number"
-                  className={applicantFormControlClass}
-                  value={info.taxDeclarationNumber ?? ""}
-                  placeholder="2026-18045-00001"
-                  disabled={isReadOnly}
-                  onChange={(event) =>
-                    setInfo((current) => ({
-                      ...current,
-                      taxDeclarationNumber: event.target.value,
-                    }))
-                  }
-                />
-              </FormField>
+              {info.propertyOwnership !== "Owned" && (
+                <FormField
+                  label="Tax Declaration Number"
+                  hint="Example format: 2026-18045-00001"
+                  error={fieldErrors.taxDeclarationNumber}
+                >
+                  <input
+                    aria-label="Tax Declaration Number"
+                    className={applicantFormControlClass}
+                    value={info.taxDeclarationNumber ?? ""}
+                    placeholder="2026-18045-00001"
+                    disabled={isReadOnly}
+                    onChange={(event) =>
+                      setInfo((current) => ({
+                        ...current,
+                        taxDeclarationNumber: event.target.value,
+                      }))
+                    }
+                  />
+                </FormField>
+              )}
 
-              <FormField
-                label="Property Identification Number"
-                hint="Example format: 180-08-002-001-001"
-                error={fieldErrors.propertyIdentificationNumber}
-              >
-                <input
-                  aria-label="Property Identification Number"
-                  className={applicantFormControlClass}
-                  value={info.propertyIdentificationNumber ?? ""}
-                  placeholder="180-08-002-001-001"
-                  disabled={isReadOnly}
-                  onChange={(event) =>
-                    setInfo((current) => ({
-                      ...current,
-                      propertyIdentificationNumber: event.target.value,
-                    }))
-                  }
-                />
-              </FormField>
+              {info.propertyOwnership !== "Owned" && (
+                <FormField
+                  label="Property Identification Number"
+                  hint="Example format: 180-08-002-001-001"
+                  error={fieldErrors.propertyIdentificationNumber}
+                >
+                  <input
+                    aria-label="Property Identification Number"
+                    className={applicantFormControlClass}
+                    value={info.propertyIdentificationNumber ?? ""}
+                    placeholder="180-08-002-001-001"
+                    disabled={isReadOnly}
+                    onChange={(event) =>
+                      setInfo((current) => ({
+                        ...current,
+                        propertyIdentificationNumber: event.target.value,
+                      }))
+                    }
+                  />
+                </FormField>
+              )}
 
-              <div className="space-y-1.5" data-field-key="paymentReceipt">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-semibold text-[var(--foreground)]">
-                    Payment Receipt
-                  </label>
-                  {uploadedDocuments["Payment Receipt"]?.fileName ? (
-                    <span className="rounded-full border border-[var(--success)] bg-[var(--surface)] px-2 py-0.5 text-[11px] font-semibold text-[var(--success)]">
-                      {uploadedDocuments["Payment Receipt"]?.uploadedAt ? "Uploaded" : "Selected"}
-                    </span>
-                  ) : (
-                    <span className="rounded-full border border-[var(--border-color)] bg-[var(--surface)] px-2 py-0.5 text-[11px] font-semibold text-[var(--ink-muted)]">
-                      Optional
-                    </span>
-                  )}
-                </div>
-                <div className="rounded-2xl border border-dashed border-[var(--border-color)] bg-[var(--muted-surface)]/50 p-3 transition-colors">
-                  <p className="text-xs text-[var(--ink-muted)]">
-                    Upload official payment receipt or proof of payment
-                  </p>
-                  <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                    <label
-                      htmlFor="renewal-payment-receipt-upload"
-                      className={`inline-flex cursor-pointer items-center rounded-lg bg-[var(--success)] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[var(--primary-strong)] ${
-                        isReadOnly || submitting ? "pointer-events-none opacity-60" : ""
-                      }`}
-                    >
-                      {uploadedDocuments["Payment Receipt"]?.fileName ? "Replace Receipt" : "Upload Receipt"}
-                    </label>
-                    <input
-                      id="renewal-payment-receipt-upload"
-                      type="file"
-                      accept={DOCUMENT_FILE_INPUT_ACCEPT}
-                      disabled={isReadOnly || submitting}
-                      className="sr-only"
-                      onChange={(event) => {
-                        const file = event.target.files?.[0] ?? null;
-                        if (file) {
-                          void handleDocumentUpload("Payment Receipt", file);
-                          setInfo((current) => ({
-                            ...current,
-                            paymentReceiptFileName: file.name,
-                          }));
-                        }
-                        event.target.value = "";
-                      }}
-                    />
-                    <span className="text-xs text-[var(--ink-muted)]">
-                      PDF, JPG, PNG (max 10 MB)
-                    </span>
-                  </div>
-
-                  {uploadedDocuments["Payment Receipt"]?.fileName ? (
-                    <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--surface)] px-2.5 py-1.5 text-xs">
-                      <span className="max-w-[200px] truncate font-medium text-[var(--foreground)]" title={uploadedDocuments["Payment Receipt"].fileName}>
-                        📄 {uploadedDocuments["Payment Receipt"].fileName}
-                      </span>
-                      {pendingDocumentPreviews["Payment Receipt"] || (uploadedDocuments["Payment Receipt"]?.id && applicationId) ? (
-                        <DocumentDownloadButton
-                          url={
-                            pendingDocumentPreviews["Payment Receipt"] ??
-                            `/api/applicant/applications/${applicationId}/documents/${uploadedDocuments["Payment Receipt"].id}/download`
-                          }
-                          fileName={uploadedDocuments["Payment Receipt"].fileName}
-                          label="Preview"
-                          className="inline-flex rounded-md border border-[var(--border-color)] px-2 py-0.5 text-[11px] font-medium text-[var(--foreground)] hover:bg-[var(--muted-surface)]"
-                        />
-                      ) : null}
-                      {!isReadOnly && !submitting ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            void handleDocumentDelete("Payment Receipt");
-                            setInfo((current) => ({
-                              ...current,
-                              paymentReceiptFileName: "",
-                            }));
-                          }}
-                          className="ml-auto text-xs text-[var(--danger)] hover:underline"
-                        >
-                          Remove
-                        </button>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <p className="mt-2 text-xs text-[var(--ink-muted)]">No receipt uploaded</p>
-                  )}
-                </div>
-              </div>
 
               <div className={`md:col-span-2 ${applicantPanelClass}`}>
                 {info.propertyOwnership === "Owned"
@@ -2005,6 +1983,18 @@ export function RenewalApplicationForm() {
                 value="Renewal"
                 helper="Renewal workflow behavior remains unchanged"
               />
+              <ReviewStat
+                label="Sex"
+                value={info.sex || "-"}
+                helper="Owner or president sex"
+              />
+              {info.corporationNationality ? (
+                <ReviewStat
+                  label="Corporation Nationality"
+                  value={info.corporationNationality}
+                  helper="Corporation ownership nationality"
+                />
+              ) : null}
               <ReviewStat
                 label="Required Documents"
                 value={`${uploadedRequiredCount} / ${requiredRenewalDocs.length}`}

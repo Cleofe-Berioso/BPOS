@@ -174,9 +174,10 @@ export function SuperAdminFeeSettingsManager() {
   });
 
   const currentYear = new Date().getFullYear();
+  const renewalYear = Math.max(2027, currentYear + 1);
 
   const [extensionForm, setExtensionForm] = useState({
-    startDate: `${new Date().getFullYear()}-01-01`,
+    startDate: `${renewalYear}-01-01`,
     endDate: "",
     isActive: true,
     waiveSurcharge: true,
@@ -548,7 +549,7 @@ export function SuperAdminFeeSettingsManager() {
     const endYear =
       extensionForm.endDate && !isNaN(new Date(extensionForm.endDate).getTime())
         ? new Date(extensionForm.endDate).getFullYear()
-        : currentYear;
+        : renewalYear;
     const fixedStartDate = `${endYear}-01-01`;
 
     if (!extensionForm.endDate) {
@@ -557,7 +558,7 @@ export function SuperAdminFeeSettingsManager() {
     }
 
     if (new Date(extensionForm.endDate) < new Date(fixedStartDate)) {
-      setFlash({ type: "danger", message: "End date cannot be before January 1." });
+      setFlash({ type: "danger", message: `End date cannot be before January 1, ${endYear}.` });
       return;
     }
 
@@ -579,7 +580,7 @@ export function SuperAdminFeeSettingsManager() {
       setFlash({ type: "success", message: "Renewal extension saved." });
       setExtensionForm((prev) => ({
         ...prev,
-        startDate: `${currentYear}-01-01`,
+        startDate: `${renewalYear}-01-01`,
         endDate: "",
         isActive: true,
         waiveSurcharge: true,
@@ -1007,7 +1008,7 @@ export function SuperAdminFeeSettingsManager() {
               value={`January 1, ${
                 extensionForm.endDate && !isNaN(new Date(extensionForm.endDate).getTime())
                   ? new Date(extensionForm.endDate).getFullYear()
-                  : currentYear
+                  : renewalYear
               }`}
               readOnly
               className={`${superadminFormControlClass} opacity-80 cursor-not-allowed bg-[var(--surface-sunken)] font-medium`}
@@ -1019,12 +1020,17 @@ export function SuperAdminFeeSettingsManager() {
               type="date"
               aria-label="End Date"
               value={extensionForm.endDate}
+              min={`${
+                extensionForm.endDate && !isNaN(new Date(extensionForm.endDate).getTime())
+                  ? new Date(extensionForm.endDate).getFullYear()
+                  : renewalYear
+              }-01-01`}
               onChange={(e) => {
                 const nextEndDate = e.target.value;
                 const endYear =
                   nextEndDate && !isNaN(new Date(nextEndDate).getTime())
                     ? new Date(nextEndDate).getFullYear()
-                    : currentYear;
+                    : renewalYear;
                 setExtensionForm((prev) => ({
                   ...prev,
                   endDate: nextEndDate,

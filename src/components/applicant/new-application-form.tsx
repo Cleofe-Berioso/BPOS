@@ -1052,11 +1052,7 @@ export function NewApplicationForm() {
     }
 
     if (field === "taxDeclarationNumber") {
-      if (normalizedInfo.propertyOwnership === "Owned" && normalizedInfo.taxDeclarationNumber.trim().length === 0) {
-        nextErrors.taxDeclarationNumber = "Tax Declaration Number is required for owned properties.";
-      } else {
-        delete nextErrors.taxDeclarationNumber;
-      }
+      delete nextErrors.taxDeclarationNumber;
     }
 
     if (field === "propertyIdentificationNumber") {
@@ -1113,11 +1109,7 @@ export function NewApplicationForm() {
 
     Object.assign(nextErrors, validateBusinessLocation(normalizedInfo));
 
-    if (currentStep === 1 && normalizedInfo.propertyOwnership === "Owned") {
-      if (normalizedInfo.taxDeclarationNumber.trim().length === 0 && normalizedInfo.propertyIdentificationNumber.trim().length === 0) {
-        nextErrors.taxDeclarationNumber = "Tax Declaration Number is required for owned properties.";
-      }
-    }
+
 
     // Birthdate validation removed from New application form per Phase 1.
 
@@ -1932,124 +1924,40 @@ export function NewApplicationForm() {
                 </select>
               </label>
 
-              <FieldCard
-                label="Tax Declaration Number"
-                value={info.taxDeclarationNumber}
-                fieldKey="taxDeclarationNumber"
-                placeholder="2026-18045-00001"
-                helperText="Example format: 2026-18045-00001"
-                error={fieldErrors.taxDeclarationNumber}
-                required={info.propertyOwnership === "Owned"}
-                disabled={isReadOnly}
-                onBlur={() => validateFieldOnBlur("taxDeclarationNumber")}
-                onChange={(value) =>
-                  setInfo((current) => ({ ...current, taxDeclarationNumber: value }))
-                }
-              />
+              {info.propertyOwnership !== "Owned" && (
+                <FieldCard
+                  label="Tax Declaration Number"
+                  value={info.taxDeclarationNumber}
+                  fieldKey="taxDeclarationNumber"
+                  placeholder="2026-18045-00001"
+                  helperText="Example format: 2026-18045-00001"
+                  error={fieldErrors.taxDeclarationNumber}
+                  required={false}
+                  disabled={isReadOnly}
+                  onBlur={() => validateFieldOnBlur("taxDeclarationNumber")}
+                  onChange={(value) =>
+                    setInfo((current) => ({ ...current, taxDeclarationNumber: value }))
+                  }
+                />
+              )}
 
-              <FieldCard
-                label="Property Identification Number"
-                value={info.propertyIdentificationNumber}
-                fieldKey="propertyIdentificationNumber"
-                placeholder="180-08-002-001-001"
-                helperText="Example format: 180-08-002-001-001"
-                error={fieldErrors.propertyIdentificationNumber}
-                required={false}
-                disabled={isReadOnly}
-                onBlur={() => validateFieldOnBlur("propertyIdentificationNumber")}
-                onChange={(value) =>
-                  setInfo((current) => ({ ...current, propertyIdentificationNumber: value }))
-                }
-              />
+              {info.propertyOwnership !== "Owned" && (
+                <FieldCard
+                  label="Property Identification Number"
+                  value={info.propertyIdentificationNumber}
+                  fieldKey="propertyIdentificationNumber"
+                  placeholder="180-08-002-001-001"
+                  helperText="Example format: 180-08-002-001-001"
+                  error={fieldErrors.propertyIdentificationNumber}
+                  required={false}
+                  disabled={isReadOnly}
+                  onBlur={() => validateFieldOnBlur("propertyIdentificationNumber")}
+                  onChange={(value) =>
+                    setInfo((current) => ({ ...current, propertyIdentificationNumber: value }))
+                  }
+                />
+              )}
 
-              <div className="space-y-1.5" data-field-key="paymentReceipt">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-semibold text-[var(--foreground)]">
-                    Payment Receipt
-                  </label>
-                  {uploadedDocuments["Payment Receipt"]?.fileName ? (
-                    <span className="rounded-full border border-[var(--success)] bg-[var(--surface)] px-2 py-0.5 text-[11px] font-semibold text-[var(--success)]">
-                      {uploadedDocuments["Payment Receipt"]?.uploadedAt ? "Uploaded" : "Selected"}
-                    </span>
-                  ) : (
-                    <span className="rounded-full border border-[var(--border-color)] bg-[var(--surface)] px-2 py-0.5 text-[11px] font-semibold text-[var(--ink-muted)]">
-                      Optional
-                    </span>
-                  )}
-                </div>
-                <div className="rounded-2xl border border-dashed border-[var(--border-color)] bg-[var(--muted-surface)]/50 p-3 transition-colors">
-                  <p className="text-xs text-[var(--ink-muted)]">
-                    Upload official payment receipt or proof of payment
-                  </p>
-                  <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                    <label
-                      htmlFor="new-payment-receipt-upload"
-                      className={`inline-flex cursor-pointer items-center rounded-lg bg-[var(--success)] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[var(--primary-strong)] ${
-                        isReadOnly || submitting ? "pointer-events-none opacity-60" : ""
-                      }`}
-                    >
-                      {uploadedDocuments["Payment Receipt"]?.fileName ? "Replace Receipt" : "Upload Receipt"}
-                    </label>
-                    <input
-                      id="new-payment-receipt-upload"
-                      type="file"
-                      accept={DOCUMENT_FILE_INPUT_ACCEPT}
-                      disabled={isReadOnly || submitting}
-                      className="sr-only"
-                      onChange={(event) => {
-                        const file = event.target.files?.[0] ?? null;
-                        if (file) {
-                          void handleDocumentUpload("Payment Receipt", file);
-                          setInfo((current) => ({
-                            ...current,
-                            paymentReceiptFileName: file.name,
-                          }));
-                        }
-                        event.target.value = "";
-                      }}
-                    />
-                    <span className="text-xs text-[var(--ink-muted)]">
-                      PDF, JPG, PNG (max 10 MB)
-                    </span>
-                  </div>
-
-                  {uploadedDocuments["Payment Receipt"]?.fileName ? (
-                    <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--surface)] px-2.5 py-1.5 text-xs">
-                      <span className="max-w-[200px] truncate font-medium text-[var(--foreground)]" title={uploadedDocuments["Payment Receipt"].fileName}>
-                        📄 {uploadedDocuments["Payment Receipt"].fileName}
-                      </span>
-                      {pendingDocumentPreviews["Payment Receipt"] || (uploadedDocuments["Payment Receipt"]?.id && applicationId) ? (
-                        <DocumentDownloadButton
-                          url={
-                            pendingDocumentPreviews["Payment Receipt"] ??
-                            `/api/applicant/applications/${applicationId}/documents/${uploadedDocuments["Payment Receipt"].id}/download`
-                          }
-                          fileName={uploadedDocuments["Payment Receipt"].fileName}
-                          label="Preview"
-                          className="inline-flex rounded-md border border-[var(--border-color)] px-2 py-0.5 text-[11px] font-medium text-[var(--foreground)] hover:bg-[var(--muted-surface)]"
-                        />
-                      ) : null}
-                      {!isReadOnly && !submitting ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            void handleDocumentDelete("Payment Receipt");
-                            setInfo((current) => ({
-                              ...current,
-                              paymentReceiptFileName: "",
-                            }));
-                          }}
-                          className="ml-auto text-xs text-[var(--danger)] hover:underline"
-                        >
-                          Remove
-                        </button>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <p className="mt-2 text-xs text-[var(--ink-muted)]">No receipt uploaded</p>
-                  )}
-                </div>
-              </div>
 
               <div className={`md:col-span-2 ${applicantPanelClass}`}>
                 {info.propertyOwnership === "Owned"

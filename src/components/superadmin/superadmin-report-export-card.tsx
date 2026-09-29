@@ -61,13 +61,6 @@ const REPORT_OPTIONS: ReportOption[] = [
     category: "Communications",
     printUrl: "/superadmin/reports/print/sms",
   },
-  {
-    id: "business-locations",
-    name: "Business GIS Location Mapping",
-    description: "Geographic coordinates, barangay distribution, and address verification statuses.",
-    category: "GIS & Mapping",
-    printUrl: "/superadmin/business-locations",
-  },
 ];
 
 const MONTHS = [
@@ -134,9 +127,6 @@ export function SuperAdminReportExportCard() {
         if (auditModule) params.set("module", auditModule);
       } else if (reportId === "sms") {
         if (status) params.set("status", status);
-      } else if (reportId === "business-locations") {
-        if (barangay) params.set("barangay", barangay);
-        if (status) params.set("status", status);
       }
     }
 
@@ -199,13 +189,6 @@ export function SuperAdminReportExportCard() {
               className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border-color)] bg-white dark:bg-neutral-800 px-3 py-1.5 text-xs font-medium text-[var(--foreground)] hover:bg-[var(--muted-surface)] transition-colors shadow-xs"
             >
               <span>📊</span> Current Month Executive Summary
-            </button>
-            <button
-              type="button"
-              onClick={() => handleDownload("/api/superadmin/reports/export?reportType=business-locations", "Business GIS Locations CSV downloaded!")}
-              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border-color)] bg-white dark:bg-neutral-800 px-3 py-1.5 text-xs font-medium text-[var(--foreground)] hover:bg-[var(--muted-surface)] transition-colors shadow-xs"
-            >
-              <span>📍</span> Business Locations
             </button>
             <button
               type="button"
@@ -447,25 +430,6 @@ export function SuperAdminReportExportCard() {
                 </select>
               </div>
             </>
-          )}
-
-          {selectedReport === "business-locations" && (
-            <div className="space-y-1.5">
-              <label htmlFor="filter-loc-status" className="text-xs font-bold text-[var(--foreground)] uppercase tracking-wider">
-                Location Verification
-              </label>
-              <select
-                id="filter-loc-status"
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] focus:border-blue-500 focus:outline-hidden"
-              >
-                <option value="">All Verification Statuses</option>
-                <option value="VERIFIED">Verified</option>
-                <option value="PENDING">Pending Verification</option>
-                <option value="NEEDS_CORRECTION">Needs Correction</option>
-              </select>
-            </div>
           )}
         </div>
 

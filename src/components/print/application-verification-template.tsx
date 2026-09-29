@@ -93,6 +93,9 @@ export function ApplicationVerificationTemplate({
             <VerificationField label="Owner / Responsible Person" value={info.ownerName} />
             <VerificationField label="Sex" value={info.sex} />
             <VerificationField label="Nationality" value={info.nationality} />
+            {info.corporationNationality ? (
+              <VerificationField label="Corporation Nationality" value={info.corporationNationality} />
+            ) : null}
           </VerificationSection>
 
           <VerificationSection title="Contact Information">

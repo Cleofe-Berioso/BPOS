@@ -173,6 +173,84 @@ export function getBusinessRenewalBlockReason(snapshot: BusinessSnapshot): Renew
   };
 }
 
+function extractRenewalBusinessInfo(row: any): BusinessInfo {
+  const latestAppFormData = (row.applications?.[0]?.formData ?? {}) as Record<string, any>;
+  const corporationNationality = (
+    row.corporationNationality ??
+    latestAppFormData.corporationNationality ??
+    undefined
+  ) as BusinessInfo["corporationNationality"];
+
+  const rawBusinessStreetAddress = (
+    latestAppFormData.businessStreetAddress ||
+    latestAppFormData.streetAddress ||
+    ""
+  ).trim();
+  const rawBusinessBarangay = (
+    row.location?.barangay ||
+    latestAppFormData.businessBarangay ||
+    latestAppFormData.barangay ||
+    ""
+  ).trim();
+
+  const legacyParts = (row.businessAddress ?? "")
+    .split(",")
+    .map((part: string) => part.trim())
+    .filter(Boolean);
+  const inferredStreet = rawBusinessStreetAddress || (legacyParts.length > 0 ? legacyParts[0] ?? "" : "");
+  const inferredBarangay = rawBusinessBarangay || (legacyParts.length >= 5 ? (legacyParts[1] ?? "").replace(/^barangay\s+/i, "") : "");
+
+  return {
+    businessType: row.businessType as BusinessInfo["businessType"],
+    registrationNumber: row.registrationNumber,
+    paymentFrequency: "ANNUAL",
+    tin: tinFromDb(row.tin),
+    businessName: row.businessName,
+    tradeName: row.tradeName,
+    ownerName: row.ownerName,
+    ownerFirstName: row.ownerFirstName ?? latestAppFormData.ownerFirstName ?? "",
+    ownerMiddleName: row.ownerMiddleName ?? latestAppFormData.ownerMiddleName ?? "",
+    ownerSurname: row.ownerLastName ?? latestAppFormData.ownerSurname ?? "",
+    ownerSuffix: row.ownerSuffix ?? latestAppFormData.ownerSuffix ?? "",
+    sex: row.sex ?? latestAppFormData.sex ?? "",
+    nationality: row.nationality,
+    corporationNationality,
+    email: row.email,
+    phone: row.phone,
+    mainOfficeAddress: row.mainOfficeAddress,
+    businessAddress: row.businessAddress,
+    businessStreetAddress: inferredStreet,
+    businessBarangay: inferredBarangay,
+    streetAddress: inferredStreet,
+    barangay: inferredBarangay,
+    businessLatitude:
+      row.location?.latitude ??
+      (typeof latestAppFormData.businessLatitude === "number" ? latestAppFormData.businessLatitude : null),
+    businessLongitude:
+      row.location?.longitude ??
+      (typeof latestAppFormData.businessLongitude === "number" ? latestAppFormData.businessLongitude : null),
+    sameAsMainOffice: row.sameAsMainOffice,
+    businessArea: optionalDecimalFromDb(row.businessArea),
+    totalFloorArea: optionalDecimalFromDb(row.totalFloorArea),
+    totalEmployees: optionalIntFromDb(row.totalEmployees),
+    maleEmployees: optionalIntFromDb(row.maleEmployees),
+    femaleEmployees: optionalIntFromDb(row.femaleEmployees),
+    employeesWithinMunicipality: optionalIntFromDb(row.employeesWithinMunicipality),
+    deliveryVehicles: optionalIntFromDb(row.deliveryVehicles),
+    propertyOwnership: (row.propertyOwnership as BusinessInfo["propertyOwnership"]) ?? "Owned",
+    taxDeclarationNumber: row.taxDeclarationNumber ?? "",
+    propertyIdentificationNumber: row.propertyIdentificationNumber ?? "",
+    paymentReceiptFileName: (row as any).paymentReceiptFileName ?? "",
+    taxIncentives: row.taxIncentives ?? "",
+    businessActivity: row.businessActivity ?? "",
+    lineOfBusiness: row.lineOfBusiness ?? "",
+    assetSize: optionalDecimalFromDb(row.assetSize),
+    isMarket: Boolean(row.isMarket),
+    isAgriculture: Boolean(row.isAgriculture),
+    isLiquorOrTobacco: Boolean((row as any).isLiquorOrTobacco),
+  };
+}
+
 async function loadRenewalBusinessSnapshot(applicantId: string, businessRecordId: string): Promise<BusinessSnapshot | null> {
   const row: any = await prisma.businessRecord.findFirst({
     where: {
@@ -185,6 +263,8 @@ async function loadRenewalBusinessSnapshot(applicantId: string, businessRecordId
           status: true,
           latitude: true,
           longitude: true,
+          barangay: true,
+          address: true,
         },
       },
       applications: {
@@ -195,7 +275,12 @@ async function loadRenewalBusinessSnapshot(applicantId: string, businessRecordId
         },
         select: {
           status: true,
+          formData: true,
         },
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: 1,
       },
       inspections: {
         select: {
@@ -226,41 +311,7 @@ async function loadRenewalBusinessSnapshot(applicantId: string, businessRecordId
     location: row.location,
     applications: row.applications,
     inspections: row.inspections,
-    businessInfo: {
-      businessType: row.businessType as BusinessInfo["businessType"],
-      registrationNumber: row.registrationNumber,
-      paymentFrequency: "ANNUAL",
-      tin: tinFromDb(row.tin),
-      businessName: row.businessName,
-      tradeName: row.tradeName,
-      ownerName: row.ownerName,
-      nationality: row.nationality,
-      email: row.email,
-      phone: row.phone,
-      mainOfficeAddress: row.mainOfficeAddress,
-      businessAddress: row.businessAddress,
-      businessLatitude: row.location?.latitude ?? null,
-      businessLongitude: row.location?.longitude ?? null,
-      sameAsMainOffice: row.sameAsMainOffice,
-      businessArea: optionalDecimalFromDb(row.businessArea),
-      totalFloorArea: optionalDecimalFromDb(row.totalFloorArea),
-      totalEmployees: optionalIntFromDb(row.totalEmployees),
-      maleEmployees: optionalIntFromDb(row.maleEmployees),
-      femaleEmployees: optionalIntFromDb(row.femaleEmployees),
-      employeesWithinMunicipality: optionalIntFromDb(row.employeesWithinMunicipality),
-      deliveryVehicles: optionalIntFromDb(row.deliveryVehicles),
-      propertyOwnership: (row.propertyOwnership as BusinessInfo["propertyOwnership"]) ?? "Owned",
-      taxDeclarationNumber: row.taxDeclarationNumber ?? "",
-      propertyIdentificationNumber: row.propertyIdentificationNumber ?? "",
-      paymentReceiptFileName: (row as any).paymentReceiptFileName ?? "",
-      taxIncentives: row.taxIncentives ?? "",
-      businessActivity: row.businessActivity ?? "",
-      lineOfBusiness: row.lineOfBusiness ?? "",
-      assetSize: optionalDecimalFromDb(row.assetSize),
-      isMarket: Boolean(row.isMarket),
-      isAgriculture: Boolean(row.isAgriculture),
-      isLiquorOrTobacco: Boolean((row as any).isLiquorOrTobacco),
-    },
+    businessInfo: extractRenewalBusinessInfo(row),
   };
 }
 
@@ -295,6 +346,8 @@ export async function listRenewalEligibleBusinesses(applicantId: string): Promis
           status: true,
           latitude: true,
           longitude: true,
+          barangay: true,
+          address: true,
         },
       },
       applications: {
@@ -305,7 +358,12 @@ export async function listRenewalEligibleBusinesses(applicantId: string): Promis
         },
         select: {
           status: true,
+          formData: true,
         },
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: 1,
       },
       inspections: {
         select: {
@@ -338,46 +396,7 @@ export async function listRenewalEligibleBusinesses(applicantId: string): Promis
       location: row.location,
       applications: row.applications,
       inspections: row.inspections,
-      businessInfo: {
-        businessType: row.businessType,
-        registrationNumber: row.registrationNumber,
-        paymentFrequency: "ANNUAL",
-        tin: tinFromDb(row.tin),
-        businessName: row.businessName,
-        tradeName: row.tradeName,
-        ownerName: row.ownerName,
-        ownerFirstName: row.ownerFirstName ?? "",
-        ownerMiddleName: row.ownerMiddleName ?? "",
-        ownerSurname: row.ownerLastName ?? "",
-        ownerSuffix: row.ownerSuffix ?? "",
-        sex: row.sex ?? "",
-        nationality: row.nationality,
-        email: row.email,
-        phone: row.phone,
-        mainOfficeAddress: row.mainOfficeAddress,
-        businessAddress: row.businessAddress,
-        businessLatitude: row.location?.latitude ?? null,
-        businessLongitude: row.location?.longitude ?? null,
-        sameAsMainOffice: row.sameAsMainOffice,
-        businessArea: optionalDecimalFromDb(row.businessArea),
-        totalFloorArea: optionalDecimalFromDb(row.totalFloorArea),
-        totalEmployees: optionalIntFromDb(row.totalEmployees),
-        maleEmployees: optionalIntFromDb(row.maleEmployees),
-        femaleEmployees: optionalIntFromDb(row.femaleEmployees),
-        employeesWithinMunicipality: optionalIntFromDb(row.employeesWithinMunicipality),
-        deliveryVehicles: optionalIntFromDb(row.deliveryVehicles),
-        propertyOwnership: row.propertyOwnership ?? "Owned",
-        taxDeclarationNumber: row.taxDeclarationNumber ?? "",
-        propertyIdentificationNumber: row.propertyIdentificationNumber ?? "",
-        paymentReceiptFileName: (row as any).paymentReceiptFileName ?? "",
-        taxIncentives: row.taxIncentives ?? "",
-        businessActivity: row.businessActivity ?? "",
-        lineOfBusiness: row.lineOfBusiness ?? "",
-        assetSize: optionalDecimalFromDb(row.assetSize),
-        isMarket: Boolean(row.isMarket),
-        isAgriculture: Boolean(row.isAgriculture),
-        isLiquorOrTobacco: Boolean(row.isLiquorOrTobacco),
-      },
+      businessInfo: extractRenewalBusinessInfo(row),
     };
 
     return {

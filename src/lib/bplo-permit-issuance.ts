@@ -161,7 +161,14 @@ function resolvePermitExpirationDateForRelease(
   }
 
   const issuanceDate = issuedAt ?? new Date();
-  return new Date(Date.UTC(issuanceDate.getUTCFullYear(), 11, 31, 23, 59, 59, 999));
+  const issuanceYear = issuanceDate.getUTCFullYear();
+
+  // For RENEWAL applications: the renewed permit is valid for the NEXT calendar year.
+  // e.g. a renewal issued/processed in 2026 → valid until Dec 31, 2027.
+  // For NEW applications: valid until Dec 31 of the current (issuance) year.
+  const expiryYear = applicationType === "RENEWAL" ? issuanceYear + 1 : issuanceYear;
+
+  return new Date(Date.UTC(expiryYear, 11, 31, 23, 59, 59, 999));
 }
 
 const PERMIT_NUMBER_YEAR_SEQ_REGEX = /^(\d{4})-(\d{6})$/;
@@ -379,7 +386,7 @@ export async function getPermitIssuanceDetail(applicationId: string): Promise<Pe
     where: { businessApplicationId: applicationId },
     include: {
       applicant: { select: { name: true, email: true } },
-      businessRecord: { select: { businessName: true } },
+      businessRecord: { select: { businessName: true, permitExpirationDate: true } },
       feeAssessment: {
         select: {
           assessmentNumber: true,
@@ -463,12 +470,20 @@ export async function getPermitIssuanceDetail(applicationId: string): Promise<Pe
       documentType: (app.permitIssuance?.documentType as IssuanceDocumentType | undefined) ?? null,
       documentNumber: app.permitIssuance?.documentNumber ?? null,
       issueDate: dateIsoOrNull(app.permitIssuance?.issuedAt),
-      validityPeriod:
-        app.applicationType === "CLOSURE"
-          ? null
-          : app.permitIssuance?.issuedAt
-            ? `Valid until December 31, ${new Date(app.permitIssuance.issuedAt).getFullYear()}`
-            : null,
+      validityPeriod: (() => {
+        if (app.applicationType === "CLOSURE") return null;
+        if (app.status === "RELEASED" && app.businessRecord?.permitExpirationDate) {
+          return `Valid until December 31, ${new Date(app.businessRecord.permitExpirationDate).getUTCFullYear()}`;
+        }
+        if (app.permitIssuance?.issuedAt) {
+          const expiration = resolvePermitExpirationDateForRelease(
+            app.applicationType as ApplicationType,
+            app.permitIssuance.issuedAt
+          );
+          return expiration ? `Valid until December 31, ${expiration.getUTCFullYear()}` : null;
+        }
+        return null;
+      })(),
       preparedBy: app.permitIssuance?.preparedBy?.name ?? null,
       releasedDate: dateIsoOrNull(app.permitIssuance?.releasedAt),
       releasedBy: app.permitIssuance?.releasedBy?.name ?? null,

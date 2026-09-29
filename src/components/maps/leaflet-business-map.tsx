@@ -33,9 +33,65 @@ interface LeafletBusinessMapProps {
   className?: string;
   useEbMagalonaBounds?: boolean;
   markerVariant?: "default" | "emoji";
+  showRecenterButton?: boolean;
+  recenterKey?: number | string;
+  onRecenter?: () => void;
 }
 
+function RecenterMapControl({
+  center,
+  zoom,
+  recenterKey,
+  onRecenter,
+}: {
+  center: [number, number];
+  zoom: number;
+  recenterKey?: number | string;
+  onRecenter?: () => void;
+}) {
+  const map = useMap();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const prevKeyRef = useRef(recenterKey);
 
+  useEffect(() => {
+    if (containerRef.current) {
+      L.DomEvent.disableClickPropagation(containerRef.current);
+      L.DomEvent.disableScrollPropagation(containerRef.current);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (recenterKey !== undefined && recenterKey !== prevKeyRef.current) {
+      prevKeyRef.current = recenterKey;
+      map.setView(center, zoom, { animate: true });
+    }
+  }, [map, center, zoom, recenterKey]);
+
+  const handleCenter = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    map.setView(center, zoom, { animate: true });
+    onRecenter?.();
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      className="leaflet-top leaflet-right"
+      style={{ pointerEvents: "auto", margin: "10px", zIndex: 1000 }}
+    >
+      <button
+        type="button"
+        onClick={handleCenter}
+        title="Reset map view and center on EB Magalona"
+        className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white/95 px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-md backdrop-blur-xs hover:bg-slate-100 hover:text-slate-950 active:scale-95 transition-all cursor-pointer"
+      >
+        <span className="text-sm">🎯</span>
+        <span>Recenter Map</span>
+      </button>
+    </div>
+  );
+}
 
 function MapClickHandler({
   onSelectPosition,
@@ -106,17 +162,13 @@ export function LeafletBusinessMap({
   selectedPosition,
   onSelectPosition,
   selectedLabel = "Selected business location",
-  className = "h-[clamp(320px,55vh,520px)] w-full overflow-hidden rounded-2xl border border-slate-200/90 shadow-[0_18px_45px_-28px_rgba(15,23,42,0.35)]",
+  className = "h-[clamp(440px,65vh,640px)] w-full overflow-hidden rounded-2xl border border-slate-200/90 shadow-[0_18px_45px_-28px_rgba(15,23,42,0.35)]",
   useEbMagalonaBounds = false,
   markerVariant = "default",
+  showRecenterButton = true,
+  recenterKey,
+  onRecenter,
 }: LeafletBusinessMapProps) {
-  const maxBounds: [[number, number], [number, number]] | undefined = useEbMagalonaBounds
-    ? [
-        [EB_MAGALONA_BOUNDS.southWest.latitude, EB_MAGALONA_BOUNDS.southWest.longitude],
-        [EB_MAGALONA_BOUNDS.northEast.latitude, EB_MAGALONA_BOUNDS.northEast.longitude],
-      ]
-    : undefined;
-
   return (
     <div className={`leaflet-map-shell ${className}`}>
     <MapContainer
@@ -124,9 +176,11 @@ export function LeafletBusinessMap({
       zoom={zoom}
       className="h-full w-full"
       scrollWheelZoom={false}
-      maxBounds={maxBounds}
-      maxBoundsViscosity={useEbMagalonaBounds ? 0.85 : 0}
-      minZoom={useEbMagalonaBounds ? 11 : 1}
+      dragging={true}
+      touchZoom={true}
+      doubleClickZoom={true}
+      minZoom={9}
+      maxZoom={18}
     >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -134,7 +188,15 @@ export function LeafletBusinessMap({
       />
 
       <MapClickHandler onSelectPosition={onSelectPosition} />
-      <MapRecenter selectedPosition={selectedPosition} shouldAlwaysCenter={useEbMagalonaBounds} />
+      <MapRecenter selectedPosition={selectedPosition} shouldAlwaysCenter={false} />
+      {showRecenterButton !== false && (
+        <RecenterMapControl
+          center={center}
+          zoom={zoom}
+          recenterKey={recenterKey}
+          onRecenter={onRecenter}
+        />
+      )}
 
       {markers.map((marker) => (
         <CircleMarker
@@ -148,8 +210,15 @@ export function LeafletBusinessMap({
             weight: 2,
           }}
         >
-          <Popup className="leaflet-business-map-popup">
-            <div className="min-w-[240px] space-y-3 text-sm">
+          <Popup
+            className="leaflet-business-map-popup"
+            autoPan={true}
+            autoPanPadding={[40, 40]}
+            autoPanPaddingTopLeft={[40, 40]}
+            autoPanPaddingBottomRight={[40, 40]}
+            maxHeight={320}
+          >
+            <div className="min-w-[240px] max-w-[320px] max-h-[320px] overflow-y-auto pr-1 space-y-3 text-sm">
               <div className="space-y-1.5">
                 <p className="text-base font-semibold tracking-tight text-slate-900">{marker.title}</p>
                 {marker.subtitle ? (
@@ -157,6 +226,11 @@ export function LeafletBusinessMap({
                 ) : null}
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                {marker.status === "REVOKED" || marker.mapMarkerColor === "#ef4444" ? (
+                  <span className="inline-flex rounded-full border border-red-500 bg-red-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-red-700">
+                    Revoked / Restricted
+                  </span>
+                ) : null}
                 {typeLabel(marker.applicationType) ? (
                   <span
                     className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${typeTone(
@@ -243,21 +317,36 @@ export function LeafletBusinessMap({
                   : undefined
               }
             >
-          <Popup className="leaflet-business-map-popup">
-            <div className="min-w-[240px] space-y-3 text-sm">
+          <Popup
+            className="leaflet-business-map-popup"
+            autoPan={true}
+            autoPanPadding={[40, 40]}
+            autoPanPaddingTopLeft={[40, 40]}
+            autoPanPaddingBottomRight={[40, 40]}
+            maxHeight={320}
+          >
+            <div className="min-w-[240px] max-w-[320px] max-h-[320px] overflow-y-auto pr-1 space-y-3 text-sm">
               <div className="space-y-1.5">
                 <p className="text-base font-semibold tracking-tight text-slate-900">{selectedLabel}</p>
                 <p className="text-sm leading-5 text-slate-600">
-                  Click map or drag marker to set exact business location pin.
+                  {onSelectPosition
+                    ? "Click map or drag marker to set exact business location pin."
+                    : "Pinned business location from original record (View-Only)."}
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="inline-flex rounded-full border border-[var(--border-color)] bg-[var(--danger-soft)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--danger)]">
                   Selected Pin
                 </span>
-                <span className="inline-flex rounded-full border border-[var(--border-color)] bg-[var(--success-soft)] px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-[var(--success)]">
-                  Ready to Save
-                </span>
+                {onSelectPosition ? (
+                  <span className="inline-flex rounded-full border border-[var(--border-color)] bg-[var(--success-soft)] px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-[var(--success)]">
+                    Ready to Save
+                  </span>
+                ) : (
+                  <span className="inline-flex rounded-full border border-[var(--border-color)] bg-[var(--muted-surface)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--ink-muted)]">
+                    Locked
+                  </span>
+                )}
               </div>
               <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--muted-surface)] px-3 py-2 text-xs text-[var(--ink-muted)]">
                 <p className="font-semibold uppercase tracking-[0.18em] text-[var(--ink-muted)]">Coordinates</p>
