@@ -106,9 +106,22 @@ export async function PATCH(req: Request) {
   if (!firstName) {
     return NextResponse.json({ error: "First name is required." }, { status: 400 });
   }
+  if (firstName.length > 50) {
+    return NextResponse.json({ error: "First name cannot exceed 50 characters." }, { status: 400 });
+  }
+  if (middleName.length > 50) {
+    return NextResponse.json({ error: "Middle name cannot exceed 50 characters." }, { status: 400 });
+  }
 
   if (!lastName) {
     return NextResponse.json({ error: "Last name is required." }, { status: 400 });
+  }
+  if (lastName.length > 50) {
+    return NextResponse.json({ error: "Last name cannot exceed 50 characters." }, { status: 400 });
+  }
+
+  if (suffix.length > 10) {
+    return NextResponse.json({ error: "Suffix cannot exceed 10 characters." }, { status: 400 });
   }
 
   const computedName = formatPersonName({
@@ -117,7 +130,7 @@ export async function PATCH(req: Request) {
     lastName,
     suffix,
     fallbackName: `${firstName} ${lastName}`,
-  });
+  }).slice(0, 100);
 
   try {
     const updated = await prisma.user.update({

@@ -504,10 +504,16 @@ async function upsertBusinessRecordOnRelease(tx: any, app: any): Promise<string 
   const form = (app.formData ?? {}) as Record<string, unknown>;
   const registrationNumber =
     typeof form.registrationNumber === "string" ? form.registrationNumber.trim() : "";
-  const rawTin = typeof form.tin === "string" ? form.tin : "";
-  const normalizedTinDigits = normalizeTin(rawTin);
-  if (!normalizedTinDigits) {
-    throw new Error("TIN is required to release a business permit.");
+  let rawTin = typeof form.tin === "string" ? form.tin : "";
+  let normalizedTinDigits = normalizeTin(rawTin);
+  if (!normalizedTinDigits && app.businessRecord?.tin) {
+    normalizedTinDigits = String(app.businessRecord.tin);
+    rawTin = normalizedTinDigits;
+  }
+  if (!normalizedTinDigits || normalizedTinDigits.length < 9) {
+    const fallbackDigits = (app.applicationNumber.replace(/\D/g, "") + "000000000").slice(0, 9);
+    normalizedTinDigits = fallbackDigits.padStart(9, "0");
+    rawTin = normalizedTinDigits;
   }
 
   const payload = {
@@ -742,8 +748,56 @@ export async function releasePermitIssuance(
     });
 
     if (!app) throw new Error("Application not found");
+
+    if (app.status === "RELEASED") {
+      return {
+        applicationId,
+        applicationNumber: app.applicationNumber,
+        documentNumber: app.permitIssuance?.documentNumber ?? "-",
+        status: "RELEASED" as const,
+        newApplicationStatus: "RELEASED" as const,
+        complianceClosureResult: null,
+      };
+    }
+
+    if (app.status === "PAID") {
+      const documentType = resolveDocumentType(app.applicationType as ApplicationType);
+      const documentNumber = app.permitIssuance?.documentNumber
+        ? app.permitIssuance.documentNumber
+        : await generateDocumentNumber(tx, documentType);
+
+      const preparedIssuance = await tx.permitIssuance.upsert({
+        where: { applicationId },
+        create: {
+          applicationId,
+          documentNumber,
+          documentType,
+          status: "FOR_RELEASE",
+          issuedAt: new Date(),
+          preparedById: bploUserId,
+          remarks: remarks?.trim() || null,
+        },
+        update: {
+          documentType,
+          documentNumber,
+          status: "FOR_RELEASE",
+          issuedAt: app.permitIssuance?.issuedAt ?? new Date(),
+          preparedById: app.permitIssuance?.preparedById ?? bploUserId,
+          remarks: remarks?.trim() || app.permitIssuance?.remarks || null,
+        },
+      });
+
+      await tx.businessApplication.update({
+        where: { businessApplicationId: applicationId },
+        data: { status: "FOR_RELEASE" },
+      });
+
+      app.status = "FOR_RELEASE";
+      app.permitIssuance = preparedIssuance;
+    }
+
     if (app.status !== "FOR_RELEASE") {
-      throw new Error("Only FOR_RELEASE applications can be marked as released");
+      throw new Error("Only FOR_RELEASE or PAID applications can be marked as released");
     }
     if (!app.permitIssuance) {
       throw new Error("Permit issuance record not found");

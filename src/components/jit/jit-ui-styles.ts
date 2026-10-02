@@ -1,6 +1,6 @@
 /** Shared JIT portal presentational classes (Batch 8E). */
 
-export const jitFormControlClass = "w-full text-sm";
+export const jitFormControlClass = "w-full text-base sm:text-sm";
 
 export const jitSummaryTileClass =
   "rounded-[var(--radius-card)] border border-[var(--border-color)] bg-[var(--muted-surface)] p-3.5 sm:p-4";

@@ -21,6 +21,7 @@ import {
   superadminTableClass,
 } from "@/components/superadmin/superadmin-ui-styles";
 
+import { FIXED_FEE_CLASSIFICATION } from "@/lib/fee-constants";
 
 type Flash = { type: "success" | "danger" | "info"; message: string } | null;
 
@@ -154,6 +155,9 @@ export function SuperAdminFeeSettingsManager() {
     classification: "",
     amount: "",
   });
+  const [sizeMode, setSizeMode] = useState<"DEFAULT" | "INDIVIDUAL">("DEFAULT");
+  const [batchFees, setBatchFees] = useState<Record<string, string>>({});
+  const [isSavingBatch, setIsSavingBatch] = useState(false);
 
   const [feePage, setFeePage] = useState(1);
   const [feePageSize, setFeePageSize] = useState<PaginationPageSize>(25);
@@ -264,6 +268,27 @@ export function SuperAdminFeeSettingsManager() {
 
   const classificationOptions = selectedCategory?.classifications ?? [];
 
+  const isFixedFeeCategory = useMemo(() => {
+    return (
+      classificationOptions.length === 1 &&
+      classificationOptions[0] === FIXED_FEE_CLASSIFICATION
+    );
+  }, [classificationOptions]);
+
+  const isDefaultSizeMode = sizeMode === "DEFAULT" && !isFixedFeeCategory;
+
+  useEffect(() => {
+    if (!selectedCategory) return;
+    const next: Record<string, string> = {};
+    for (const c of selectedCategory.classifications) {
+      const existing = feeItems.find(
+        (item) => item.category === selectedCategory.key && item.classification === c
+      );
+      next[c] = existing ? String(existing.amount) : "";
+    }
+    setBatchFees(next);
+  }, [selectedCategory?.key, feeItems]);
+
   const feePagination = useMemo(() => {
     const totalCount = feeItems.length;
     const totalPages = totalCount === 0 ? 1 : Math.ceil(totalCount / feePageSize);
@@ -366,6 +391,73 @@ export function SuperAdminFeeSettingsManager() {
       await loadSettings();
     } catch {
       setFlash({ type: "danger", message: "Failed to save fee table entry." });
+    }
+  }
+
+  async function handleSaveAllBatch() {
+    setFlash(null);
+
+    if (!feeForm.category) {
+      setFlash({ type: "danger", message: "Business category is required." });
+      return;
+    }
+
+    if (classificationOptions.length === 0) {
+      setFlash({ type: "danger", message: "No size classifications available for this category." });
+      return;
+    }
+
+    for (const classification of classificationOptions) {
+      const rawVal = batchFees[classification];
+      if (rawVal === undefined || rawVal === null || rawVal.trim() === "") {
+        setFlash({
+          type: "danger",
+          message: `Fee is required for size classification "${classification}".`,
+        });
+        return;
+      }
+
+      const numVal = Number(rawVal);
+      if (Number.isNaN(numVal) || numVal < 0) {
+        setFlash({
+          type: "danger",
+          message: `Invalid fee for "${classification}". Fee amount must be a non-negative number.`,
+        });
+        return;
+      }
+    }
+
+    const items = classificationOptions.map((classification) => ({
+      classification,
+      amount: Number(batchFees[classification]),
+    }));
+
+    setIsSavingBatch(true);
+    try {
+      const res = await fetch("/api/superadmin/settings/fees", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          category: feeForm.category,
+          items,
+        }),
+      });
+
+      const json = (await res.json()) as { error?: string; message?: string };
+      if (!res.ok) {
+        setFlash({ type: "danger", message: json.error ?? "Failed to save fee entries." });
+        return;
+      }
+
+      setFlash({
+        type: "success",
+        message: json.message ?? "All size classification fees were saved successfully.",
+      });
+      await loadSettings();
+    } catch {
+      setFlash({ type: "danger", message: "Failed to save fee entries." });
+    } finally {
+      setIsSavingBatch(false);
     }
   }
 
@@ -791,7 +883,17 @@ export function SuperAdminFeeSettingsManager() {
           </form>
         ) : null}
 
-        <form className={`grid gap-3 ${superadminFormPanelClass} md:grid-cols-2 xl:grid-cols-5`} onSubmit={saveFeeItem}>
+        <form
+          className={`grid gap-3 ${superadminFormPanelClass} md:grid-cols-2 xl:grid-cols-5`}
+          onSubmit={(e) => {
+            if (isDefaultSizeMode) {
+              e.preventDefault();
+              void handleSaveAllBatch();
+            } else {
+              void saveFeeItem(e);
+            }
+          }}
+        >
           <FormField label="Business Category" required>
             <select
               value={feeForm.category}
@@ -808,46 +910,137 @@ export function SuperAdminFeeSettingsManager() {
             </select>
           </FormField>
 
-          <FormField label="Size Classification" required hint="Only classifications supported by the selected category can be used.">
+          <FormField
+            label="Size Mode"
+            hint={
+              isFixedFeeCategory
+                ? "This category uses a single fixed fee."
+                : "Default Size Mode loads all size classifications to save in one form."
+            }
+          >
             <select
-              value={feeForm.classification}
-              onChange={(e) => setFeeForm((prev) => ({ ...prev, classification: e.target.value }))}
+              value={isFixedFeeCategory ? "INDIVIDUAL" : sizeMode}
+              disabled={isFixedFeeCategory}
+              onChange={(e) => setSizeMode(e.target.value as "DEFAULT" | "INDIVIDUAL")}
               className={superadminFormControlClass}
+              aria-label="Size Mode"
             >
-              {classificationOptions.length === 0 ? <option value="">No classifications available</option> : null}
-              {classificationOptions.map((classification) => (
-                <option key={classification} value={classification}>{classification}</option>
-              ))}
+              <option value="DEFAULT">Default Size Mode</option>
+              <option value="INDIVIDUAL">Individual Classification</option>
             </select>
           </FormField>
 
-          <FormField label="Fee Amount" required>
-            <input
-              type="number"
-              min={0}
-              step="0.01"
-              aria-label="Fee Amount"
-              value={feeForm.amount}
-              onChange={(e) => setFeeForm((prev) => ({ ...prev, amount: e.target.value }))}
-              className={superadminFormControlClass}
-            />
-          </FormField>
+          {isDefaultSizeMode ? (
+            <div className="md:col-span-2 xl:col-span-5 mt-1 space-y-3">
+              <div className="overflow-x-auto rounded-lg border border-[var(--border)] bg-[var(--surface)]">
+                <table className="w-full text-left text-sm">
+                  <thead className="border-b border-[var(--border)] bg-[var(--surface-sunken)] text-xs font-semibold uppercase tracking-wider text-[var(--ink-muted)]">
+                    <tr>
+                      <th className="px-4 py-3">Size Classification</th>
+                      <th className="px-4 py-3 text-right w-64">Fee</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--border)]">
+                    {classificationOptions.map((classification) => (
+                      <tr key={classification} className="hover:bg-[var(--surface-hover)]">
+                        <td className="px-4 py-3 font-medium text-[var(--foreground)]">
+                          {classification}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="relative inline-flex items-center w-full max-w-[220px] ml-auto">
+                            <span className="pointer-events-none absolute left-3 text-[var(--ink-muted)] font-medium">₱</span>
+                            <input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              aria-label={`Fee for ${classification}`}
+                              placeholder="0.00"
+                              value={batchFees[classification] ?? ""}
+                              onChange={(e) =>
+                                setBatchFees((prev) => ({
+                                  ...prev,
+                                  [classification]: e.target.value,
+                                }))
+                              }
+                              className={`${superadminFormControlClass} pl-7 text-right`}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
-          <div className="flex flex-wrap items-end gap-2 xl:col-span-2">
-            <button type="submit" className={actionButtonStyles("primary", "sm")} disabled={isLoading}>
-              Save Fee Entry
-            </button>
-            {selectedCategory && (selectedCategory.isCustom || selectedCategory.key.startsWith("CUSTOM_")) ? (
-              <button
-                type="button"
-                className={actionButtonStyles("danger", "sm")}
-                disabled={isLoading || isDeletingCategory}
-                onClick={() => void deleteCustomCategory(selectedCategory)}
-              >
-                {isDeletingCategory ? "Deleting…" : "Delete Category"}
-              </button>
-            ) : null}
-          </div>
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                <p className="ui-caption text-[var(--ink-muted)]">
+                  Enter the fee for each size classification above. All records will be saved together in a single transaction.
+                </p>
+                <div className="flex items-center gap-2">
+                  {selectedCategory && (selectedCategory.isCustom || selectedCategory.key.startsWith("CUSTOM_")) ? (
+                    <button
+                      type="button"
+                      className={actionButtonStyles("danger", "sm")}
+                      disabled={isLoading || isDeletingCategory || isSavingBatch}
+                      onClick={() => void deleteCustomCategory(selectedCategory)}
+                    >
+                      {isDeletingCategory ? "Deleting…" : "Delete Category"}
+                    </button>
+                  ) : null}
+                  <button
+                    type="submit"
+                    className={actionButtonStyles("primary", "sm")}
+                    disabled={isLoading || isSavingBatch}
+                  >
+                    {isSavingBatch ? "Saving All…" : "Save All"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              <FormField label="Size Classification" required hint="Only classifications supported by the selected category can be used.">
+                <select
+                  value={feeForm.classification}
+                  onChange={(e) => setFeeForm((prev) => ({ ...prev, classification: e.target.value }))}
+                  className={superadminFormControlClass}
+                >
+                  {classificationOptions.length === 0 ? <option value="">No classifications available</option> : null}
+                  {classificationOptions.map((classification) => (
+                    <option key={classification} value={classification}>{classification}</option>
+                  ))}
+                </select>
+              </FormField>
+
+              <FormField label="Fee Amount" required>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  aria-label="Fee Amount"
+                  value={feeForm.amount}
+                  onChange={(e) => setFeeForm((prev) => ({ ...prev, amount: e.target.value }))}
+                  className={superadminFormControlClass}
+                />
+              </FormField>
+
+              <div className="flex flex-wrap items-end gap-2 xl:col-span-1">
+                <button type="submit" className={actionButtonStyles("primary", "sm")} disabled={isLoading}>
+                  Save Fee Entry
+                </button>
+                {selectedCategory && (selectedCategory.isCustom || selectedCategory.key.startsWith("CUSTOM_")) ? (
+                  <button
+                    type="button"
+                    className={actionButtonStyles("danger", "sm")}
+                    disabled={isLoading || isDeletingCategory}
+                    onClick={() => void deleteCustomCategory(selectedCategory)}
+                  >
+                    {isDeletingCategory ? "Deleting…" : "Delete Category"}
+                  </button>
+                ) : null}
+              </div>
+            </>
+          )}
         </form>
 
         <div className="mt-4">

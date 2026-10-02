@@ -16,8 +16,8 @@ function parseCategory(value: string | null): "ALL" | MapBusinessCategory {
     value === "SOLE_PROPRIETORSHIP" ||
     value === "PARTNERSHIP" ||
     value === "CORPORATION" ||
-    value === "COOPERATIVE" ||
-    value === "OTHER"
+    value === "ONE_PERSON_CORPORATION" ||
+    value === "COOPERATIVE"
   ) {
     return value;
   }

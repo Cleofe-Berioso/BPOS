@@ -27,6 +27,20 @@ const PAYMENT_FREQ_LABELS: Record<string, string> = {
   QUARTERLY: "Quarterly",
 };
 
+function cleanTopNumber(value: string | null | undefined): string {
+  if (!value) return "Pending TOP Number";
+  return value.replace(/\//g, "");
+}
+
+function formatDisplayDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return "-";
+  return new Date(dateStr).toLocaleDateString("en-PH", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 interface TopSummary {
   applicationId: string;
   applicationNumber: string;
@@ -337,7 +351,7 @@ export default function TaxOrderOfPaymentPage() {
       ) : (
         <div className={`space-y-4 ${loading ? "opacity-60" : ""}`}>
           <SectionCard
-            title={`TOP Records (${topData.totalCount})`}
+            title="TOP Records"
             description="Review generated TOP records and the total amount to pay for permit release."
           >
             <div className="space-y-3">
@@ -352,7 +366,7 @@ export default function TaxOrderOfPaymentPage() {
                       <div>
                         <p className="font-mono text-xs text-[var(--ink-muted)]">{record.applicationNumber}</p>
                         <p className="mt-1 text-sm font-semibold text-[var(--foreground)]">{record.businessName}</p>
-                        <p className="ui-caption">TOP: {record.topNumber ?? "Pending TOP Number"}</p>
+                        <p className="ui-caption">TOP: {cleanTopNumber(record.topNumber)}</p>
                         <p className="ui-caption">
                           Total Amount to Pay: ₱ {record.totalAmount.toLocaleString("en-PH", { minimumFractionDigits: 2 })}
                         </p>
@@ -360,7 +374,7 @@ export default function TaxOrderOfPaymentPage() {
                         <p className="ui-caption">Status: {record.status}</p>
                         {record.generatedAt ? (
                           <p className="ui-caption">
-                            Generated: {new Date(record.generatedAt).toLocaleDateString("en-PH")}
+                            Generated: {formatDisplayDate(record.generatedAt)}
                           </p>
                         ) : null}
                       </div>
@@ -446,7 +460,7 @@ export default function TaxOrderOfPaymentPage() {
                         <div>
                           <p className="font-mono text-xs text-[var(--ink-muted)]">{record.applicationNumber}</p>
                           <p className="mt-1 text-sm font-semibold text-[var(--foreground)]">{record.businessName}</p>
-                          <p className="ui-caption">{record.topNumber ?? "Pending TOP Number"}</p>
+                          <p className="ui-caption">{cleanTopNumber(record.topNumber)}</p>
                         </div>
                         <span className="ui-badge border-[var(--border-color)] bg-white text-[var(--ink-muted)]">
                           {record.applicationType}
@@ -458,7 +472,7 @@ export default function TaxOrderOfPaymentPage() {
                           Amount: ₱ {record.totalAmount.toLocaleString("en-PH", { minimumFractionDigits: 2 })}
                         </span>
                         {record.generatedAt ? (
-                          <span>Generated: {new Date(record.generatedAt).toLocaleDateString("en-PH")}</span>
+                          <span>Generated: {formatDisplayDate(record.generatedAt)}</span>
                         ) : null}
                       </div>
                     </button>
@@ -480,7 +494,7 @@ export default function TaxOrderOfPaymentPage() {
           {summary.hasTaxIncentives ? (
             <InfoBanner
               title="This applicant has a tax incentive"
-              description="A government-granted tax incentive was declared for this application. Refer to your submitted Tax Incentive Certificate/Proof if you have questions about how it applies to your assessment."
+              description="A government-granted tax incentive was declared for this application. Refer to your submitted Tax Incentive Certificate or Proof if you have questions about how it applies to your assessment."
               variant="info"
             />
           ) : null}
@@ -495,7 +509,7 @@ export default function TaxOrderOfPaymentPage() {
               ) : canRequestReassessment ? (
                 <button
                   type="button"
-                  className={actionButtonStyles("secondary", "sm")}
+                  className={`${actionButtonStyles("secondary", "sm")} w-full sm:w-auto justify-center`}
                   onClick={async () => {
                     const ok = confirm("Request re-assessment? BPLO will review your TOP before payment.");
                     if (!ok) return;
@@ -529,11 +543,11 @@ export default function TaxOrderOfPaymentPage() {
               <div className={`${applicantHighlightPanelClass} border-[var(--success)] bg-[var(--success-soft)]`}>
                 <p className={`${applicantSummaryLabelClass} text-[var(--success)]`}>TOP Number</p>
                 <p className="mt-1 font-mono text-xl font-semibold text-[var(--foreground)]">
-                  {summary.topNumber ?? "Pending TOP Number"}
+                  {cleanTopNumber(summary.topNumber)}
                 </p>
                 {summary.generatedAt ? (
                   <p className="mt-1 ui-caption">
-                    Generated: {new Date(summary.generatedAt).toLocaleDateString("en-PH")}
+                    Generated: {formatDisplayDate(summary.generatedAt)}
                   </p>
                 ) : null}
               </div>
@@ -580,7 +594,7 @@ export default function TaxOrderOfPaymentPage() {
                   </p>
                 </div>
                 <div className={applicantSummaryTileClass}>
-                  <p className={applicantSummaryLabelClass}>Payment Dues / Pending Fee</p>
+                  <p className={applicantSummaryLabelClass}>Payment Dues (Pending Fee)</p>
                   <p className="mt-1 font-medium text-[var(--foreground)]">
                     ₱ {summary.closurePaymentDues.toLocaleString("en-PH", { minimumFractionDigits: 2 })}
                   </p>
@@ -598,22 +612,22 @@ export default function TaxOrderOfPaymentPage() {
           <SectionCard title="Itemized Fees" description="These are the fee items approved in your current Tax Order of Payment.">
             <div className="space-y-3">
               {summary.lineItems.map((item) => (
-                <div key={item.id} className={`flex items-center justify-between ${applicantListCardClass} px-4 py-3 text-sm`}>
-                  <div>
-                    <p className="font-medium text-[var(--foreground)]">{item.description}</p>
-                    <p className="ui-caption">
+                <div key={item.id} className={`flex items-start sm:items-center justify-between gap-3 ${applicantListCardClass} px-4 py-3 text-sm`}>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-[var(--foreground)] break-words">{item.description}</p>
+                    <p className="ui-caption break-words">
                       {item.isSystemGenerated ? "Automatically computed by BPLO rules" : "Included in the approved TOP"}
                     </p>
                   </div>
-                  <p className="font-semibold text-[var(--foreground)]">
+                  <p className="font-semibold text-[var(--foreground)] shrink-0 text-right">
                     ₱ {item.amount.toLocaleString("en-PH", { minimumFractionDigits: 2 })}
                   </p>
                 </div>
               ))}
               {summary.closurePaymentDues > 0 ? (
-                <div className={`flex items-center justify-between ${applicantListCardClass} px-4 py-3 text-sm`}>
-                  <p className="font-medium text-[var(--foreground)]">Closure Payment Dues</p>
-                  <p className="font-semibold text-[var(--foreground)]">
+                <div className={`flex items-center justify-between gap-3 ${applicantListCardClass} px-4 py-3 text-sm`}>
+                  <p className="font-medium text-[var(--foreground)] min-w-0 flex-1 break-words">Closure Payment Dues</p>
+                  <p className="font-semibold text-[var(--foreground)] shrink-0 text-right">
                     ₱ {summary.closurePaymentDues.toLocaleString("en-PH", { minimumFractionDigits: 2 })}
                   </p>
                 </div>
@@ -658,7 +672,7 @@ export default function TaxOrderOfPaymentPage() {
                 <div className="space-y-3">
                   <div>
                     <label className="mb-1 block text-sm font-medium text-[var(--foreground)]" htmlFor="top-or-number">
-                      OR Number / Payment Reference Number
+                      OR Number (Payment Reference Number)
                       <span className="text-[var(--danger)]">*</span>
                     </label>
                     <input
@@ -672,11 +686,10 @@ export default function TaxOrderOfPaymentPage() {
                       }
                       placeholder="e.g. 1234567 (up to 7 digits)"
                     />
-                    <p className="mt-1 ui-caption">Numbers only — maximum 7 digits</p>
                   </div>
                   <div>
                     <label className="mb-1 block text-sm font-medium text-[var(--foreground)]" htmlFor="top-payment-proof">
-                      Official Receipt / Payment Proof
+                      Official Receipt (Payment Proof)
                       <span className="text-[var(--danger)]">*</span>
                     </label>
                     <input

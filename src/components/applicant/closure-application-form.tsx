@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { defaultBusinessInfo } from "@/lib/applicant-mock";
 import { FormStepper } from "@/components/applicant/form-stepper";
-import { UploadSlot } from "@/components/applicant/upload-slot";
+import { RequirementsUploadTable } from "@/components/applicant/requirements-upload-table";
 import {
   applicantErrorPanelClass,
   applicantFormControlClass,
@@ -14,7 +14,12 @@ import {
   applicantSummaryTileClass,
   applicantSummaryValueClass,
 } from "@/components/applicant/applicant-ui-styles";
-import { getMissingRequiredDocuments, resolveRequiredDocuments } from "@/lib/required-documents";
+import {
+  getDocumentRequirementDescription,
+  getMissingRequiredDocuments,
+  normalizeDocumentName,
+  resolveRequiredDocuments,
+} from "@/lib/required-documents";
 import {
   buildDocumentMaxSizeError,
   DOCUMENT_FILE_INPUT_ACCEPT,
@@ -278,6 +283,8 @@ export function ClosureApplicationForm() {
     status: string;
   } | null>(null);
 
+  const isReadOnly = Boolean(existingApplicationAccess && !existingApplicationAccess.canEdit);
+
   const isResubmission = isReturnedCorrectionResubmission({
     editId,
     applicationStatus: existingApplicationAccess?.status,
@@ -292,7 +299,15 @@ export function ClosureApplicationForm() {
     [selectedBusinessInfo]
   );
 
-  const uploadedRequiredCount = requiredDocs.filter((doc) => uploadedDocuments[doc]).length;
+  function getUploadedDocumentForRequiredName(requiredName: string): ApplicationDocumentInput | undefined {
+    return Object.values(uploadedDocuments).find(
+      (doc) => normalizeDocumentName(doc.documentName) === normalizeDocumentName(requiredName)
+    );
+  }
+
+  const uploadedRequiredCount = requiredDocs.filter((doc) =>
+    Boolean(getUploadedDocumentForRequiredName(doc))
+  ).length;
   const selectedRecord = records.find((item) => item.id === selectedBusinessId);
   const isComplianceForcedClosure = isComplianceForcedClosureRecord(selectedRecord);
   const selectedBusinessIdRef = useRef(selectedBusinessId);
@@ -754,30 +769,44 @@ export function ClosureApplicationForm() {
       ...current,
       [documentName]: nextPreviewUrl,
     }));
+    setValidationDetail((current) => {
+      if (!current) return null;
+      return {
+        ...current,
+        missingDocuments: current.missingDocuments.filter(
+          (m) => normalizeDocumentName(m) !== normalizeDocumentName(documentName)
+        ),
+      };
+    });
   }
 
   async function handleDocumentDelete(documentName: string) {
-    const doc = uploadedDocuments[documentName];
+    const uploadedDoc = getUploadedDocumentForRequiredName(documentName);
+    const docKey = uploadedDoc?.documentName ?? documentName;
+    const doc = uploadedDoc ?? uploadedDocuments[documentName];
     const hasSavedDocument = Boolean(doc?.id && applicationId);
 
     if (!hasSavedDocument) {
-      const previewUrl = pendingDocumentPreviews[documentName];
+      const previewUrl = pendingDocumentPreviews[documentName] ?? pendingDocumentPreviews[docKey];
       if (previewUrl) {
         URL.revokeObjectURL(previewUrl);
       }
       setUploadedDocuments((current) => {
         const nextState = { ...current };
         delete nextState[documentName];
+        delete nextState[docKey];
         return nextState;
       });
       setPendingDocuments((current) => {
         const nextState = { ...current };
         delete nextState[documentName];
+        delete nextState[docKey];
         return nextState;
       });
       setPendingDocumentPreviews((current) => {
         const nextState = { ...current };
         delete nextState[documentName];
+        delete nextState[docKey];
         return nextState;
       });
       return;
@@ -794,16 +823,19 @@ export function ClosureApplicationForm() {
     setUploadedDocuments((current) => {
       const nextState = { ...current };
       delete nextState[documentName];
+      delete nextState[docKey];
       return nextState;
     });
     setPendingDocuments((current) => {
       const nextState = { ...current };
       delete nextState[documentName];
+      delete nextState[docKey];
       return nextState;
     });
     setPendingDocumentPreviews((current) => {
       const nextState = { ...current };
       delete nextState[documentName];
+      delete nextState[docKey];
       return nextState;
     });
     setStatusMessage({
@@ -1031,41 +1063,50 @@ export function ClosureApplicationForm() {
 
       {step === 1 ? (
         <div className="space-y-4">
+          <div data-field-key="requiredDocuments" />
           <InfoBanner
             title={`Required documents uploaded: ${uploadedRequiredCount} of ${requiredDocs.length}`}
-            description="Upload required files now. Saving a draft keeps them so you do not need to re-upload later."
+            description="Upload each required document now. Saving a draft keeps these files so you do not need to re-upload them later."
             variant="info"
           />
           <SectionCard
-            title="Upload Requirements"
+            title="Document Upload"
             description="These documents support closure review and later settlement checking."
           >
-            <div className="grid gap-3 md:grid-cols-2">
-              {requiredDocs.map((doc) => (
-                <UploadSlot
-                  key={doc}
-                  label={doc}
-                  required
-                  helperText="Upload a clear file that supports business closure review."
-                  disabled={submitting || records.length === 0}
-                  fileName={uploadedDocuments[doc]?.fileName}
-                  uploadedAt={uploadedDocuments[doc]?.uploadedAt}
-                  previewUrl={
+            <RequirementsUploadTable
+              accept={DOCUMENT_FILE_INPUT_ACCEPT}
+              rows={requiredDocs.map((doc) => {
+                const uploadedDoc = getUploadedDocumentForRequiredName(doc);
+                const isMissing = (validationDetail?.missingDocuments ?? []).some(
+                  (m) => normalizeDocumentName(m) === normalizeDocumentName(doc)
+                );
+                return {
+                  documentName: doc,
+                  description: getDocumentRequirementDescription(doc),
+                  required: true,
+                  fileName: uploadedDoc?.fileName,
+                  uploadedAt: uploadedDoc?.uploadedAt,
+                  previewUrl:
                     pendingDocumentPreviews[doc] ??
-                    (uploadedDocuments[doc]?.id && applicationId
-                      ? `/api/applicant/applications/${applicationId}/documents/${uploadedDocuments[doc].id}/download`
-                      : undefined)
-                  }
-                  onFileChange={(file) => {
-                    void handleDocumentUpload(doc, file);
-                  }}
-                  accept={DOCUMENT_FILE_INPUT_ACCEPT}
-                  onRemove={() => {
-                    void handleDocumentDelete(doc);
-                  }}
-                />
-              ))}
-            </div>
+                    (uploadedDoc?.id && applicationId
+                      ? `/api/applicant/applications/${applicationId}/documents/${uploadedDoc.id}/download`
+                      : undefined),
+                  error: isMissing ? "This document is required." : undefined,
+                  remarks: uploadedDoc?.validationRemarks ?? undefined,
+                  validationStatus: uploadedDoc?.fileName
+                    ? uploadedDoc.validationStatus ?? "Pending Review"
+                    : undefined,
+                  disabled: submitting || records.length === 0 || isReadOnly,
+                };
+              })}
+              onFileChange={(documentName, file) => {
+                void handleDocumentUpload(documentName, file);
+              }}
+              onRemove={(documentName) => {
+                const uploadedDoc = getUploadedDocumentForRequiredName(documentName);
+                void handleDocumentDelete(uploadedDoc?.documentName ?? documentName);
+              }}
+            />
           </SectionCard>
         </div>
       ) : null}

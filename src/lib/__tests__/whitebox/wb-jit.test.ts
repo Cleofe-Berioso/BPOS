@@ -14,6 +14,12 @@ import {
   getChecklistQuestionForDepartment,
   formatChecklistItemsForReadOnlyApi,
 } from "@/lib/jit-post-audit-checklist";
+import {
+  createEmptyChecklistDraft,
+  isChecklistComplete,
+  validateChecklistDraft,
+  type ChecklistDraftState,
+} from "@/components/jit/jit-post-audit-checklist-form";
 import { getJitMapMarkerStatus, getJitMapMarkerColor } from "@/lib/jit-inspections";
 
 function fullChecklist(response: "YES" | "NO" = "YES") {
@@ -135,5 +141,48 @@ describe("WB-JIT — compliance, checklist, map markers", () => {
     expect(getJitMapMarkerColor("PENDING_INSPECTION")).toBe("#fbbf24");
     expect(getJitMapMarkerColor("COMPLIANT")).toBe("#10b981");
     expect(getJitMapMarkerColor("REVOKED")).toBe("#ef4444");
+  });
+
+  it("WB-JIT-06 checklist validation: findings and evidence required when No is selected", () => {
+    const draft = createEmptyChecklistDraft();
+    expect(isChecklistComplete(draft)).toBe(false);
+    expect(validateChecklistDraft(draft)).toMatch(/Please answer Yes or No/);
+
+    // When all items are YES, remarks and evidence are optional
+    for (const item of JIT_POST_AUDIT_CHECKLIST_ITEMS) {
+      draft[item.departmentKey] = { response: "YES", remarks: "", evidenceFile: null };
+    }
+    expect(isChecklistComplete(draft)).toBe(true);
+    expect(validateChecklistDraft(draft)).toBeNull();
+
+    // When an item is marked NO, findings and evidence become required
+    const targetDept = JIT_POST_AUDIT_CHECKLIST_ITEMS[0];
+    draft[targetDept.departmentKey] = { response: "NO", remarks: "", evidenceFile: null };
+    expect(isChecklistComplete(draft)).toBe(false);
+    expect(validateChecklistDraft(draft)).toContain(
+      `Findings and Evidence are required for ${targetDept.departmentLabel} when No is selected.`
+    );
+
+    // Provide only findings (missing evidence)
+    draft[targetDept.departmentKey].remarks = "Violation detected on site.";
+    expect(isChecklistComplete(draft)).toBe(false);
+    expect(validateChecklistDraft(draft)).toContain(
+      `Evidence is required for ${targetDept.departmentLabel} when No is selected.`
+    );
+
+    // Provide only evidence (missing findings)
+    const mockFile = new File(["dummy content"], "evidence.jpg", { type: "image/jpeg" });
+    draft[targetDept.departmentKey].remarks = "   ";
+    draft[targetDept.departmentKey].evidenceFile = mockFile;
+    expect(isChecklistComplete(draft)).toBe(false);
+    expect(validateChecklistDraft(draft)).toContain(
+      `Findings are required for ${targetDept.departmentLabel} when No is selected.`
+    );
+
+    // Provide both findings and evidence
+    draft[targetDept.departmentKey].remarks = "Actual non-compliance documented.";
+    draft[targetDept.departmentKey].evidenceFile = mockFile;
+    expect(isChecklistComplete(draft)).toBe(true);
+    expect(validateChecklistDraft(draft)).toBeNull();
   });
 });

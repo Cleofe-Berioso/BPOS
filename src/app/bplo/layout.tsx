@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { signOut } from "@/lib/auth";
 import { requireBploSession } from "@/lib/bplo-api";
 import { BploLayoutClient } from "@/components/bplo/bplo-layout-client";
@@ -5,8 +6,9 @@ import { BploLayoutClient } from "@/components/bplo/bplo-layout-client";
 export default async function BploLayout({ children }: { children: React.ReactNode }) {
   const session = await requireBploSession();
   if (!session) {
-    await signOut({ redirectTo: "/login?error=session-expired" });
-    return null;
+    // Use redirect() instead of signOut({ redirectTo }) to avoid an internal
+    // server-side self-fetch that fails in production (TypeError: fetch failed).
+    redirect("/login?error=session-expired");
   }
 
   async function handleSignOut() {

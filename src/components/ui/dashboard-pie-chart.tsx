@@ -45,7 +45,7 @@ export function DashboardPieChart({
       emptyDescription={emptyDescription}
     >
       <div className="h-full w-full min-w-0">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minHeight={160}>
           <PieChart>
             <Pie
               data={data}

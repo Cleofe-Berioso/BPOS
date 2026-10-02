@@ -27,10 +27,10 @@ export function Timeline({
           className="relative rounded-[var(--radius-card)] border border-[var(--border-color)] bg-[var(--surface)] px-3.5 py-3.5 sm:px-4"
         >
           <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 space-y-1">
-              <p className="text-sm font-semibold text-[var(--foreground)]">{item.title}</p>
+            <div className="min-w-0 flex-1 space-y-1">
+              <p className="text-sm font-semibold text-[var(--foreground)] break-words">{item.title}</p>
               {item.description ? (
-                <p className="text-sm leading-6 text-[var(--ink-muted)]">{item.description}</p>
+                <p className="text-sm leading-6 text-[var(--ink-muted)] break-words">{item.description}</p>
               ) : null}
               {item.timestamp ? <p className="ui-caption">{item.timestamp}</p> : null}
             </div>

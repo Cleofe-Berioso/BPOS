@@ -32,6 +32,8 @@ import {
   getDocumentRequirementDescription,
   normalizeDocumentName,
   resolveRequiredDocuments,
+  isClearanceDocument,
+  isDocumentSatisfyingRequirement,
 } from "@/lib/required-documents";
 import {
   buildDocumentMaxSizeError,
@@ -198,8 +200,7 @@ const STEP_REQUIRED_FIELDS: Record<number, Array<keyof BusinessInfo>> = {
     "mainOfficeAddress",
     "businessLatitude",
     "businessLongitude",
-    "businessBarangay",
-    "businessStreetAddress",
+    "businessAddress",
   ],
   1: [
     "businessArea",
@@ -830,8 +831,8 @@ export function NewApplicationForm() {
   );
 
   const getUploadedDocumentForRequiredName = (requiredName: string) =>
-    Object.values(uploadedDocuments).find(
-      (doc) => normalizeDocumentName(doc.documentName) === normalizeDocumentName(requiredName)
+    Object.values(uploadedDocuments).find((doc) =>
+      isDocumentSatisfyingRequirement(requiredName, doc.documentName)
     );
 
   const uploadedRequiredCount = requiredDocs.filter((doc) => getUploadedDocumentForRequiredName(doc)).length;
@@ -922,9 +923,12 @@ export function NewApplicationForm() {
       ownerMiddleName: next.ownerMiddleName,
       ownerSurname: next.ownerSurname,
       ownerSuffix: next.ownerSuffix,
+      businessAddress: next.businessAddress,
       businessStreetAddress: next.businessStreetAddress,
       streetAddress: next.streetAddress,
       mainOfficeStreetAddress: next.mainOfficeStreetAddress,
+      mainOfficeProvince: next.mainOfficeProvince,
+      mainOfficeCityMunicipality: next.mainOfficeCityMunicipality,
       mainOfficeBarangay: next.mainOfficeBarangay,
       barangay: next.barangay,
       lineOfBusiness: next.lineOfBusiness,
@@ -1239,8 +1243,8 @@ export function NewApplicationForm() {
         submitFieldErrors.email = "Email is required.";
       }
 
-      if (!submitBarangay) {
-        submitFieldErrors.businessBarangay = "Business Barangay is required.";
+      if (!normalizedInfo.businessAddress?.trim()) {
+        submitFieldErrors.businessAddress = "Business Address is required.";
       }
 
       if (!submitAssetSize) {
@@ -1517,32 +1521,52 @@ export function NewApplicationForm() {
       URL.revokeObjectURL(previousPreviewUrl);
     }
 
-    setPendingDocuments((current) => ({
-      ...current,
-      [documentName]: file,
-    }));
-    setPendingDocumentPreviews((current) => ({
-      ...current,
-      [documentName]: nextPreviewUrl,
-    }));
+    // If uploading a clearance or affidavit alternative, clean up any previous counterpart for the same requirement
+    const counterpartNames = Object.keys(uploadedDocuments).filter(
+      (existingName) =>
+        existingName !== documentName &&
+        requiredDocs.some(
+          (req) =>
+            isDocumentSatisfyingRequirement(req, existingName) &&
+            isDocumentSatisfyingRequirement(req, documentName)
+        )
+    );
 
-    setUploadedDocuments((current) => ({
-      ...current,
-      [documentName]: {
-        documentType: documentName,
-        documentName,
-        fileName: file.name,
-        mimeType: file.type,
-        sizeBytes: file.size,
-        fileSize: file.size,
-        validationStatus: "Pending Review",
-        validationRemarks: null,
-      },
-    }));
+    for (const cpName of counterpartNames) {
+      const prevUrl = pendingDocumentPreviews[cpName];
+      if (prevUrl) URL.revokeObjectURL(prevUrl);
+    }
+
+    setPendingDocuments((current) => {
+      const next = { ...current, [documentName]: file };
+      for (const cpName of counterpartNames) delete next[cpName];
+      return next;
+    });
+    setPendingDocumentPreviews((current) => {
+      const next = { ...current, [documentName]: nextPreviewUrl };
+      for (const cpName of counterpartNames) delete next[cpName];
+      return next;
+    });
+
+    setUploadedDocuments((current) => {
+      const next = {
+        ...current,
+        [documentName]: {
+          documentType: documentName,
+          documentName,
+          fileName: file.name,
+          mimeType: file.type,
+          sizeBytes: file.size,
+          fileSize: file.size,
+          validationStatus: "Pending Review",
+          validationRemarks: null,
+        },
+      };
+      for (const cpName of counterpartNames) delete next[cpName];
+      return next;
+    });
     setMissingDocNames((current) =>
-      current.filter(
-        (m) => normalizeDocumentName(m) !== normalizeDocumentName(documentName)
-      )
+      current.filter((m) => !isDocumentSatisfyingRequirement(m, documentName))
     );
     setStatusMessage({
       kind: "success",
@@ -2057,13 +2081,17 @@ export function NewApplicationForm() {
                 const isMissing = missingDocNames.some(
                   (m) => normalizeDocumentName(m) === normalizeDocumentName(doc)
                 );
+                const docNameKey = uploadedDoc?.documentName ?? doc;
                 return {
                   documentName: doc,
                   description: getDocumentRequirementDescription(doc),
                   required: true,
+                  isClearance: isClearanceDocument(doc),
+                  uploadedDocumentName: uploadedDoc?.documentName,
                   fileName: uploadedDoc?.fileName,
                   uploadedAt: uploadedDoc?.uploadedAt,
                   previewUrl:
+                    pendingDocumentPreviews[docNameKey] ??
                     pendingDocumentPreviews[doc] ??
                     (uploadedDoc?.id && applicationId
                       ? `/api/applicant/applications/${applicationId}/documents/${uploadedDoc.id}/download`

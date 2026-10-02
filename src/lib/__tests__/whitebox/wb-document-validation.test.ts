@@ -66,4 +66,90 @@ describe("WB-DOCVAL — document validation rules", () => {
     expect(result.ready).toBe(false);
     expect(result.blockers.some((b) => b.reason === "missing")).toBe(true);
   });
+
+  it("WB-DOCVAL-06 valid affidavit alternative satisfies clearance in evaluateRequiredDocumentsValidation", () => {
+    // For NEW application, base documents include Location Plan / Sketch, Zoning Clearance, Sanitary Clearance, etc.
+    const formData = baseBusinessInfo({
+      businessType: "Sole Proprietorship",
+      propertyOwnership: "Owned",
+    });
+
+    const result = evaluateRequiredDocumentsValidation({
+      applicationType: "NEW",
+      formData,
+      documents: [
+        { documentName: "Location Plan / Sketch", validationStatus: "VALID" },
+        // Satisfied via Affidavit alternative
+        { documentName: "Affidavit in lieu of Zoning Clearance", validationStatus: "VALID" },
+        // Satisfied via Affidavit alternative
+        { documentName: "Affidavit in lieu of Sanitary Clearance", validationStatus: "VALID" },
+        { documentName: "Environment Clearance", validationStatus: "VALID" },
+        { documentName: "Engineering Clearance/ Affidavit (Required)", validationStatus: "VALID" },
+        { documentName: "BFP Clearance", validationStatus: "VALID" },
+        { documentName: "Real Property Tax / RPT Clearance", validationStatus: "VALID" },
+        { documentName: "Assessor's Office Clearance", validationStatus: "VALID" },
+        { documentName: "WATER BILL/ Affidavit (Required)", validationStatus: "VALID" },
+        { documentName: "DTI Certificate", validationStatus: "VALID" },
+        {
+          documentName: "Transfer Certificate of Title OR Tax Declaration (Certified True Copy, 1 copy)",
+          validationStatus: "VALID",
+        },
+      ],
+    });
+
+    expect(result.ready).toBe(true);
+    expect(result.blockers).toEqual([]);
+  });
+
+  it("WB-DOCVAL-07 affidavit alternative with PENDING_REVIEW or INVALID is a blocker", () => {
+    const formData = baseBusinessInfo({
+      businessType: "Sole Proprietorship",
+      propertyOwnership: "Owned",
+    });
+
+    const result = evaluateRequiredDocumentsValidation({
+      applicationType: "NEW",
+      formData,
+      documents: [
+        { documentName: "Location Plan / Sketch", validationStatus: "VALID" },
+        {
+          documentName: "Affidavit in lieu of Zoning Clearance",
+          validationStatus: "PENDING_REVIEW",
+        },
+        {
+          documentName: "Affidavit in lieu of Sanitary Clearance",
+          validationStatus: "INVALID",
+          validationRemarks: "Affidavit missing notary stamp",
+        },
+        { documentName: "Environment Clearance", validationStatus: "VALID" },
+        { documentName: "Engineering Clearance/ Affidavit (Required)", validationStatus: "VALID" },
+        { documentName: "BFP Clearance", validationStatus: "VALID" },
+        { documentName: "Real Property Tax / RPT Clearance", validationStatus: "VALID" },
+        { documentName: "Assessor's Office Clearance", validationStatus: "VALID" },
+        { documentName: "WATER BILL/ Affidavit (Required)", validationStatus: "VALID" },
+        { documentName: "DTI Certificate", validationStatus: "VALID" },
+        {
+          documentName: "Transfer Certificate of Title OR Tax Declaration (Certified True Copy, 1 copy)",
+          validationStatus: "VALID",
+        },
+      ],
+    });
+
+    expect(result.ready).toBe(false);
+    expect(result.blockers.length).toBe(2);
+    expect(
+      result.blockers.some(
+        (b) => b.documentName === "Zoning Clearance" && b.validationStatus === "Pending Review"
+      )
+    ).toBe(true);
+    expect(
+      result.blockers.some(
+        (b) =>
+          b.documentName === "Sanitary Clearance" &&
+          b.validationStatus === "Invalid" &&
+          b.validationRemarks === "Affidavit missing notary stamp"
+      )
+    ).toBe(true);
+  });
 });
+

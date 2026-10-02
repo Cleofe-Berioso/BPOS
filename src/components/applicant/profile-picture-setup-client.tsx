@@ -135,7 +135,7 @@ export function ProfilePictureSetupClient() {
 
       <SectionCard title="Capture or Upload" description="Use your camera or upload a clear photo of yourself.">
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
             {!cameraActive ? (
               <button
                 type="button"
@@ -143,7 +143,7 @@ export function ProfilePictureSetupClient() {
                 onClick={() => {
                   void startCamera();
                 }}
-                className={actionButtonStyles("secondary", "sm")}
+                className={`${actionButtonStyles("secondary", "sm")} w-full sm:w-auto justify-center`}
               >
                 {cameraLoading ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Camera className="mr-1.5 h-4 w-4" />}
                 Open Camera
@@ -156,7 +156,7 @@ export function ProfilePictureSetupClient() {
                   onClick={() => {
                     void captureFromCamera();
                   }}
-                  className={actionButtonStyles("primary", "sm")}
+                  className={`${actionButtonStyles("primary", "sm")} w-full sm:w-auto justify-center`}
                 >
                   <Camera className="mr-1.5 h-4 w-4" />
                   Capture
@@ -165,7 +165,7 @@ export function ProfilePictureSetupClient() {
                   type="button"
                   disabled={submitting}
                   onClick={stopCamera}
-                  className={actionButtonStyles("secondary", "sm")}
+                  className={`${actionButtonStyles("secondary", "sm")} w-full sm:w-auto justify-center`}
                 >
                   <CameraOff className="mr-1.5 h-4 w-4" />
                   Close Camera
@@ -173,7 +173,7 @@ export function ProfilePictureSetupClient() {
               </>
             )}
 
-            <label className={actionButtonStyles("secondary", "sm")}>
+            <label className={`${actionButtonStyles("secondary", "sm")} w-full sm:w-auto justify-center`}>
               <ImagePlus className="mr-1.5 h-4 w-4" />
               Choose Image
               <input
@@ -228,7 +228,7 @@ export function ProfilePictureSetupClient() {
               onClick={() => {
                 void uploadProfileImage();
               }}
-              className={actionButtonStyles("primary", "md")}
+              className={`${actionButtonStyles("primary", "md")} w-full sm:w-auto justify-center`}
             >
               {submitting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
               Save Profile Picture

@@ -236,7 +236,7 @@ export function WhoIsWorkingSystemChart({
 
       {/* Main Chart Area */}
       <div className="h-[280px] w-full min-w-0">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minHeight={160}>
           <AreaChart
             data={data}
             margin={{ top: 15, right: 15, left: -10, bottom: 5 }}

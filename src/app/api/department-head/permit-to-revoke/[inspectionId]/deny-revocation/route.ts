@@ -13,9 +13,9 @@ export async function POST(
 
   const { inspectionId } = await params;
 
-  let payload: { remarks?: string } = {};
+  let payload: { remarks?: string; severityLevel?: string } = {};
   try {
-    payload = (await req.json()) as { remarks?: string };
+    payload = (await req.json()) as { remarks?: string; severityLevel?: string };
   } catch {
     payload = {};
   }
@@ -25,7 +25,8 @@ export async function POST(
       inspectionId,
       session.user.id,
       "DENY",
-      payload.remarks
+      payload.remarks,
+      payload.severityLevel
     );
 
     // Audit: Flagged case reviewed

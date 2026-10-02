@@ -353,10 +353,17 @@ export function buildMainOfficeAddress(parts: {
   const province = sanitize(parts.province);
   const country = sanitize(parts.country);
   const philippines = isPhilippinesCountry(country, parts.countryCode);
-  // Only produce a value when every component is present — never show a partial address.
-  if (!street || !city || !province || !country) return "";
-  const streetPart = philippines && barangay ? `${street}, ${barangay}` : street;
-  return [streetPart, city, province, country].join(", ");
+
+  if (philippines) {
+    // Only produce a value when every component is present — never show a partial address.
+    if (!street || !city || !province || !country) return "";
+    const streetPart = barangay ? `${street}, ${barangay}` : street;
+    return [streetPart, city, province, country].join(", ");
+  }
+
+  // For international addresses, street, city, and country are essential; province is included when available.
+  if (!street || !city || !country) return "";
+  return [street, city, province, country].filter(Boolean).join(", ");
 }
 
 export function buildEbMagalonaBusinessAddress(parts: {

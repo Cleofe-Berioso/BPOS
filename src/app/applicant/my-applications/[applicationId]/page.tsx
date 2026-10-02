@@ -53,15 +53,6 @@ function readFlag(formData: Record<string, unknown>, key: string) {
   return "-";
 }
 
-function formatBirthDate(value: string): string {
-  if (!value || value === "-") return "-";
-  const parsed = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T12:00:00`) : new Date(value);
-  if (Number.isNaN(parsed.getTime())) return value;
-  return new Intl.DateTimeFormat("en-PH", {
-    dateStyle: "medium",
-    timeZone: "Asia/Manila",
-  }).format(parsed);
-}
 
 function getStatusSummary(status: string): { meaning: string; nextStep: string } {
   if (status === "Draft") {
@@ -235,7 +226,7 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
       </SectionCard>
 
       <SectionCard title="Status Workflow" description="Track current workflow progression for this application.">
-        <StatusTracker status={application.status} />
+        <StatusTracker status={application.status} applicationType={application.applicationType as any} />
       </SectionCard>
 
       {application.status === "Revocation Review" ? (
@@ -293,7 +284,7 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
               variant="info"
               action={
                 <Link href="/applicant/top" className={actionButtonStyles("primary", "sm")}>
-                  View TOP / Payment
+                  View Tax Order of Payment
                 </Link>
               }
             />
@@ -301,9 +292,31 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
 
           {application.status === "For Release" ? (
             <InfoBanner
-              title="Waiting for release completion"
-              description="Your permit or closure certificate is currently in release stage. No additional submission is required right now."
+              title="Permit issued and awaiting release completion"
+              description="Your permit or closure certificate has been prepared and issued. You may view the preview while release is completed."
               variant="info"
+              action={
+                <div className="flex flex-wrap gap-2">
+                  {application.applicationType !== "CLOSURE" &&
+                  application.permitIssuance?.documentType === "BUSINESS_PERMIT" ? (
+                    <Link
+                      href={`/applicant/permits/${application.id}`}
+                      className={actionButtonStyles("primary", "sm")}
+                    >
+                      View Permit Preview
+                    </Link>
+                  ) : null}
+                  {application.applicationType === "CLOSURE" &&
+                  application.permitIssuance?.documentType === "CLOSURE_CERTIFICATE" ? (
+                    <Link
+                      href={`/applicant/closure-certificates/${application.id}`}
+                      className={actionButtonStyles("primary", "sm")}
+                    >
+                      View Certificate Preview
+                    </Link>
+                  ) : null}
+                </div>
+              }
             />
           ) : null}
 
@@ -365,8 +378,6 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
               ) : (
                 <p><strong>Owner / President:</strong> {ownerName}</p>
               )}
-              <p><strong>Age:</strong> {readText(formData, ["ownerAge"])}</p>
-              <p><strong>Birthdate:</strong> {formatBirthDate(readText(formData, ["birthDate"]))}</p>
               <p><strong>Sex:</strong> {readText(formData, ["sex"])}</p>
               <p><strong>Nationality:</strong> {readText(formData, ["nationality"])}</p>
               <p><strong>Email:</strong> {readText(formData, ["email"])}</p>
@@ -419,7 +430,7 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
                     return (
                       <a
                         href={`/api/applicant/applications/${application.id}/documents/${receiptDoc.id}/download`}
-                        className="text-[var(--primary)] underline hover:text-[var(--primary-strong)]"
+                        className="text-[var(--primary)] underline hover:text-[var(--primary-strong)] break-all"
                         target="_blank"
                         rel="noopener noreferrer"
                       >
@@ -471,10 +482,13 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
           {application.documents.map((doc: any) => {
             const validationStatus = mapDocumentValidationStatusToUi(doc.validationStatus);
             return (
-            <li key={doc.id} className={`flex flex-wrap items-center justify-between gap-2 ${applicantListCardClass} px-3 py-3`}>
-              <div>
-                <p className="font-medium text-[var(--foreground)]">
-                  {doc.documentName}: {doc.fileName}
+            <li
+              key={doc.id}
+              className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${applicantListCardClass} p-3 sm:p-3.5`}
+            >
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-[var(--foreground)] break-words [overflow-wrap:anywhere]">
+                  {doc.documentName}: <span className="font-normal text-[var(--ink-muted)]">{doc.fileName}</span>
                 </p>
                 <p className="mt-1 ui-caption">
                   Uploaded: {formatUploadTimestamp(doc.uploadedAt)}
@@ -487,15 +501,18 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
                   </span>
                 </p>
                 {doc.validationRemarks ? (
-                  <p className="mt-2 ui-caption">
+                  <p className="mt-2 ui-caption break-words">
                     <span className="font-semibold text-[var(--foreground)]">Reviewer remarks:</span> {doc.validationRemarks}
                   </p>
                 ) : null}
               </div>
-              <DocumentDownloadButton
-                url={`/api/applicant/applications/${application.id}/documents/${doc.id}/download`}
-                fileName={doc.fileName || doc.documentName || "document"}
-              />
+              <div className="shrink-0 w-full sm:w-auto">
+                <DocumentDownloadButton
+                  url={`/api/applicant/applications/${application.id}/documents/${doc.id}/download`}
+                  fileName={doc.fileName || doc.documentName || "document"}
+                  className={`${actionButtonStyles("secondary", "sm")} w-full sm:w-auto justify-center`}
+                />
+              </div>
             </li>
           );
           })}
@@ -511,12 +528,14 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
       </SectionCard>
 
       <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-        <SectionCard title="TOP / Payment" description="Current payment reference details in this application record.">
+        <SectionCard title="Tax Order of Payment" description="Current payment reference details in this application record.">
           {latestPayment ? (
             <div className="grid gap-3 md:grid-cols-2">
               <div className={applicantSummaryTileClass}>
                 <p className={applicantSummaryLabelClass}>Reference Number</p>
-                <p className={applicantSummaryValueClass}>{String(latestPayment.transactionNumber ?? "-")}</p>
+                <p className={`${applicantSummaryValueClass} break-all font-mono text-xs sm:text-sm`}>
+                  {String(latestPayment.transactionNumber ?? "-")}
+                </p>
               </div>
               <div className={applicantSummaryTileClass}>
                 <p className={applicantSummaryLabelClass}>Payment Status</p>

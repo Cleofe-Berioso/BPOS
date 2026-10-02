@@ -69,7 +69,6 @@ export default async function BploApplicationsQueuePage({ searchParams }: PagePr
       <PageHeader
         eyebrow="BPLO"
         title="Applications Queue"
-        description="Search, review, and route only review-stage applications. Assessment, payment verification, and release are handled in their own modules."
         badge={<RoleBadge roleType="BPLO" />}
       />
 

@@ -39,6 +39,8 @@ import {
   getDocumentRequirementDescription,
   normalizeDocumentName,
   resolveRequiredDocuments,
+  isClearanceDocument,
+  isDocumentSatisfyingRequirement,
 } from "@/lib/required-documents";
 import {
   buildDocumentMaxSizeError,
@@ -571,8 +573,8 @@ export function RenewalApplicationForm() {
   );
 
   const getUploadedDocumentForRequiredName = (requiredName: string) =>
-    Object.values(uploadedDocuments).find(
-      (doc) => normalizeDocumentName(doc.documentName) === normalizeDocumentName(requiredName)
+    Object.values(uploadedDocuments).find((doc) =>
+      isDocumentSatisfyingRequirement(requiredName, doc.documentName)
     );
 
   const uploadedRequiredCount = requiredRenewalDocs.filter((doc) => getUploadedDocumentForRequiredName(doc)).length;
@@ -795,11 +797,8 @@ export function RenewalApplicationForm() {
       if (requiresBarangay(normalizedInfo) && !normalizedInfo.mainOfficeBarangay?.trim()) {
         nextErrors.mainOfficeBarangay = "Barangay is required for Philippine main office addresses.";
       }
-      if (!normalizedInfo.businessBarangay?.trim()) {
-        nextErrors.businessBarangay = "Business Barangay is required.";
-      }
-      if (!normalizedInfo.businessStreetAddress?.trim()) {
-        nextErrors.businessStreetAddress = "Business Street / Purok / Building / Unit is required.";
+      if (!normalizedInfo.businessAddress?.trim()) {
+        nextErrors.businessAddress = "Business Address is required.";
       }
 
       Object.assign(nextErrors, validateFixedEbMagalonaAddress(normalizedInfo));
@@ -1145,28 +1144,61 @@ export function RenewalApplicationForm() {
       URL.revokeObjectURL(previousPreviewUrl);
     }
 
-    setPendingDocuments((current) => ({
-      ...current,
-      [documentName]: file,
-    }));
-    setPendingDocumentPreviews((current) => ({
-      ...current,
-      [documentName]: nextPreviewUrl,
-    }));
+    // If uploading a clearance or affidavit alternative, clean up any previous counterpart for the same requirement
+    const counterpartNames = Object.keys(uploadedDocuments).filter(
+      (existingName) =>
+        existingName !== documentName &&
+        requiredRenewalDocs.some(
+          (req) =>
+            isDocumentSatisfyingRequirement(req, existingName) &&
+            isDocumentSatisfyingRequirement(req, documentName)
+        )
+    );
 
-    setUploadedDocuments((current) => ({
-      ...current,
-      [documentName]: {
-        documentType: documentName,
-        documentName,
-        fileName: file.name,
-        mimeType: file.type,
-        sizeBytes: file.size,
-        fileSize: file.size,
-        validationStatus: "Pending Review",
-        validationRemarks: null,
-      },
-    }));
+    for (const cpName of counterpartNames) {
+      const prevUrl = pendingDocumentPreviews[cpName];
+      if (prevUrl) URL.revokeObjectURL(prevUrl);
+    }
+
+    setPendingDocuments((current) => {
+      const next = { ...current, [documentName]: file };
+      for (const cpName of counterpartNames) delete next[cpName];
+      return next;
+    });
+    setPendingDocumentPreviews((current) => {
+      const next = { ...current, [documentName]: nextPreviewUrl };
+      for (const cpName of counterpartNames) delete next[cpName];
+      return next;
+    });
+
+    setUploadedDocuments((current) => {
+      const next = {
+        ...current,
+        [documentName]: {
+          documentType: documentName,
+          documentName,
+          fileName: file.name,
+          mimeType: file.type,
+          sizeBytes: file.size,
+          fileSize: file.size,
+          validationStatus: "Pending Review",
+          validationRemarks: null,
+        },
+      };
+      for (const cpName of counterpartNames) delete next[cpName];
+      return next;
+    });
+
+    setValidationDetail((current) => {
+      if (!current) return null;
+      return {
+        ...current,
+        missingDocuments: current.missingDocuments.filter(
+          (m) => !isDocumentSatisfyingRequirement(m, documentName)
+        ),
+      };
+    });
+
     setStatusMessage({
       kind: "success",
       text: `${documentName} selected. It will be saved with your draft or on final submit.`,
@@ -1371,9 +1403,12 @@ export function RenewalApplicationForm() {
                   ownerMiddleName: nextInfo.ownerMiddleName,
                   ownerSurname: nextInfo.ownerSurname,
                   ownerSuffix: nextInfo.ownerSuffix,
+                  businessAddress: nextInfo.businessAddress,
                   businessStreetAddress: nextInfo.businessStreetAddress,
                   streetAddress: nextInfo.streetAddress,
                   mainOfficeStreetAddress: nextInfo.mainOfficeStreetAddress,
+                  mainOfficeProvince: nextInfo.mainOfficeProvince,
+                  mainOfficeCityMunicipality: nextInfo.mainOfficeCityMunicipality,
                   mainOfficeBarangay: nextInfo.mainOfficeBarangay,
                   barangay: nextInfo.barangay,
                   lineOfBusiness: nextInfo.lineOfBusiness,
@@ -1818,13 +1853,17 @@ export function RenewalApplicationForm() {
                 const isMissing = (validationDetail?.missingDocuments ?? []).some(
                   (m) => normalizeDocumentName(m) === normalizeDocumentName(doc)
                 );
+                const docNameKey = uploadedDoc?.documentName ?? doc;
                 return {
                   documentName: doc,
                   description: getDocumentRequirementDescription(doc),
                   required: true,
+                  isClearance: isClearanceDocument(doc),
+                  uploadedDocumentName: uploadedDoc?.documentName,
                   fileName: uploadedDoc?.fileName,
                   uploadedAt: uploadedDoc?.uploadedAt,
                   previewUrl:
+                    pendingDocumentPreviews[docNameKey] ??
                     pendingDocumentPreviews[doc] ??
                     (uploadedDoc?.id && applicationId
                       ? `/api/applicant/applications/${applicationId}/documents/${uploadedDoc.id}/download`

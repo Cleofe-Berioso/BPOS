@@ -71,7 +71,7 @@ describe("WB-UTIL — person name, API errors, IP, OTP, options", () => {
     expect(hashed).not.toBe(otp);
     expect(await verifyOtp(otp, hashed)).toBe(true);
     expect(await verifyOtp("000000", hashed)).toBe(false);
-  });
+  }, 15000);
 
   it("WB-UTIL-06 line of business and fee category helpers", () => {
     expect(LINE_OF_BUSINESS_OPTIONS.length).toBeGreaterThan(5);

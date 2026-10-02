@@ -3,7 +3,13 @@ import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 import { APPLICANT_ACCOUNT_NOT_FOUND_MESSAGE } from "@/lib/applicant-api";
 import { mapDbStatusToUi, isEditableStatus } from "@/lib/application-mappers";
-import { getMissingRequiredDocuments, resolveRequiredDocuments } from "@/lib/required-documents";
+import {
+  getMissingRequiredDocuments,
+  resolveRequiredDocuments,
+  resolveOptionalDocuments,
+  normalizeDocumentName,
+  isDocumentSatisfyingRequirement,
+} from "@/lib/required-documents";
 import { toMoneyNumber } from "@/lib/money";
 import { resolveBucketByMimeType } from "@/lib/document-storage";
 import { removeApplicantDocument, storeApplicantDocument } from "@/lib/document-storage";
@@ -238,6 +244,14 @@ function normalizeSubmitFormDataCandidate(input: BusinessInfo, applicantEmail: s
   const resolvedTotalEmployees = normalizeEmployeeCountInput(input.totalEmployees ?? "");
   const resolvedAssetSize = (input.assetSize?.trim() || input.capitalInvestment?.trim() || "").trim();
   const resolvedStreetAddress = (input.businessStreetAddress?.trim() || input.streetAddress?.trim() || "").trim();
+  const explicitBusinessAddress = input.businessAddress?.trim() ?? "";
+  const resolvedBusinessAddress =
+    explicitBusinessAddress.length > 0
+      ? explicitBusinessAddress
+      : buildEbMagalonaBusinessAddress({
+          streetAddress: resolvedStreetAddress,
+          barangay: resolvedBarangay,
+        });
 
   return normalizeBusinessInfo({
     ...input,
@@ -246,10 +260,7 @@ function normalizeSubmitFormDataCandidate(input: BusinessInfo, applicantEmail: s
     businessStreetAddress: resolvedStreetAddress,
     barangay: resolvedBarangay,
     businessBarangay: resolvedBarangay,
-    businessAddress: buildEbMagalonaBusinessAddress({
-      streetAddress: resolvedStreetAddress,
-      barangay: resolvedBarangay,
-    }),
+    businessAddress: resolvedBusinessAddress,
     totalEmployees: resolvedTotalEmployees,
     assetSize: resolvedAssetSize,
   });
@@ -946,19 +957,24 @@ async function validateSubmitPayload(
       missingFields.push(`cityMunicipality (must be ${EB_MAGALONA_CITY})`);
     }
 
+    if (!normalizedFormData.businessAddress?.trim()) {
+      missingFields.push("businessAddress");
+    }
+
     if (!normalizedFormData.streetAddress?.trim()) {
-      missingFields.push("streetAddress");
+      if (normalizedFormData.businessAddress?.trim()) {
+        normalizedFormData.streetAddress = normalizedFormData.businessAddress.trim();
+        normalizedFormData.businessStreetAddress = normalizedFormData.businessAddress.trim();
+      } else {
+        missingFields.push("businessAddress");
+      }
     }
 
     const resolvedBarangay = resolveBusinessBarangaySelection(normalizedFormData);
     normalizedFormData.barangay = resolvedBarangay;
     normalizedFormData.businessBarangay = resolvedBarangay;
 
-    if (!resolvedBarangay) {
-      missingFields.push("barangay");
-    } else if (
-      !isRecognizedEbMagalonaBarangay(resolvedBarangay)
-    ) {
+    if (resolvedBarangay && !isRecognizedEbMagalonaBarangay(resolvedBarangay)) {
       fieldErrors.barangay = "Business Barangay is not recognized. Please select from the EB Magalona barangay list.";
     }
   }
@@ -1008,15 +1024,17 @@ async function validateSubmitPayload(
     formData: normalizedFormData,
   });
 
+  const optionalSet = new Set(resolveOptionalDocuments().map((d) => normalizeDocumentName(d)));
+
   const missingDocuments = getMissingRequiredDocuments(
     requiredDocs,
     mergedDocuments.map((doc) => doc.documentName)
-  );
+  ).filter((doc) => !optionalSet.has(normalizeDocumentName(doc)));
 
   const invalidDocumentMetadata = requiredDocs
     .filter((requiredDoc) => {
-      const candidates = mergedDocuments.filter(
-        (doc) => doc.documentName.trim().toLowerCase() === requiredDoc.trim().toLowerCase()
+      const candidates = mergedDocuments.filter((doc) =>
+        isDocumentSatisfyingRequirement(requiredDoc, doc.documentName)
       );
 
       if (candidates.length === 0) return false;
@@ -1402,6 +1420,10 @@ export async function saveApplicantApplication(
   const writtenStoragePaths: string[] = [];
   const replacedStoragePaths: string[] = [];
   let createdApplicationId: string | null = null;
+  const applicationRequiredDocs = resolveRequiredDocuments({
+    applicationType: input.applicationType,
+    formData: normalizedFormData,
+  });
 
   try {
     const buildNewDocumentsByName = async (applicationId: string): Promise<Map<string, StagedSubmitDocument>> => {
@@ -1479,12 +1501,20 @@ export async function saveApplicantApplication(
           // reopening a draft does not force the applicant to re-upload documents.
           if (newDocumentsByName) {
             for (const doc of newDocumentsByName.values()) {
-              const existingDoc = await tx.applicationDocument.findFirst({
-                where: {
-                  applicationId: existing.businessApplicationId,
-                  documentName: doc.documentName,
-                },
+              const existingAppDocs = await tx.applicationDocument.findMany({
+                where: { applicationId: existing.businessApplicationId },
               });
+              const existingDoc =
+                existingAppDocs.find(
+                  (item: any) => item.documentName.toLowerCase() === doc.documentName.toLowerCase()
+                ) ||
+                existingAppDocs.find((item: any) =>
+                  applicationRequiredDocs.some(
+                    (req) =>
+                      isDocumentSatisfyingRequirement(req, item.documentName) &&
+                      isDocumentSatisfyingRequirement(req, doc.documentName)
+                  )
+                );
 
               if (existingDoc) {
                 if (existingDoc.storagePath !== doc.storagePath) {
@@ -1496,6 +1526,7 @@ export async function saveApplicantApplication(
                 await tx.applicationDocument.update({
                   where: { applicationDocumentId: existingDoc.applicationDocumentId },
                   data: {
+                    documentName: doc.documentName,
                     fileName: doc.fileName,
                     storagePath: doc.storagePath,
                     bucket: doc.bucket,
@@ -1515,6 +1546,23 @@ export async function saveApplicantApplication(
                       : {}),
                   },
                 });
+
+                // Remove any duplicate counterpart documents satisfying the same requirement
+                const duplicateCounterparts = existingAppDocs.filter(
+                  (item: any) =>
+                    item.applicationDocumentId !== existingDoc.applicationDocumentId &&
+                    applicationRequiredDocs.some(
+                      (req) =>
+                        isDocumentSatisfyingRequirement(req, item.documentName) &&
+                        isDocumentSatisfyingRequirement(req, doc.documentName)
+                    )
+                );
+                for (const dup of duplicateCounterparts) {
+                  replacedStoragePaths.push(dup.storagePath);
+                  await tx.applicationDocument.delete({
+                    where: { applicationDocumentId: dup.applicationDocumentId },
+                  });
+                }
               } else {
                 await tx.applicationDocument.create({
                   data: {

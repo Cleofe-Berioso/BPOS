@@ -30,7 +30,7 @@ function ReadOnlyField({ label, value }: { label: string; value: string | number
   return (
     <div className={jitSummaryTileClass}>
       <p className={jitSummaryLabelClass}>{label}</p>
-      <p className={jitSummaryValueClass}>{display}</p>
+      <p className={`${jitSummaryValueClass} break-words`}>{display}</p>
     </div>
   );
 }
@@ -142,30 +142,60 @@ export function JitDeclaredInputsPanels({
           {declaredInputs.documents.length === 0 ? (
             <p className="text-sm text-[var(--ink-muted)]">No uploaded documents found.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className={jitTableClass}>
-                <thead>
-                  <tr>
-                    <th>Document</th>
-                    <th>File</th>
-                    <th>Uploaded</th>
-                    <th>Preview</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {declaredInputs.documents.map((doc) => (
-                    <tr key={doc.id}>
-                      <td className="font-medium text-[var(--foreground)]">{doc.documentName}</td>
-                      <td className="text-[var(--ink-muted)]">{doc.fileName}</td>
-                      <td className="text-[var(--ink-muted)]">{new Date(doc.uploadedAt).toLocaleString("en-PH")}</td>
-                      <td>
+            <>
+              {/* Mobile card view */}
+              <div className="space-y-2.5 sm:hidden">
+                {declaredInputs.documents.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="rounded-lg border border-[var(--border-color)] bg-[var(--muted-surface)] p-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold text-[var(--foreground)] break-words">
+                          {doc.documentName}
+                        </p>
+                        <p className="mt-0.5 text-xs text-[var(--ink-muted)] break-all font-mono">
+                          {doc.fileName}
+                        </p>
+                      </div>
+                      <div className="shrink-0">
                         <DocumentPreviewButton url={`${previewBase}/${doc.id}/preview`} />
-                      </td>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-[11px] text-[var(--ink-muted)]">
+                      Uploaded: {new Date(doc.uploadedAt).toLocaleString("en-PH")}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop table view */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className={jitTableClass}>
+                  <thead>
+                    <tr>
+                      <th>Document</th>
+                      <th>File</th>
+                      <th>Uploaded</th>
+                      <th>Preview</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {declaredInputs.documents.map((doc) => (
+                      <tr key={doc.id}>
+                        <td className="font-medium text-[var(--foreground)]">{doc.documentName}</td>
+                        <td className="text-[var(--ink-muted)] break-all">{doc.fileName}</td>
+                        <td className="text-[var(--ink-muted)]">{new Date(doc.uploadedAt).toLocaleString("en-PH")}</td>
+                        <td>
+                          <DocumentPreviewButton url={`${previewBase}/${doc.id}/preview`} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </CollapsibleSection>
 
@@ -200,38 +230,77 @@ export function JitDeclaredInputsPanels({
           {declaredInputs.clearances.length === 0 ? (
             <p className="text-sm text-[var(--ink-muted)]">No mapped clearance documents for this application type.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className={jitTableClass}>
-                <thead>
-                  <tr>
-                    <th>Department</th>
-                    <th>Clearance</th>
-                    <th>Status</th>
-                    <th>Remarks</th>
-                    <th>Preview</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {declaredInputs.clearances.map((row) => (
-                    <tr key={`${row.departmentKey}-${row.clearanceLabel}`}>
-                      <td className="text-[var(--ink-muted)]">{row.departmentLabel}</td>
-                      <td className="font-medium text-[var(--foreground)]">{row.clearanceLabel}</td>
-                      <td>
+            <>
+              {/* Mobile card view */}
+              <div className="space-y-2.5 sm:hidden">
+                {declaredInputs.clearances.map((row) => (
+                  <div
+                    key={`${row.departmentKey}-${row.clearanceLabel}`}
+                    className="rounded-lg border border-[var(--border-color)] bg-[var(--muted-surface)] p-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--primary)]">
+                          {row.departmentLabel}
+                        </p>
+                        <p className="mt-0.5 text-xs font-semibold text-[var(--foreground)] break-words">
+                          {row.clearanceLabel}
+                        </p>
+                      </div>
+                      <div className="shrink-0">
                         <ValidationBadge status={row.validationStatus} />
-                      </td>
-                      <td className="text-[var(--ink-muted)]">{row.validationRemarks ?? "-"}</td>
-                      <td>
-                        {row.documentId ? (
-                          <DocumentPreviewButton url={`${previewBase}/${row.documentId}/preview`} />
-                        ) : (
-                          <span className="text-[var(--ink-muted)]">Not uploaded</span>
-                        )}
-                      </td>
+                      </div>
+                    </div>
+                    {row.validationRemarks ? (
+                      <p className="mt-1.5 text-xs text-[var(--ink-muted)] break-words">
+                        <span className="font-medium text-[var(--foreground)]">Remarks:</span> {row.validationRemarks}
+                      </p>
+                    ) : null}
+                    <div className="mt-2.5 flex justify-end border-t border-[var(--border-color)] pt-2">
+                      {row.documentId ? (
+                        <DocumentPreviewButton url={`${previewBase}/${row.documentId}/preview`} />
+                      ) : (
+                        <span className="text-xs text-[var(--ink-muted)]">Not uploaded</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop table view */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className={jitTableClass}>
+                  <thead>
+                    <tr>
+                      <th>Department</th>
+                      <th>Clearance</th>
+                      <th>Status</th>
+                      <th>Remarks</th>
+                      <th>Preview</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {declaredInputs.clearances.map((row) => (
+                      <tr key={`${row.departmentKey}-${row.clearanceLabel}`}>
+                        <td className="text-[var(--ink-muted)]">{row.departmentLabel}</td>
+                        <td className="font-medium text-[var(--foreground)]">{row.clearanceLabel}</td>
+                        <td>
+                          <ValidationBadge status={row.validationStatus} />
+                        </td>
+                        <td className="text-[var(--ink-muted)]">{row.validationRemarks ?? "-"}</td>
+                        <td>
+                          {row.documentId ? (
+                            <DocumentPreviewButton url={`${previewBase}/${row.documentId}/preview`} />
+                          ) : (
+                            <span className="text-[var(--ink-muted)]">Not uploaded</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </CollapsibleSection>
       </div>

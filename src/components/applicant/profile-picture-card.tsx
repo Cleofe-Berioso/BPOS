@@ -238,8 +238,8 @@ export function ProfilePictureCard({ userName }: ProfilePictureCardProps) {
         description="Use your camera or upload a clear photo. Save keeps the change, Discard closes the modal."
         onClose={closeModal}
         footer={
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            <button type="button" onClick={closeModal} className={actionButtonStyles("secondary", "sm")}>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2 w-full">
+            <button type="button" onClick={closeModal} className={`${actionButtonStyles("secondary", "sm")} w-full sm:w-auto justify-center`}>
               Discard
             </button>
             <button
@@ -248,7 +248,7 @@ export function ProfilePictureCard({ userName }: ProfilePictureCardProps) {
               onClick={() => {
                 void uploadProfileImage();
               }}
-              className={actionButtonStyles("primary", "sm")}
+              className={`${actionButtonStyles("primary", "sm")} w-full sm:w-auto justify-center`}
             >
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               Save Profile Picture
@@ -257,7 +257,7 @@ export function ProfilePictureCard({ userName }: ProfilePictureCardProps) {
         }
       >
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
             {!cameraActive ? (
               <button
                 type="button"
@@ -265,7 +265,7 @@ export function ProfilePictureCard({ userName }: ProfilePictureCardProps) {
                 onClick={() => {
                   void startCamera();
                 }}
-                className={actionButtonStyles("secondary", "sm")}
+                className={`${actionButtonStyles("secondary", "sm")} w-full sm:w-auto justify-center`}
               >
                 {cameraLoading ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Camera className="mr-1.5 h-4 w-4" />}
                 Open Camera
@@ -278,7 +278,7 @@ export function ProfilePictureCard({ userName }: ProfilePictureCardProps) {
                   onClick={() => {
                     void captureFromCamera();
                   }}
-                  className={actionButtonStyles("primary", "sm")}
+                  className={`${actionButtonStyles("primary", "sm")} w-full sm:w-auto justify-center`}
                 >
                   <Camera className="mr-1.5 h-4 w-4" />
                   Capture
@@ -287,7 +287,7 @@ export function ProfilePictureCard({ userName }: ProfilePictureCardProps) {
                   type="button"
                   disabled={submitting}
                   onClick={stopCamera}
-                  className={actionButtonStyles("secondary", "sm")}
+                  className={`${actionButtonStyles("secondary", "sm")} w-full sm:w-auto justify-center`}
                 >
                   <CameraOff className="mr-1.5 h-4 w-4" />
                   Close Camera
@@ -295,7 +295,7 @@ export function ProfilePictureCard({ userName }: ProfilePictureCardProps) {
               </>
             )}
 
-            <label className={actionButtonStyles("secondary", "sm")}>
+            <label className={`${actionButtonStyles("secondary", "sm")} w-full sm:w-auto justify-center`}>
               <ImagePlus className="mr-1.5 h-4 w-4" />
               Choose Image
               <input

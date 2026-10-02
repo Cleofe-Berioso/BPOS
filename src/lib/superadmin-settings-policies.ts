@@ -23,6 +23,63 @@ export function validateFeeAmount(amount: unknown): FeeAmountValidation {
   return { ok: true, amount: clampNonNegativeNumber(amount) };
 }
 
+export type BatchFeeItemParsed = {
+  classification: string;
+  amount: number;
+};
+
+export function validateBatchFeeItems(
+  items: unknown,
+  requiredClassifications?: string[]
+): SettingsPolicyResult<BatchFeeItemParsed[]> {
+  if (!Array.isArray(items) || items.length === 0) {
+    return { ok: false, error: "At least one size classification fee is required." };
+  }
+
+  const parsed: BatchFeeItemParsed[] = [];
+  const seenClassifications = new Set<string>();
+
+  for (const rawItem of items) {
+    if (!rawItem || typeof rawItem !== "object") {
+      return { ok: false, error: "Invalid fee item entry." };
+    }
+    const { classification, amount } = rawItem as Record<string, unknown>;
+    if (typeof classification !== "string" || !classification.trim()) {
+      return { ok: false, error: "Size classification is required for all entries." };
+    }
+    const trimmedClassification = classification.trim();
+    if (seenClassifications.has(trimmedClassification)) {
+      return { ok: false, error: `Duplicate classification "${trimmedClassification}" in batch.` };
+    }
+    seenClassifications.add(trimmedClassification);
+
+    if (amount === null || amount === undefined || (typeof amount === "string" && (amount as string).trim() === "")) {
+      return { ok: false, error: `Fee is required for size classification "${trimmedClassification}".` };
+    }
+
+    const numAmount = typeof amount === "number" ? amount : Number(amount);
+    const amountCheck = validateFeeAmount(numAmount);
+    if (amountCheck.ok === false) {
+      return { ok: false, error: `Invalid fee for "${trimmedClassification}". ${amountCheck.error}` };
+    }
+
+    parsed.push({
+      classification: trimmedClassification,
+      amount: amountCheck.amount,
+    });
+  }
+
+  if (requiredClassifications && requiredClassifications.length > 0) {
+    for (const req of requiredClassifications) {
+      if (!seenClassifications.has(req)) {
+        return { ok: false, error: `Fee is required for size classification "${req}".` };
+      }
+    }
+  }
+
+  return { ok: true, value: parsed };
+}
+
 export type SystemPenaltyInput = {
   renewalSurchargePercent?: unknown;
   monthlyInterestPercent?: unknown;

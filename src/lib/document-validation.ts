@@ -1,8 +1,10 @@
 import type { DocumentValidationStatus as PrismaDocumentValidationStatus } from "@prisma/client";
 import {
+  findDocumentSatisfyingRequirement,
   getMissingRequiredDocuments,
   normalizeDocumentName,
   resolveRequiredDocuments,
+  resolveOptionalDocuments,
 } from "@/lib/required-documents";
 import type { ApplicationType, BusinessInfo } from "@/lib/applicant-types";
 
@@ -109,10 +111,12 @@ export function evaluateRequiredDocumentsValidation(input: {
     input.documents.map((doc) => [normalizeDocumentName(doc.documentName), doc])
   );
 
+  const optional = new Set(resolveOptionalDocuments().map((d) => normalizeDocumentName(d)));
+
   const missing = getMissingRequiredDocuments(
     required,
     input.documents.map((doc) => doc.documentName)
-  );
+  ).filter((doc) => !optional.has(normalizeDocumentName(doc)));
 
   const blockers: DocumentValidationBlocker[] = missing.map((documentName) => ({
     documentName,
@@ -122,7 +126,8 @@ export function evaluateRequiredDocumentsValidation(input: {
   }));
 
   for (const requiredName of required) {
-    const doc = uploadedByName.get(normalizeDocumentName(requiredName));
+    if (optional.has(normalizeDocumentName(requiredName))) continue;
+    const doc = findDocumentSatisfyingRequirement(requiredName, input.documents);
     if (!doc) continue;
     if (!isDocumentApprovalReady(doc.validationStatus)) {
       blockers.push({

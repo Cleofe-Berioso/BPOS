@@ -59,7 +59,7 @@ export function DashboardStackedBarChart({
       emptyDescription={emptyDescription}
     >
       <div className="h-full w-full min-w-0">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minHeight={160}>
           <BarChart data={data} margin={{ top: 12, right: 20, left: 8, bottom: 8 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
             <XAxis dataKey={categoryKey} tick={{ fontSize: 12 }} interval="preserveStartEnd" />

@@ -349,9 +349,11 @@ export function BploDocumentPreviewList({
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <p className="text-[var(--foreground)]">
-                  <strong>{document.documentName}</strong>: {document.fileName}
-                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-[var(--foreground)]">
+                    <strong>{document.documentName}</strong>: {document.fileName}
+                  </p>
+                </div>
                 <p className="ui-caption">Uploaded: {formatDateTime(document.uploadedAt)}</p>
                 <div className="mt-1">
                   <ValidationStatusBadge status={document.validationStatus} />

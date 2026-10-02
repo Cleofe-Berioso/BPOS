@@ -328,11 +328,19 @@ export function JitNoPermitRecordClient() {
               />
             </div>
 
-            <div className="flex gap-2">
-              <button type="submit" disabled={isSubmitting} className={actionButtonStyles("primary", "sm")}>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className={`${actionButtonStyles("primary", "sm")} w-full sm:w-auto justify-center`}
+              >
                 {isSubmitting ? "Saving..." : "Save Record & Generate Notice"}
               </button>
-              <button type="button" onClick={() => setShowForm(false)} className={actionButtonStyles("secondary", "sm")}>
+              <button
+                type="button"
+                onClick={() => setShowForm(false)}
+                className={`${actionButtonStyles("secondary", "sm")} w-full sm:w-auto justify-center`}
+              >
                 Cancel
               </button>
             </div>
@@ -353,7 +361,58 @@ export function JitNoPermitRecordClient() {
         />
       ) : (
         <>
-          <div className={`overflow-x-auto ${isLoading ? "opacity-60" : ""}`}>
+          {/* Mobile Card View */}
+          <div className="space-y-3 md:hidden">
+            {records.map((rec) => (
+              <div
+                key={rec.id}
+                className="rounded-2xl border border-[var(--border-color)] bg-[var(--surface)] p-4 shadow-sm space-y-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <span className="font-mono text-xs font-semibold text-[var(--accent)]">
+                      {rec.ticketNumber}
+                    </span>
+                    <h3 className="text-base font-semibold text-[var(--foreground)] mt-0.5 truncate">
+                      {rec.businessName}
+                    </h3>
+                  </div>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[var(--warning-soft)] text-[var(--warning)] border border-[var(--warning)]/20 shrink-0">
+                    {rec.ticketStatus}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <p className="text-[var(--ink-muted)]">Witness / Attended</p>
+                    <p className="font-medium text-[var(--foreground)] mt-0.5 truncate">{rec.personAttended || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-[var(--ink-muted)]">Date Recorded</p>
+                    <p className="font-medium text-[var(--foreground)] mt-0.5">{toShortDate(rec.createdAt)}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-[var(--ink-muted)]">Line of Business</p>
+                    <p className="font-medium text-[var(--foreground)] mt-0.5">{rec.lineOfBusiness || "—"}</p>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-[var(--border-color)]">
+                  <Link
+                    href={`/jit/no-permit-record/${rec.id}/print`}
+                    target="_blank"
+                    className={`${actionButtonStyles("secondary", "sm")} w-full justify-center`}
+                  >
+                    <Printer className="h-4 w-4" />
+                    Print Notice
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop Table View */}
+          <div className={`hidden md:block overflow-x-auto ${isLoading ? "opacity-60" : ""}`}>
             <table className={jitTableClass}>
               <thead>
                 <tr>

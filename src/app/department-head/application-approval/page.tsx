@@ -611,7 +611,6 @@ export default function DepartmentHeadApplicationApprovalPage() {
                           <p><strong>Property Ownership:</strong> {readText(formData, ["propertyOwnership"])}</p>
                           <p><strong>Tax Declaration Number:</strong> {readText(formData, ["taxDeclarationNumber"])}</p>
                           <p><strong>Property Identification Number:</strong> {readText(formData, ["propertyIdentificationNumber"])}</p>
-                          <p><strong>Payment Receipt:</strong> {readText(formData, ["paymentReceiptFileName", "paymentReceipt"])}</p>
                           <p><strong>Tax Incentives:</strong> {readText(formData, ["taxIncentives"])}</p>
                           <p><strong>Market:</strong> {readFlag(formData, "isMarket")} · <strong>Agriculture:</strong> {readFlag(formData, "isAgriculture")} · <strong>Liquor/Tobacco:</strong> {readFlag(formData, "isLiquorOrTobacco")}</p>
                         </div>

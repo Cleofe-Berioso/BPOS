@@ -42,7 +42,11 @@ export const JIT_POST_AUDIT_CHECKLIST_ITEMS: JitChecklistTemplateItem[] = [
     departmentLabel: "Engineering / Building Office",
     question:
       "Does the establishment comply with the approved building, occupancy, or structural clearance issued for its declared use?",
-    relatedClearanceLabels: ["Engineering Clearance", "Engineering Office Clearance"],
+    relatedClearanceLabels: [
+      "Engineering Clearance",
+      "Engineering Office Clearance",
+      "Engineering Clearance/ Affidavit (Required)",
+    ],
   },
   {
     departmentKey: "FIRE_SAFETY",
@@ -75,6 +79,7 @@ export const JIT_POST_AUDIT_CHECKLIST_ITEMS: JitChecklistTemplateItem[] = [
       "RPT Clearance",
       "Assessor's Office Clearance",
       "Water Bill Clearance",
+      "WATER BILL/ Affidavit (Required)",
     ],
   },
   {

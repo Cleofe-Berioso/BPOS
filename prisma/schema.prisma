@@ -76,19 +76,19 @@ enum DocumentValidationStatus {
 }
 
 model User {
-  userId                  String                 @id @default(cuid())
-  email                   String                 @unique
-  name                    String
-  firstName               String?
-  middleName              String?
-  lastName                String?
-  suffix                  String?
-  profileImageStoragePath String?
-  profileImageBucket      String?
-  profileImageMimeType    String?
+  userId                  String                 @id @default(cuid()) @db.VarChar(25)
+  email                   String                 @unique @db.VarChar(255)
+  name                    String                 @db.VarChar(100)
+  firstName               String?                @db.VarChar(50)
+  middleName              String?                @db.VarChar(50)
+  lastName                String?                @db.VarChar(50)
+  suffix                  String?                @db.VarChar(10)
+  profileImageStoragePath String?                @db.VarChar(500)
+  profileImageBucket      String?                @db.VarChar(100)
+  profileImageMimeType    String?                @db.VarChar(100)
   profileImageSizeBytes   Int?
   profileImageUploadedAt  DateTime?
-  passwordHash            String
+  passwordHash            String                 @db.VarChar(255)
   role                    Role                   @default(APPLICANT)
   isActive                Boolean                @default(true)
   applications            BusinessApplication[]  @relation("ApplicantApplications")

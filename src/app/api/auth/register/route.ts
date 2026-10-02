@@ -30,13 +30,30 @@ export async function POST(req: NextRequest) {
   if (!firstName || typeof firstName !== "string" || firstName.trim().length === 0) {
     return NextResponse.json({ error: "First name is required." }, { status: 400 });
   }
+  if (firstName.trim().length > 50) {
+    return NextResponse.json({ error: "First name cannot exceed 50 characters." }, { status: 400 });
+  }
+
+  if (typeof middleName === "string" && middleName.trim().length > 50) {
+    return NextResponse.json({ error: "Middle name cannot exceed 50 characters." }, { status: 400 });
+  }
 
   if (!lastName || typeof lastName !== "string" || lastName.trim().length === 0) {
     return NextResponse.json({ error: "Last name is required." }, { status: 400 });
   }
+  if (lastName.trim().length > 50) {
+    return NextResponse.json({ error: "Last name cannot exceed 50 characters." }, { status: 400 });
+  }
+
+  if (typeof suffix === "string" && suffix.trim().length > 10) {
+    return NextResponse.json({ error: "Suffix cannot exceed 10 characters." }, { status: 400 });
+  }
 
   if (!email || typeof email !== "string" || email.trim().length === 0) {
     return NextResponse.json({ error: "Email address is required." }, { status: 400 });
+  }
+  if (email.trim().length > 255) {
+    return NextResponse.json({ error: "Email address cannot exceed 255 characters." }, { status: 400 });
   }
 
   if (!contactNumber || typeof contactNumber !== "string" || contactNumber.trim().length === 0) {
@@ -116,7 +133,7 @@ export async function POST(req: NextRequest) {
     lastName: normalizedLastName,
     suffix: normalizedSuffix,
     fallbackName: `${normalizedFirstName} ${normalizedLastName}`,
-  });
+  }).slice(0, 100);
 
   const user = await prisma.user.create({
     data: {

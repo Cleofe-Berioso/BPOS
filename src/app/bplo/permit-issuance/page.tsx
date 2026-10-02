@@ -64,7 +64,6 @@ export default async function BploPermitIssuancePage({ searchParams }: PageProps
       <PageHeader
         eyebrow="BPLO"
         title="Permit Issuance"
-        description="Prepare and release business permits or closure certificates for paid applications using the existing issuance flow."
         badge={<RoleBadge roleType="BPLO" />}
       />
 
@@ -263,9 +262,17 @@ export default async function BploPermitIssuancePage({ searchParams }: PageProps
                     <td className="font-mono text-xs text-[var(--ink-muted)]">{row.documentNumber ?? "-"}</td>
                     <td className="text-[var(--ink-muted)]">{dateOnly(row.preparedDate)}</td>
                     <td>
-                      <Link href={`/bplo/permit-issuance/${row.applicationId}`} className={actionButtonStyles("warning", "sm")}>
-                        Mark Released
-                      </Link>
+                      <div className="flex items-center gap-1.5">
+                        <Link
+                          href={row.applicationType === "CLOSURE" ? `/bplo/permit-issuance/${row.applicationId}/closure-print` : `/bplo/permit-issuance/${row.applicationId}/print`}
+                          className={actionButtonStyles("primary", "sm")}
+                        >
+                          Print
+                        </Link>
+                        <Link href={`/bplo/permit-issuance/${row.applicationId}`} className={actionButtonStyles("warning", "sm")}>
+                          Release
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -283,9 +290,15 @@ export default async function BploPermitIssuancePage({ searchParams }: PageProps
                     <p className="font-mono text-xs text-[var(--ink-muted)]">{row.applicationNumber}</p>
                     <p className="mt-1 text-sm font-semibold text-[var(--foreground)]">{row.businessName}</p>
                     <p className="ui-caption">{TYPE_LABEL[row.applicationType] ?? row.applicationType} • Prepared: {dateOnly(row.preparedDate)}</p>
-                    <div className="mt-3">
+                    <div className="mt-3 flex items-center gap-2">
+                      <Link
+                        href={row.applicationType === "CLOSURE" ? `/bplo/permit-issuance/${row.applicationId}/closure-print` : `/bplo/permit-issuance/${row.applicationId}/print`}
+                        className={actionButtonStyles("primary", "sm")}
+                      >
+                        Print Permit
+                      </Link>
                       <Link href={`/bplo/permit-issuance/${row.applicationId}`} className={actionButtonStyles("warning", "sm")}>
-                        Mark Released
+                        Release
                       </Link>
                     </div>
                   </article>
@@ -340,9 +353,17 @@ export default async function BploPermitIssuancePage({ searchParams }: PageProps
                     <td className="text-[var(--ink-muted)]">{dateOnly(row.releasedDate)}</td>
                     <td className="text-[var(--ink-muted)]">{row.releasedBy ?? "-"}</td>
                     <td>
-                      <Link href={`/bplo/permit-issuance/${row.applicationId}`} className={actionButtonStyles("secondary", "sm")}>
-                        View
-                      </Link>
+                      <div className="flex items-center gap-1.5">
+                        <Link
+                          href={row.applicationType === "CLOSURE" ? `/bplo/permit-issuance/${row.applicationId}/closure-print` : `/bplo/permit-issuance/${row.applicationId}/print`}
+                          className={actionButtonStyles("primary", "sm")}
+                        >
+                          Print
+                        </Link>
+                        <Link href={`/bplo/permit-issuance/${row.applicationId}`} className={actionButtonStyles("secondary", "sm")}>
+                          View
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -361,7 +382,13 @@ export default async function BploPermitIssuancePage({ searchParams }: PageProps
                     <p className="mt-1 text-sm font-semibold text-[var(--foreground)]">{row.businessName}</p>
                     <p className="ui-caption">{TYPE_LABEL[row.applicationType] ?? row.applicationType} • Released: {dateOnly(row.releasedDate)}</p>
                     <p className="ui-caption">By: {row.releasedBy ?? "-"}</p>
-                    <div className="mt-3">
+                    <div className="mt-3 flex items-center gap-2">
+                      <Link
+                        href={row.applicationType === "CLOSURE" ? `/bplo/permit-issuance/${row.applicationId}/closure-print` : `/bplo/permit-issuance/${row.applicationId}/print`}
+                        className={actionButtonStyles("primary", "sm")}
+                      >
+                        Print Permit
+                      </Link>
                       <Link href={`/bplo/permit-issuance/${row.applicationId}`} className={actionButtonStyles("secondary", "sm")}>View</Link>
                     </div>
                   </article>

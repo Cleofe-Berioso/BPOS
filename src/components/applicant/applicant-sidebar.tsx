@@ -32,7 +32,7 @@ const APPLICANT_SIDEBAR_STRUCTURE: SidebarGroup[] = [
     items: [
       { label: "File Application", href: "/applicant/application" },
       { label: "My Applications", href: "/applicant/my-applications" },
-      { label: "Tax Order / Payment", href: "/applicant/top" },
+      { label: "Tax Order of Payment", href: "/applicant/top" },
     ],
   },
   { label: "Notifications", href: "/applicant/notifications" },
@@ -43,7 +43,7 @@ const SIDEBAR_ICONS = {
   Dashboard: LayoutDashboard,
   "File Application": FileText,
   "My Applications": FolderOpen,
-  "Tax Order / Payment": Receipt,
+  "Tax Order of Payment": Receipt,
   Notifications: Bell,
   Profile: User,
 } as const;

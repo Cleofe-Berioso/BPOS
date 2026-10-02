@@ -6,10 +6,11 @@ import {
   isValidClassificationForOptions,
   listFeeConfigurationItems,
   upsertFeeConfigurationItem,
+  upsertFeeConfigurationItemsBatch,
   updateFeeConfigurationItemById,
 } from "@/lib/fee-settings";
 import { logSettingsAction } from "@/lib/audit-log";
-import { validateFeeAmount } from "@/lib/superadmin-settings-policies";
+import { validateFeeAmount, validateBatchFeeItems } from "@/lib/superadmin-settings-policies";
 
 export async function GET() {
   const session = await requireSuperAdminSession();
@@ -37,12 +38,55 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  const { category, classification, amount } = body as Record<string, unknown>;
+  const payload = body as Record<string, unknown>;
+  const { category } = payload;
   const categories = await getAllFeeCategoryOptions();
 
   if (typeof category !== "string" || !categories.some((item) => item.key === category)) {
     return NextResponse.json({ error: "Invalid business category." }, { status: 400 });
   }
+
+  // Batch fee entry mode (e.g. Default Size Mode: saving all size classifications at once)
+  if (Array.isArray(payload.items)) {
+    const targetCategory = categories.find((item) => item.key === category);
+    const requiredClassifications = targetCategory?.classifications ?? [];
+
+    const batchValidation = validateBatchFeeItems(payload.items, requiredClassifications);
+    if (batchValidation.ok === false) {
+      return NextResponse.json({ error: batchValidation.error }, { status: 400 });
+    }
+
+    try {
+      const items = await upsertFeeConfigurationItemsBatch({
+        category,
+        items: batchValidation.value,
+        isActive: true,
+        updatedById: session.user.id,
+      });
+
+      void logSettingsAction(
+        session.user.id,
+        session.user.name ?? session.user.email ?? null,
+        "SUPER_ADMIN",
+        "FEE_CONFIGURATION",
+        category,
+        "CREATED",
+        `Fee configuration batch: ${category} (${items.length} size classifications saved)`,
+        { category, count: items.length, items: batchValidation.value }
+      );
+
+      return NextResponse.json({
+        success: true,
+        message: "All size classification fees were saved successfully.",
+        items,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to save fee configurations.";
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
+  }
+
+  const { classification, amount } = payload;
 
   if (typeof classification !== "string" || !classification.trim()) {
     return NextResponse.json({ error: "Size classification is required." }, { status: 400 });

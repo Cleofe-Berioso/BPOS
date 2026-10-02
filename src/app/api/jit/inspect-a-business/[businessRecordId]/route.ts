@@ -3,7 +3,11 @@ import { safeApiErrorMessage } from "@/lib/api-errors";
 import { removeApplicantDocument, storeApplicantDocument } from "@/lib/document-storage";
 import { requireJitSession } from "@/lib/jit-api";
 import { createJitInspection } from "@/lib/jit-inspections";
-import { parseChecklistPayload, type ChecklistItemInput } from "@/lib/jit-post-audit-checklist";
+import {
+  parseChecklistPayload,
+  type ChecklistItemInput,
+  JIT_POST_AUDIT_CHECKLIST_ITEMS,
+} from "@/lib/jit-post-audit-checklist";
 import { logInspectionAction } from "@/lib/audit-log";
 
 export async function POST(
@@ -57,7 +61,20 @@ export async function POST(
   try {
     for (const item of checklist) {
       const evidenceField = formData.get(`checklistEvidence_${item.departmentKey}`);
-      if (!(evidenceField instanceof File) || evidenceField.size === 0) {
+      const hasEvidence = evidenceField instanceof File && evidenceField.size > 0;
+
+      if (item.response === "NO") {
+        const dept = JIT_POST_AUDIT_CHECKLIST_ITEMS.find((d) => d.departmentKey === item.departmentKey);
+        const deptLabel = dept?.departmentLabel ?? item.departmentKey;
+        if (!item.remarks || item.remarks.trim().length === 0) {
+          throw new Error(`Findings are required for ${deptLabel} when No is selected`);
+        }
+        if (!hasEvidence) {
+          throw new Error(`Evidence is required for ${deptLabel} when No is selected`);
+        }
+      }
+
+      if (!hasEvidence) {
         continue;
       }
 

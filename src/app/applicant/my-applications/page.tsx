@@ -61,7 +61,7 @@ export default async function MyApplicationsPage({ searchParams }: PageProps) {
           description={`${latest.applicationNumber} • ${latest.businessName}`}
           action={<StatusBadge status={latest.status} />}
         >
-          <StatusTracker status={latest.status} />
+          <StatusTracker status={latest.status} applicationType={latest.applicationType as any} />
         </SectionCard>
       ) : (
         <EmptyState
@@ -142,24 +142,31 @@ export default async function MyApplicationsPage({ searchParams }: PageProps) {
               />
             </div>
           ) : (
-            <div className="space-y-2.5 p-3.5">
+            <div className="space-y-2.5 p-3 sm:p-3.5">
               {applications.map((row) => (
                 <article key={row.id} className={applicantMobileRecordCardClass}>
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="font-mono text-xs text-[var(--ink-muted)]">{row.applicationNumber}</p>
-                      <p className="mt-1 text-sm font-semibold text-[var(--foreground)]">{row.businessName}</p>
+                      <p className="mt-1 text-sm font-semibold text-[var(--foreground)] break-words">{row.businessName}</p>
                       <p className="mt-1 text-xs uppercase tracking-wide text-[var(--ink-muted)]">{row.applicationType}</p>
                     </div>
-                    <StatusBadge status={row.status} />
+                    <div className="shrink-0">
+                      <StatusBadge status={row.status} />
+                    </div>
                   </div>
-                  <p className="mt-1.5 text-xs text-[var(--ink-muted)]">Submitted: {row.dateSubmitted}</p>
-                  <div className="mt-2.5 flex flex-wrap gap-2">
-                    <Link href={`/applicant/my-applications/${row.id}`} className={actionButtonStyles("secondary", "sm")}>View</Link>
+                  <p className="mt-2 text-xs text-[var(--ink-muted)]">Submitted: {row.dateSubmitted}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Link
+                      href={`/applicant/my-applications/${row.id}`}
+                      className={`${actionButtonStyles("secondary", "sm")} flex-1 sm:flex-initial justify-center text-center`}
+                    >
+                      View
+                    </Link>
                     {row.status === "Draft" ? (
                       <Link
                         href={`/applicant/application/${row.applicationType.toLowerCase()}?applicationId=${row.id}`}
-                        className={actionButtonStyles("primary", "sm")}
+                        className={`${actionButtonStyles("primary", "sm")} flex-1 sm:flex-initial justify-center text-center`}
                       >
                         Edit
                       </Link>
@@ -167,7 +174,7 @@ export default async function MyApplicationsPage({ searchParams }: PageProps) {
                     {row.status === "Returned for Correction" ? (
                       <Link
                         href={`/applicant/application/${row.applicationType.toLowerCase()}?applicationId=${row.id}`}
-                        className={actionButtonStyles("warning", "sm")}
+                        className={`${actionButtonStyles("warning", "sm")} w-full sm:w-auto justify-center text-center`}
                       >
                         Correct and Resubmit
                       </Link>

@@ -81,13 +81,31 @@ export async function loginAction(
           };
         }
 
-        await signIn("credentials", {
-          email: normalizedEmail,
-          password,
-          otp,
-          rememberMe: rememberMe ? "true" : "false",
-          redirectTo: "/auth/redirect",
-        });
+        try {
+          await signIn("credentials", {
+            email: normalizedEmail,
+            password,
+            otp,
+            rememberMe: rememberMe ? "true" : "false",
+            redirectTo: "/auth/redirect",
+          });
+        } catch (signInError) {
+          // Re-throw NEXT_REDIRECT so Next.js can complete the navigation.
+          if (
+            signInError instanceof Error &&
+            (signInError.message.includes("NEXT_REDIRECT") ||
+              (signInError as unknown as { digest?: string }).digest?.startsWith("NEXT_REDIRECT"))
+          ) {
+            throw signInError;
+          }
+          // Auth error (e.g. CredentialsSignin) – surface to the caller.
+          if (signInError instanceof AuthError) throw signInError;
+          // Network / fetch failure – do not leak internals.
+          if (process.env.NODE_ENV !== "production") {
+            console.error("[loginAction] signIn (super admin) network error", signInError);
+          }
+          return { error: "Unable to sign in right now. Please try again." };
+        }
         return null;
       }
 
@@ -122,8 +140,23 @@ export async function loginAction(
 
       return { error: "Unable to sign in right now. Please try again." };
     }
-    // Re-throw NEXT_REDIRECT — Next.js uses this for successful navigation
-    throw error;
+
+    // Re-throw NEXT_REDIRECT — Next.js uses this for successful post-login navigation.
+    if (
+      error instanceof Error &&
+      (error.message.includes("NEXT_REDIRECT") ||
+        (error as unknown as { digest?: string }).digest?.startsWith("NEXT_REDIRECT"))
+    ) {
+      throw error;
+    }
+
+    // TypeError: fetch failed — occurs when Auth.js internal self-fetch cannot reach
+    // the configured AUTH_URL (e.g. localhost:3000 in production). Log non-sensitively
+    // and surface a safe user message instead of crashing the action.
+    if (process.env.NODE_ENV !== "production") {
+      console.error("[loginAction] signIn network/unexpected error", error);
+    }
+    return { error: "Unable to sign in right now. Please try again." };
   }
   return null;
 }

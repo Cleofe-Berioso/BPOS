@@ -558,6 +558,85 @@ export async function upsertFeeConfigurationItem(input: {
   };
 }
 
+export async function upsertFeeConfigurationItemsBatch(input: {
+  category: string;
+  items: Array<{ classification: string; amount: number }>;
+  isActive?: boolean;
+  updatedById: string;
+}): Promise<FeeConfigurationItemDto[]> {
+  if (!(await isConfigurableFeeCategoryKey(input.category))) {
+    throw new Error("Invalid fee category.");
+  }
+
+  const options = await getAllFeeCategoryOptions();
+  const categoryOption = options.find((opt) => opt.key === input.category);
+  if (!categoryOption) {
+    throw new Error("Invalid business category.");
+  }
+
+  if (!Array.isArray(input.items) || input.items.length === 0) {
+    throw new Error("At least one size classification fee is required.");
+  }
+
+  // Pre-validate all items before executing transaction
+  for (const item of input.items) {
+    const classification = item.classification?.trim();
+    if (!classification) {
+      throw new Error("Size classification is required for all entries.");
+    }
+    if (!isValidClassificationForOptions(input.category, classification, options)) {
+      throw new Error(`Invalid size classification "${classification}" for category "${categoryOption.label}".`);
+    }
+    if (typeof item.amount !== "number" || Number.isNaN(item.amount) || item.amount < 0) {
+      throw new Error(`Fee amount for "${classification}" must be a non-negative number.`);
+    }
+  }
+
+  const isActive = input.isActive ?? true;
+
+  // Execute all upserts in a single database transaction
+  const results = await prisma.$transaction(async (tx) => {
+    const upserted: FeeConfigurationItemDto[] = [];
+    for (const item of input.items) {
+      const classification = item.classification.trim();
+      const amount = clampNonNegative(item.amount);
+
+      const row = await tx.feeConfigurationItem.upsert({
+        where: {
+          category_classification: {
+            category: input.category,
+            classification,
+          },
+        },
+        create: {
+          category: input.category,
+          classification,
+          amount,
+          isActive,
+          updatedById: input.updatedById,
+        },
+        update: {
+          amount,
+          isActive,
+          updatedById: input.updatedById,
+        },
+      });
+
+      upserted.push({
+        id: row.feeConfigurationItemId,
+        category: row.category as FeeCategoryKey,
+        classification: row.classification,
+        amount: toMoneyNumber(row.amount),
+        isActive: row.isActive,
+        updatedAt: row.updatedAt.toISOString(),
+      });
+    }
+    return upserted;
+  });
+
+  return results;
+}
+
 export async function updateFeeConfigurationItemById(input: {
   id: string;
   amount?: number;

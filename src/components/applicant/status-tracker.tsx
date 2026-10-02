@@ -74,14 +74,18 @@ export function StatusTracker({
           variant={banner.variant}
         />
       ) : null}
-      <ol className={`grid gap-3 ${applicationType === "CLOSURE" ? "md:grid-cols-2 xl:grid-cols-5" : "md:grid-cols-2 xl:grid-cols-7"}`}>
+      <ol
+        className={`grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 ${
+          applicationType === "CLOSURE" ? "xl:grid-cols-5" : "xl:grid-cols-7"
+        }`}
+      >
         {flow.map((step, index) => {
           const done = index < currentIndex;
           const active = index === currentIndex;
           return (
             <li
-                  key={`${step.label}-${index}`}
-              className={`rounded-2xl border px-4 py-4 text-sm ${
+              key={`${step.label}-${index}`}
+              className={`flex items-center gap-2.5 rounded-xl border p-2.5 sm:block sm:rounded-2xl sm:p-4 text-xs sm:text-sm ${
                 active
                   ? "border-[var(--success)] bg-[var(--success-soft)] text-[var(--success)]"
                   : done
@@ -90,7 +94,7 @@ export function StatusTracker({
               }`}
             >
               <span
-                className={`mb-2 inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
+                className={`shrink-0 inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold sm:mb-2 ${
                   active
                     ? "bg-[var(--success)] text-white"
                     : done
@@ -100,7 +104,9 @@ export function StatusTracker({
               >
                 {index + 1}
               </span>
-              <p className="font-medium">{step.label}</p>
+              <div className="min-w-0 flex-1">
+                <p className="font-medium leading-tight break-words sm:whitespace-normal">{step.label}</p>
+              </div>
             </li>
           );
         })}

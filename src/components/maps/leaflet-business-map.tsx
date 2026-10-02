@@ -213,12 +213,12 @@ export function LeafletBusinessMap({
           <Popup
             className="leaflet-business-map-popup"
             autoPan={true}
-            autoPanPadding={[40, 40]}
-            autoPanPaddingTopLeft={[40, 40]}
-            autoPanPaddingBottomRight={[40, 40]}
+            autoPanPadding={[16, 16]}
+            autoPanPaddingTopLeft={[16, 16]}
+            autoPanPaddingBottomRight={[16, 16]}
             maxHeight={320}
           >
-            <div className="min-w-[240px] max-w-[320px] max-h-[320px] overflow-y-auto pr-1 space-y-3 text-sm">
+            <div className="w-[min(300px,calc(100vw-4.5rem))] max-h-[320px] overflow-y-auto pr-1 space-y-3 text-sm">
               <div className="space-y-1.5">
                 <p className="text-base font-semibold tracking-tight text-slate-900">{marker.title}</p>
                 {marker.subtitle ? (

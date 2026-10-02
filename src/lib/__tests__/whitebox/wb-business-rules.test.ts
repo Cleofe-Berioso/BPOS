@@ -12,6 +12,7 @@ import {
   RENEWAL_LOCKED_FIELDS,
   CLOSURE_LOCKED_FIELDS,
   isRecognizedEbMagalonaBarangay,
+  normalizeEbMagalonaBarangayName,
   splitOwnerName,
   optionalIntFromDb,
   parseOptionalIntForDb,
@@ -21,6 +22,7 @@ import {
   applyLockedBusinessFields,
   normalizeBusinessInfo,
 } from "@/lib/business-rules";
+import { resolveLocationBarangay } from "@/lib/business-location";
 
 describe("WB-RULES — business identity & rules", () => {
   it("WB-RULES-01 TIN normalize and format validation", () => {
@@ -137,4 +139,150 @@ describe("WB-RULES — business identity & rules", () => {
     expect(result.businessStreetAddress).toBe("123 Pioneer St");
     expect(result.businessBarangay).toBe("Alicante");
   });
+
+  it("WB-RULES-09 barangay normalization handles aliases, Roman numerals, mojibake, and location address fallback", () => {
+    // Exact canonical names
+    expect(isRecognizedEbMagalonaBarangay("Alacaygan")).toBe(true);
+    expect(isRecognizedEbMagalonaBarangay("Santo Niño")).toBe(true);
+
+    // Roman numeral and alias variants
+    expect(isRecognizedEbMagalonaBarangay("Poblacion I")).toBe(true);
+    expect(isRecognizedEbMagalonaBarangay("Poblacion 1")).toBe(true);
+    expect(isRecognizedEbMagalonaBarangay("Barangay 1")).toBe(true);
+    expect(isRecognizedEbMagalonaBarangay("Brgy 1")).toBe(true);
+    expect(isRecognizedEbMagalonaBarangay("Brgy. 1")).toBe(true);
+    expect(isRecognizedEbMagalonaBarangay("Pob. 1")).toBe(true);
+    expect(normalizeEbMagalonaBarangayName("Poblacion I")).toBe("Poblacion I (Barangay 1)");
+    expect(normalizeEbMagalonaBarangayName("Poblacion II")).toBe("Poblacion II (Barangay 2)");
+    expect(normalizeEbMagalonaBarangayName("Poblacion III")).toBe("Poblacion III (Barangay 3)");
+    expect(normalizeEbMagalonaBarangayName("Poblacion East")).toBe("Poblacion I (Barangay 1)");
+    expect(normalizeEbMagalonaBarangayName("Poblacion West")).toBe("Poblacion II (Barangay 2)");
+
+    // Mojibake sanitization
+    expect(normalizeEbMagalonaBarangayName("Santo NiÃ±o")).toBe("Santo Niño");
+    expect(normalizeEbMagalonaBarangayName("Santo Nino")).toBe("Santo Niño");
+    expect(isRecognizedEbMagalonaBarangay("Santo NiÃ±o")).toBe(true);
+    expect(isRecognizedEbMagalonaBarangay("Santo Nino")).toBe(true);
+
+    // resolveLocationBarangay from location string
+    expect(resolveLocationBarangay("Consing", null)).toBe("Consing");
+    expect(resolveLocationBarangay("Santo NiÃ±o", null)).toBe("Santo Niño");
+    expect(resolveLocationBarangay("Poblacion East", null)).toBe("Poblacion I (Barangay 1)");
+
+    // resolveLocationBarangay from formData
+    expect(resolveLocationBarangay(null, { barangay: "Poblacion I" })).toBe("Poblacion I (Barangay 1)");
+    expect(resolveLocationBarangay(null, { businessBarangay: "Cudangdang" })).toBe("Cudangdang");
+
+    // resolveLocationBarangay from fallback address
+    expect(
+      resolveLocationBarangay(null, null, "13th St., Cudangdang, EB Magalona, Negros Occidental, Philippines")
+    ).toBe("Cudangdang");
+    expect(
+      resolveLocationBarangay(null, null, "lirio, Canlusong, EB Magalona, Negros Occidental, Philippines")
+    ).toBe("Canlusong");
+    expect(
+      resolveLocationBarangay(null, null, "ZONE 10, Manta-angan, EB Magalona, Negros Occidental, Philippines")
+    ).toBe("Manta-angan");
+  });
+
+  it("WB-RULES-10 manual business address is preserved when PSGC barangay is unavailable or unselected", () => {
+    const manualAddress = "Sitio Tuburan, Mountain Road, Boundary Area";
+    const info = normalizeBusinessInfo({
+      businessType: "Sole Proprietorship",
+      registrationNumber: "DTI-2026-123456",
+      tin: "123456789012",
+      businessName: "Mountain Vista Cafe",
+      tradeName: "Mountain Vista Cafe",
+      ownerName: "Maria Santos",
+      nationality: "Filipino",
+      sex: "Female",
+      businessAddress: manualAddress,
+      businessStreetAddress: "",
+      businessBarangay: "",
+      email: "maria@example.com",
+      phone: "09171234567",
+      mainOfficeAddress: "Sitio Tuburan",
+    } as any);
+
+    expect(info.businessAddress).toBe(manualAddress);
+    expect(info.businessBarangay).toBe("");
+    expect(info.barangay).toBe("");
+
+    // When PSGC barangay is provided, address can be composed or preserved
+    const infoWithBarangay = normalizeBusinessInfo({
+      businessType: "Sole Proprietorship",
+      registrationNumber: "DTI-2026-123456",
+      tin: "123456789012",
+      businessName: "Town Plaza Bakery",
+      tradeName: "Town Plaza Bakery",
+      ownerName: "Pedro Penduko",
+      nationality: "Filipino",
+      sex: "Male",
+      businessStreetAddress: "Rizal St",
+      businessBarangay: "Alicante",
+      email: "pedro@example.com",
+      phone: "09171234567",
+      mainOfficeAddress: "Rizal St",
+    } as any);
+
+    expect(infoWithBarangay.businessAddress).toContain("Alicante");
+    expect(infoWithBarangay.businessBarangay).toBe("Alicante");
+  });
+
+  it("WB-RULES-11 main office address supports manual text entry for countries/places not in API list", () => {
+    // Country without separate state list in API (e.g., Singapore) with manually entered province and city
+    const infoWithManualPlaces = normalizeBusinessInfo({
+      businessType: "Corporation",
+      registrationNumber: "CS2026-12345",
+      tin: "123456789012",
+      businessName: "Lion City Ventures",
+      tradeName: "Lion City",
+      ownerName: "Wei Chen",
+      nationality: "Singaporean",
+      sex: "Male",
+      businessAddress: "123 Mabini St, Poblacion, EB Magalona, Negros Occidental, Philippines",
+      businessStreetAddress: "123 Mabini St",
+      businessBarangay: "Poblacion",
+      email: "wei@example.com",
+      phone: "09171234567",
+      mainOfficeCountry: "Singapore",
+      mainOfficeCountryCode: "SG",
+      mainOfficeProvince: "Central Region",
+      mainOfficeProvinceCode: "", // No API code because manually entered
+      mainOfficeCityMunicipality: "Singapore",
+      mainOfficeStreetAddress: "10 Bayfront Ave",
+      mainOfficeZipCode: "018956",
+    } as any);
+
+    expect(infoWithManualPlaces.mainOfficeProvince).toBe("Central Region");
+    expect(infoWithManualPlaces.mainOfficeCityMunicipality).toBe("Singapore");
+    expect(infoWithManualPlaces.mainOfficeStreetAddress).toBe("10 Bayfront Ave");
+    expect(infoWithManualPlaces.mainOfficeAddress).toBe("10 Bayfront Ave, Singapore, Central Region, Singapore");
+
+    // Foreign address without province where country has no provinces
+    const infoWithoutProvince = normalizeBusinessInfo({
+      businessType: "Corporation",
+      registrationNumber: "CS2026-12345",
+      tin: "123456789012",
+      businessName: "Monaco Holdings",
+      tradeName: "Monaco Holdings",
+      ownerName: "Jean Dupont",
+      nationality: "Monegasque",
+      sex: "Male",
+      businessAddress: "456 Rizal St, Poblacion, EB Magalona, Negros Occidental, Philippines",
+      businessStreetAddress: "456 Rizal St",
+      businessBarangay: "Poblacion",
+      email: "jean@example.com",
+      phone: "09171234567",
+      mainOfficeCountry: "Monaco",
+      mainOfficeCountryCode: "MC",
+      mainOfficeProvince: "",
+      mainOfficeProvinceCode: "",
+      mainOfficeCityMunicipality: "Monaco",
+      mainOfficeStreetAddress: "7 Avenue Princesse Grace",
+    } as any);
+
+    expect(infoWithoutProvince.mainOfficeAddress).toBe("7 Avenue Princesse Grace, Monaco, Monaco");
+  });
 });
+

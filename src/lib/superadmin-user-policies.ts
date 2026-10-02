@@ -41,8 +41,22 @@ export function parseCreateBploAccountInput(
   if (!firstName) {
     return { ok: false, error: "First name is required.", status: 400 };
   }
+  if (firstName.length > 50) {
+    return { ok: false, error: "First name cannot exceed 50 characters.", status: 400 };
+  }
+  if (middleName.length > 50) {
+    return { ok: false, error: "Middle name cannot exceed 50 characters.", status: 400 };
+  }
+
   if (!lastName) {
     return { ok: false, error: "Last name is required.", status: 400 };
+  }
+  if (lastName.length > 50) {
+    return { ok: false, error: "Last name cannot exceed 50 characters.", status: 400 };
+  }
+
+  if (suffix.length > 10) {
+    return { ok: false, error: "Suffix cannot exceed 10 characters.", status: 400 };
   }
 
   const name = formatPersonName({
@@ -51,7 +65,7 @@ export function parseCreateBploAccountInput(
     lastName,
     suffix,
     fallbackName: typeof body.name === "string" ? body.name.trim() : "",
-  });
+  }).slice(0, 100);
 
   if (!name) {
     return { ok: false, error: "Full name is required.", status: 400 };
@@ -62,6 +76,9 @@ export function parseCreateBploAccountInput(
   }
 
   const email = body.email.trim().toLowerCase();
+  if (email.length > 255) {
+    return { ok: false, error: "Email address cannot exceed 255 characters.", status: 400 };
+  }
   if (!EMAIL_REGEX.test(email)) {
     return { ok: false, error: "Invalid email address format.", status: 400 };
   }
@@ -116,8 +133,22 @@ export function parseBploProfileNameUpdate(body: {
   if (!firstName) {
     return { ok: false, error: "First name is required.", status: 400 };
   }
+  if (firstName.length > 50) {
+    return { ok: false, error: "First name cannot exceed 50 characters.", status: 400 };
+  }
+  if (middleName.length > 50) {
+    return { ok: false, error: "Middle name cannot exceed 50 characters.", status: 400 };
+  }
+
   if (!lastName) {
     return { ok: false, error: "Last name is required.", status: 400 };
+  }
+  if (lastName.length > 50) {
+    return { ok: false, error: "Last name cannot exceed 50 characters.", status: 400 };
+  }
+
+  if (suffix.length > 10) {
+    return { ok: false, error: "Suffix cannot exceed 10 characters.", status: 400 };
   }
 
   const name = formatPersonName({
@@ -126,7 +157,7 @@ export function parseBploProfileNameUpdate(body: {
     lastName,
     suffix,
     fallbackName: `${firstName} ${lastName}`,
-  });
+  }).slice(0, 100);
 
   return {
     ok: true,

@@ -9,11 +9,12 @@ export const ADDRESS_API_NOT_CONFIGURED_MESSAGE =
   "Address API key is missing. Configure COUNTRY_STATE_CITY_API_KEY on the server.";
 
 export function getCountryStateCityApiKey(): string | null {
-  return (
+  const raw =
     process.env.COUNTRY_STATE_CITY_API_KEY?.trim() ||
     process.env.COUNTRYSTATECITY_API_KEY?.trim() ||
-    null
-  );
+    null;
+  if (!raw) return null;
+  return raw.replace(/^["']|["']$/g, "").trim() || null;
 }
 
 export function jsonAddressError(status: number, error: string) {

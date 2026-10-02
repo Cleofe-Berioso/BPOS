@@ -202,7 +202,6 @@ export function AssessmentFeeForm({ detail }: Props) {
     <div className="ui-page-stack">
       <InfoBanner
         title="Assessment workspace"
-        description="Build the Tax Order of Payment using auditable fee line items. System-generated penalties and closure fees stay locked."
         variant="info"
       />
 

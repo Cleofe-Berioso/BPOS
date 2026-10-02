@@ -307,29 +307,31 @@ export function ApplicationProgressOverview({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 border-t border-[var(--border-color)] pt-4 text-sm text-[var(--ink-muted)]">
-        {[
-          { label: "Completed", state: "completed" as const },
-          { label: "Current Stage", state: "current" as const },
-          { label: "Pending", state: "pending" as const },
-          { label: "Returned", state: "returned" as const },
-          { label: "Rejected", state: "rejected" as const },
-        ].map((item) => {
-          const meta = getStateMeta(item.state);
-          const LegendIcon = meta.icon;
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-t border-[var(--border-color)] pt-4 text-sm text-[var(--ink-muted)]">
+        <div className="flex flex-wrap items-center gap-3">
+          {[
+            { label: "Completed", state: "completed" as const },
+            { label: "Current Stage", state: "current" as const },
+            { label: "Pending", state: "pending" as const },
+            { label: "Returned", state: "returned" as const },
+            { label: "Rejected", state: "rejected" as const },
+          ].map((item) => {
+            const meta = getStateMeta(item.state);
+            const LegendIcon = meta.icon;
 
-          return (
-            <span key={item.label} className="inline-flex items-center gap-2">
-              <span className={`inline-flex h-4 w-4 items-center justify-center rounded-full border ${meta.circleClassName}`} aria-hidden="true">
-                {LegendIcon ? <LegendIcon className="h-2.5 w-2.5" /> : null}
+            return (
+              <span key={item.label} className="inline-flex items-center gap-2">
+                <span className={`inline-flex h-4 w-4 items-center justify-center rounded-full border ${meta.circleClassName}`} aria-hidden="true">
+                  {LegendIcon ? <LegendIcon className="h-2.5 w-2.5" /> : null}
+                </span>
+                <span>{item.label}</span>
               </span>
-              <span>{item.label}</span>
-            </span>
-          );
-        })}
+            );
+          })}
+        </div>
 
-        <div className="ml-auto">
-          <Link href={detailsHref} className={actionButtonStyles("secondary", "sm")}>
+        <div className="w-full sm:w-auto">
+          <Link href={detailsHref} className={`${actionButtonStyles("secondary", "sm")} w-full sm:w-auto justify-center`}>
             View Application Details
           </Link>
         </div>

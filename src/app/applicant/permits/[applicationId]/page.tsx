@@ -22,13 +22,15 @@ export default async function ApplicantPermitPrintPage({ params }: PageProps) {
 
   return (
     <section className="space-y-4">
-      <div className="no-print flex items-center justify-between gap-3">
+      <div className="no-print flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <p className="text-sm text-[var(--ink-muted)]">Applicant permit preview only. Official printing and release remain under BPLO.</p>
-        <Link href={`/applicant/my-applications/${applicationId}`} className={actionButtonStyles("secondary", "sm")}>
+        <Link href={`/applicant/my-applications/${applicationId}`} className={`${actionButtonStyles("secondary", "sm")} w-full sm:w-auto justify-center`}>
           Back to Application Detail
         </Link>
       </div>
-      <BusinessPermitTemplate permit={access.permit} variant="applicant-preview" />
+      <div className="w-full overflow-x-auto pb-4">
+        <BusinessPermitTemplate permit={access.permit} variant="applicant-preview" />
+      </div>
     </section>
   );
 }

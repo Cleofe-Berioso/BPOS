@@ -317,7 +317,7 @@ export function DepartmentHeadInspectionVerificationClient() {
         return;
       }
       if (!violationSeverity) {
-        setMessage({ type: "error", text: "Violation severity is required for non-compliant inspections." });
+        setMessage({ type: "error", text: "Severity Level is required for non-compliant inspections." });
         return;
       }
     }
@@ -613,7 +613,7 @@ export function DepartmentHeadInspectionVerificationClient() {
 
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-[var(--foreground)]" htmlFor="violation-severity">
-                    Violation Severity <span className="text-[var(--danger)]">*</span>
+                    Severity Level <span className="text-[var(--danger)]">*</span>
                   </label>
                   <select
                     id="violation-severity"
@@ -622,7 +622,7 @@ export function DepartmentHeadInspectionVerificationClient() {
                     disabled={!nonComplianceType}
                     className={dhFormControlClass}
                   >
-                    <option value="">-- Select severity --</option>
+                    <option value="">-- Select Severity Level (Minor, Major, Severe) --</option>
                     {VIOLATION_SEVERITY_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>
                         {opt.label}

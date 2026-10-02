@@ -77,7 +77,7 @@ function buildNextAction(input: {
 
   if (input.status === "Approved for Payment") {
     return {
-      label: "Proceed to Tax Order / payment page",
+      label: "Proceed to Tax Order of Payment page",
       detail: "Your Tax Order of Payment is ready. Proceed to payment to continue the workflow.",
       href: "/applicant/top",
       cta: "Open Tax Order of Payment",

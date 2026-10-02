@@ -45,18 +45,59 @@ const EB_MAGALONA_BARANGAY_VARIANTS: Array<[string, (typeof EB_MAGALONA_BARANGAY
   ["Barangay 1 (Pob.)", "Poblacion I (Barangay 1)"],
   ["Barangay 2 (Pob.)", "Poblacion II (Barangay 2)"],
   ["Barangay 3 (Pob.)", "Poblacion III (Barangay 3)"],
+  ["Barangay 1", "Poblacion I (Barangay 1)"],
+  ["Barangay 2", "Poblacion II (Barangay 2)"],
+  ["Barangay 3", "Poblacion III (Barangay 3)"],
+  ["Brgy 1", "Poblacion I (Barangay 1)"],
+  ["Brgy 2", "Poblacion II (Barangay 2)"],
+  ["Brgy 3", "Poblacion III (Barangay 3)"],
+  ["Brgy. 1", "Poblacion I (Barangay 1)"],
+  ["Brgy. 2", "Poblacion II (Barangay 2)"],
+  ["Brgy. 3", "Poblacion III (Barangay 3)"],
+  ["Barangay I", "Poblacion I (Barangay 1)"],
+  ["Barangay II", "Poblacion II (Barangay 2)"],
+  ["Barangay III", "Poblacion III (Barangay 3)"],
+  ["Brgy I", "Poblacion I (Barangay 1)"],
+  ["Brgy II", "Poblacion II (Barangay 2)"],
+  ["Brgy III", "Poblacion III (Barangay 3)"],
   ["Poblacion 1", "Poblacion I (Barangay 1)"],
   ["Poblacion 2", "Poblacion II (Barangay 2)"],
   ["Poblacion 3", "Poblacion III (Barangay 3)"],
+  ["Poblacion I", "Poblacion I (Barangay 1)"],
+  ["Poblacion II", "Poblacion II (Barangay 2)"],
+  ["Poblacion III", "Poblacion III (Barangay 3)"],
+  ["Pob 1", "Poblacion I (Barangay 1)"],
+  ["Pob 2", "Poblacion II (Barangay 2)"],
+  ["Pob 3", "Poblacion III (Barangay 3)"],
+  ["Pob. 1", "Poblacion I (Barangay 1)"],
+  ["Pob. 2", "Poblacion II (Barangay 2)"],
+  ["Pob. 3", "Poblacion III (Barangay 3)"],
+  ["Pob I", "Poblacion I (Barangay 1)"],
+  ["Pob II", "Poblacion II (Barangay 2)"],
+  ["Pob III", "Poblacion III (Barangay 3)"],
+  ["Pob. I", "Poblacion I (Barangay 1)"],
+  ["Pob. II", "Poblacion II (Barangay 2)"],
+  ["Pob. III", "Poblacion III (Barangay 3)"],
+  ["Poblacion East", "Poblacion I (Barangay 1)"],
+  ["Poblacion West", "Poblacion II (Barangay 2)"],
+  ["Santo Nino", "Santo Niño"],
+  ["Santo NiÃ±o", "Santo Niño"],
+  ["Mantaangan", "Manta-angan"],
+  ["Manta angan", "Manta-angan"],
 ];
 
 function normalizeBarangayToken(value: string): string {
   return value
     .trim()
     .toLowerCase()
+    .replace(/Ã±/gi, "ñ")
+    .replace(/Ã‘/g, "ñ")
+    .replace(/\u00C3\u00B1/gi, "ñ")
+    .replace(/\u00C3\u0091/g, "ñ")
+    .replace(/[ñ]/g, "n")
     .replace(/[()]/g, " ")
     .replace(/[.'’,-]/g, " ")
-    .replace(/\b(barangay|pob|pob\.)\b/g, " ")
+    .replace(/\b(barangay|brgy|brgy\.|pob|pob\.)\b/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -644,10 +685,11 @@ export function normalizeBusinessInfo(input: BusinessInfo): BusinessInfo {
     mainOfficeZipCode: input.mainOfficeZipCode?.trim() ?? "",
     mainOfficeAddress: normalizedMainOfficeAddress,
     businessAddress: (() => {
+      const explicit = input.businessAddress?.trim() ?? "";
+      if (explicit.length > 0) return explicit;
       const rebuilt = buildEbMagalonaBusinessAddress({ streetAddress, barangay });
       if (rebuilt.trim().length > 0) return rebuilt;
-      const legacy = input.businessAddress?.trim() ?? "";
-      return legacy;
+      return "";
     })(),
     businessZipCode: EB_MAGALONA_ZIP_CODE,
     businessLatitude:

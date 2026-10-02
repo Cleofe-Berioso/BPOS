@@ -9,7 +9,7 @@ import {
 import { getJitMapMarkerStatus, getJitMapMarkerColor } from "@/lib/jit-inspections";
 import { getJitInspectionCycleStartedAt } from "@/lib/jit-settings";
 import { isWithinEbMagalona } from "@/lib/eb-magalona";
-import { normalizeEbMagalonaBarangayName } from "@/lib/business-rules";
+import { EB_MAGALONA_BARANGAYS, normalizeEbMagalonaBarangayName } from "@/lib/business-rules";
 
 type ApplicationType = "NEW" | "RENEWAL" | "CLOSURE";
 type BusinessMapApplicationType = "NEW" | "RENEWAL";
@@ -89,15 +89,33 @@ function readFormString(formData: unknown, key: string): string | null {
 
 export function resolveLocationBarangay(
   locationBarangay: string | null | undefined,
-  formData: unknown
+  formData: unknown,
+  fallbackAddress?: string | null
 ): string | null {
   const fromLocation = locationBarangay?.trim() || null;
-  if (fromLocation) return fromLocation;
-  return (
+  if (fromLocation) return normalizeEbMagalonaBarangayName(fromLocation);
+
+  const fromForm =
     readFormString(formData, "barangay") ??
-    readFormString(formData, "businessBarangay") ??
-    null
-  );
+    readFormString(formData, "businessBarangay");
+  if (fromForm) return normalizeEbMagalonaBarangayName(fromForm);
+
+  const addressCandidates = [
+    readFormString(formData, "businessAddress"),
+    readFormString(formData, "address"),
+    fallbackAddress?.trim() || null,
+  ].filter((s): s is string => Boolean(s));
+
+  for (const addr of addressCandidates) {
+    for (const b of EB_MAGALONA_BARANGAYS) {
+      const escaped = b.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      if (new RegExp(`\\b${escaped}\\b`, "i").test(addr)) {
+        return b;
+      }
+    }
+  }
+
+  return null;
 }
 
 function barangayMatchesFilter(candidate: string | null | undefined, filter: string): boolean {
@@ -321,7 +339,21 @@ export async function submitApplicantBusinessLocation(
   const latitude = parseCoordinate(payload.latitude, "latitude");
   const longitude = parseCoordinate(payload.longitude, "longitude");
   const address = toOptionalTrimmedString(payload.address);
-  const barangay = toOptionalTrimmedString(payload.barangay);
+  let barangay = toOptionalTrimmedString(payload.barangay);
+
+  if (!barangay && address) {
+    for (const b of EB_MAGALONA_BARANGAYS) {
+      const escaped = b.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      if (new RegExp(`\\b${escaped}\\b`, "i").test(address)) {
+        barangay = b;
+        break;
+      }
+    }
+  }
+
+  if (barangay) {
+    barangay = normalizeEbMagalonaBarangayName(barangay);
+  }
 
   if (!address) {
     throw new Error("businessLocationAddress is required");
@@ -478,6 +510,7 @@ export async function listActivePermittedBusinessLocations(
           businessName: true,
           tradeName: true,
           ownerName: true,
+          businessType: true,
           lineOfBusiness: true,
           permitExpirationDate: true,
           applicant: {
@@ -554,9 +587,9 @@ export async function listActivePermittedBusinessLocations(
           : undefined;
 
       const businessType =
-        typeof latestApplication.formData === "object" && latestApplication.formData
+        ((typeof latestApplication.formData === "object" && latestApplication.formData
           ? ((latestApplication.formData as Record<string, unknown>).businessType as string | undefined)
-          : undefined;
+          : undefined) ?? location.businessRecord.businessType)?.trim() || null;
 
       const tradeName =
         typeof latestApplication.formData === "object" && latestApplication.formData
@@ -569,7 +602,7 @@ export async function listActivePermittedBusinessLocations(
           : undefined;
 
       const category = inferMapBusinessCategory({
-        businessType: businessType ?? null,
+        businessType,
         lineOfBusiness: (lineOfBusiness ?? location.businessRecord.lineOfBusiness ?? "").trim(),
       });
       const categoryMeta = MAP_CATEGORY_META[category];
@@ -581,7 +614,7 @@ export async function listActivePermittedBusinessLocations(
         applicantName: location.businessRecord.applicant?.name ?? "-",
         tradeName: (tradeName ?? location.businessRecord.tradeName ?? null)?.trim() || null,
         businessName: location.businessRecord.businessName,
-        businessType: businessType?.trim() || null,
+        businessType,
         ownerName: (ownerNameFromForm ?? location.businessRecord.ownerName).trim(),
         businessCategory: category,
         businessCategoryLabel: categoryMeta.label,
@@ -605,7 +638,7 @@ export async function listActivePermittedBusinessLocations(
         latitude: location.latitude,
         longitude: location.longitude,
         address: location.address,
-        barangay: resolveLocationBarangay(location.barangay, latestApplication.formData),
+        barangay: resolveLocationBarangay(location.barangay, latestApplication.formData, location.address),
         status: location.status as LocationStatus,
         remarks: location.remarks,
         updatedAt: location.updatedAt.toISOString(),
@@ -724,6 +757,7 @@ export async function listActivePermittedBusinessLocationsPaginated(
             businessName: true,
             tradeName: true,
             ownerName: true,
+            businessType: true,
             lineOfBusiness: true,
             permitExpirationDate: true,
             applicant: {
@@ -804,9 +838,9 @@ export async function listActivePermittedBusinessLocationsPaginated(
           : undefined;
 
       const businessType =
-        typeof latestApplication.formData === "object" && latestApplication.formData
+        ((typeof latestApplication.formData === "object" && latestApplication.formData
           ? ((latestApplication.formData as Record<string, unknown>).businessType as string | undefined)
-          : undefined;
+          : undefined) ?? location.businessRecord.businessType)?.trim() || null;
 
       const tradeName =
         typeof latestApplication.formData === "object" && latestApplication.formData
@@ -819,7 +853,7 @@ export async function listActivePermittedBusinessLocationsPaginated(
           : undefined;
 
       const category = inferMapBusinessCategory({
-        businessType: businessType ?? null,
+        businessType,
         lineOfBusiness: (lineOfBusiness ?? location.businessRecord.lineOfBusiness ?? "").trim(),
       });
       const categoryMeta = MAP_CATEGORY_META[category];
@@ -831,7 +865,7 @@ export async function listActivePermittedBusinessLocationsPaginated(
         applicantName: location.businessRecord.applicant?.name ?? "-",
         tradeName: (tradeName ?? location.businessRecord.tradeName ?? null)?.trim() || null,
         businessName: location.businessRecord.businessName,
-        businessType: businessType?.trim() || null,
+        businessType,
         ownerName: (ownerNameFromForm ?? location.businessRecord.ownerName).trim(),
         businessCategory: category,
         businessCategoryLabel: categoryMeta.label,
@@ -855,7 +889,7 @@ export async function listActivePermittedBusinessLocationsPaginated(
         latitude: location.latitude,
         longitude: location.longitude,
         address: location.address,
-        barangay: resolveLocationBarangay(location.barangay, latestApplication.formData),
+        barangay: resolveLocationBarangay(location.barangay, latestApplication.formData, location.address),
         status: location.status as LocationStatus,
         remarks: location.remarks,
         updatedAt: location.updatedAt.toISOString(),

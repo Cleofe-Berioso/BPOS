@@ -12,19 +12,54 @@ import { createAuditLog } from "@/lib/audit-log";
 import { getJitInspectionChecklist } from "@/lib/jit-declared-inputs";
 import { buildPaginatedResult, resolvePagination, type PaginatedResult } from "@/lib/pagination";
 
-function formatRevocationHistoryRemarks(
-  eventType: "REVOCATION_REVIEW_ENTERED" | "REVOCATION_APPROVED" | "REVOCATION_DENIED",
-  officerName: string,
-  remarks?: string | null
-): string {
-  const prefix =
-    eventType === "REVOCATION_REVIEW_ENTERED"
-      ? "Revocation review initiated by"
-      : eventType === "REVOCATION_APPROVED"
-        ? "Revocation approved by"
-        : "Revocation denied by";
-  return remarks ? `${prefix} ${officerName}. Remarks: ${remarks}` : `${prefix} ${officerName}.`;
+export function formatSeverityLabel(severity?: string | null): string {
+  if (!severity) return "Not Specified";
+  switch (severity.toUpperCase()) {
+    case "MINOR":
+      return "Minor";
+    case "MAJOR":
+      return "Major";
+    case "SEVERE":
+      return "Severe";
+    default:
+      return severity;
+  }
 }
+
+function formatRevocationHistoryRemarks(
+  eventType:
+    | "REVOCATION_REVIEW_ENTERED"
+    | "REVOCATION_APPROVED"
+    | "REVOCATION_DENIED"
+    | "SEVERITY_UPDATED",
+  officerName: string,
+  remarks?: string | null,
+  severityLevel?: string | null
+): string {
+  let prefix = "";
+  switch (eventType) {
+    case "REVOCATION_REVIEW_ENTERED":
+      prefix = "Revocation review initiated by";
+      break;
+    case "REVOCATION_APPROVED":
+      prefix = "Revocation approved by";
+      break;
+    case "REVOCATION_DENIED":
+      prefix = "Revocation denied by";
+      break;
+    case "SEVERITY_UPDATED":
+      prefix = "Severity Level updated by";
+      break;
+  }
+  const severityPart = severityLevel
+    ? `Severity Level: ${formatSeverityLabel(severityLevel)}.`
+    : "";
+  const remarksPart = remarks?.trim() ? `Remarks: ${remarks.trim()}` : "";
+  return [prefix ? `${prefix} ${officerName}.` : "", severityPart, remarksPart]
+    .filter(Boolean)
+    .join(" ");
+}
+
 
 type DepartmentHeadAction = "APPROVE" | "RETURN" | "REJECT";
 type RevocationDecisionAction = "APPROVE" | "DENY";
@@ -102,6 +137,16 @@ export interface DepartmentHeadPermitToRevokeRow {
   hasEvidence: boolean;
   inspectionStatus: string;
   applicationStatus: string;
+  violationSeverity: string | null;
+  history: Array<{
+    id: string;
+    fromStatus: string | null;
+    toStatus: string;
+    actorRole: string;
+    actorName?: string | null;
+    remarks: string | null;
+    createdAt: string;
+  }>;
 }
 
 export interface DepartmentHeadInspectionVerificationRow {
@@ -452,6 +497,18 @@ export async function listDepartmentHeadRevocationQueuePaginated(options?: {
             applicationNumber: true,
             status: true,
             permitIssuance: { select: { documentNumber: true } },
+            history: {
+              select: {
+                applicationHistoryId: true,
+                fromStatus: true,
+                toStatus: true,
+                actorRole: true,
+                remarks: true,
+                createdAt: true,
+                actor: { select: { name: true } },
+              },
+              orderBy: { createdAt: "desc" },
+            },
           },
         },
         businessRecord: {
@@ -498,6 +555,16 @@ export async function listDepartmentHeadRevocationQueuePaginated(options?: {
       hasEvidence: Boolean(row.evidenceStoragePath),
       inspectionStatus: row.status,
       applicationStatus: mapDbStatusToUi(row.application.status),
+      violationSeverity: row.violationSeverity ?? null,
+      history: (row.application?.history ?? []).map((h: any) => ({
+        id: h.applicationHistoryId,
+        fromStatus: h.fromStatus,
+        toStatus: h.toStatus,
+        actorRole: h.actorRole ?? "USER",
+        actorName: h.actor?.name ?? null,
+        remarks: h.remarks ?? null,
+        createdAt: h.createdAt.toISOString(),
+      })),
     }));
 
   return buildPaginatedResult(records, totalCount, page, pageSize);
@@ -920,7 +987,7 @@ export async function applyDepartmentHeadInspectionVerification(
     }
 
     if (!violationSeverity || !validViolationSeverities.includes(violationSeverity)) {
-      throw new Error("violation severity is required and must be MINOR, MAJOR, or SEVERE");
+      throw new Error("Severity Level is required and must be MINOR, MAJOR, or SEVERE");
     }
 
     // Determine complianceCaseStatus and forced closure flags based on severity and type
@@ -976,7 +1043,8 @@ export async function applyDepartmentHeadInspectionVerification(
         remarks: formatRevocationHistoryRemarks(
           "REVOCATION_REVIEW_ENTERED",
           departmentHeadUser?.name ?? "Department Head",
-          normalizedRemarks
+          normalizedRemarks,
+          violationSeverity
         ),
       },
     });
@@ -1152,12 +1220,19 @@ export async function applyDepartmentHeadRevocationDecision(
   inspectionId: string,
   departmentHeadUserId: string,
   action: RevocationDecisionAction,
-  remarks?: string
+  remarks?: string,
+  severityLevel?: string
 ) {
   const normalizedRemarks = remarks?.trim();
 
   if (!normalizedRemarks) {
     throw new Error("Department Head remarks are required.");
+  }
+
+  const validSeverities = ["MINOR", "MAJOR", "SEVERE"];
+  const normalizedSeverity = severityLevel?.trim().toUpperCase();
+  if (normalizedSeverity && !validSeverities.includes(normalizedSeverity)) {
+    throw new Error("Severity Level must be Minor, Major, or Severe.");
   }
 
   return prisma.$transaction(async (tx: any) => {
@@ -1220,6 +1295,8 @@ export async function applyDepartmentHeadRevocationDecision(
       );
     }
 
+    const finalSeverity = (normalizedSeverity || inspection.violationSeverity || null) as any;
+
     const departmentHeadUser = await tx.user.findUnique({
       where: { userId: departmentHeadUserId },
       select: { name: true },
@@ -1248,6 +1325,7 @@ export async function applyDepartmentHeadRevocationDecision(
           revocationRemarks: normalizedRemarks,
           decidedById: departmentHeadUserId,
           decidedAt: decisionDate,
+          ...(finalSeverity ? { violationSeverity: finalSeverity } : {}),
         },
       });
 
@@ -1261,7 +1339,8 @@ export async function applyDepartmentHeadRevocationDecision(
           remarks: formatRevocationHistoryRemarks(
             "REVOCATION_APPROVED",
             departmentHeadUser?.name ?? "Department Head",
-            normalizedRemarks
+            normalizedRemarks,
+            finalSeverity
           ),
         },
       });
@@ -1286,6 +1365,7 @@ export async function applyDepartmentHeadRevocationDecision(
           revocationRemarks: normalizedRemarks,
           decidedById: departmentHeadUserId,
           decidedAt: decisionDate,
+          ...(finalSeverity ? { violationSeverity: finalSeverity } : {}),
         },
       });
 
@@ -1299,7 +1379,8 @@ export async function applyDepartmentHeadRevocationDecision(
           remarks: formatRevocationHistoryRemarks(
             "REVOCATION_DENIED",
             departmentHeadUser?.name ?? "Department Head",
-            normalizedRemarks
+            normalizedRemarks,
+            finalSeverity
           ),
         },
       });
@@ -1312,6 +1393,83 @@ export async function applyDepartmentHeadRevocationDecision(
       inspectionStatus: toRevocationInspectionStatus(action),
       applicationStatus: action === "APPROVE" ? mapDbStatusToUi("REVOKED") : mapDbStatusToUi("RELEASED"),
       businessStatus: action === "APPROVE" ? "INACTIVE" : "ACTIVE",
+      violationSeverity: finalSeverity,
+    };
+  });
+}
+
+export async function updateDepartmentHeadFlaggedCaseSeverity(
+  inspectionId: string,
+  departmentHeadUserId: string,
+  severityLevel: string,
+  remarks?: string
+) {
+  const normalizedSeverity = severityLevel?.trim().toUpperCase();
+  const validSeverities = ["MINOR", "MAJOR", "SEVERE"];
+  if (!normalizedSeverity || !validSeverities.includes(normalizedSeverity)) {
+    throw new Error("Severity Level is required and must be Minor, Major, or Severe.");
+  }
+
+  return prisma.$transaction(async (tx: any) => {
+    const inspection = await tx.inspection.findUnique({
+      where: { inspectionId },
+      include: {
+        application: {
+          select: {
+            businessApplicationId: true,
+            applicationNumber: true,
+            status: true,
+          },
+        },
+      },
+    });
+
+    if (!inspection) {
+      throw new Error("Inspection record not found.");
+    }
+
+    if (
+      inspection.status !== "VERIFIED_NON_COMPLIANT" &&
+      inspection.status !== "REVOCATION_REVIEW"
+    ) {
+      throw new Error("Only flagged cases can have their Severity Level updated.");
+    }
+
+    const departmentHeadUser = await tx.user.findUnique({
+      where: { userId: departmentHeadUserId },
+      select: { name: true },
+    });
+
+    await tx.inspection.update({
+      where: { inspectionId },
+      data: {
+        violationSeverity: normalizedSeverity as any,
+      },
+    });
+
+    if (inspection.application?.businessApplicationId) {
+      await tx.applicationHistory.create({
+        data: {
+          applicationId: inspection.application.businessApplicationId,
+          actorId: departmentHeadUserId,
+          actorRole: "DEPARTMENT_HEAD",
+          fromStatus: inspection.application.status,
+          toStatus: inspection.application.status,
+          remarks: formatRevocationHistoryRemarks(
+            "SEVERITY_UPDATED",
+            departmentHeadUser?.name ?? "Department Head",
+            remarks,
+            normalizedSeverity
+          ),
+        },
+      });
+    }
+
+    return {
+      inspectionId,
+      businessRecordId: inspection.businessRecordId,
+      applicationId: inspection.application?.businessApplicationId ?? null,
+      violationSeverity: normalizedSeverity,
     };
   });
 }

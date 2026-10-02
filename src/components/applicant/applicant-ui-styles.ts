@@ -1,6 +1,6 @@
 /** Shared applicant portal presentational classes (Batch 8C). */
 
-export const applicantFormControlClass = "w-full text-sm";
+export const applicantFormControlClass = "w-full text-base sm:text-sm";
 
 export const applicantSummaryTileClass =
   "rounded-[var(--radius-card)] border border-[var(--border-color)] bg-[var(--muted-surface)] p-3.5 sm:p-4";

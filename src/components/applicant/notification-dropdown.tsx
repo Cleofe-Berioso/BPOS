@@ -87,7 +87,7 @@ export function NotificationDropdown() {
         <section
           ref={dropdownRef}
           aria-label="Notifications panel"
-          className="absolute -right-2 top-12 z-50 w-96 max-w-[calc(100vw-1rem)] rounded-2xl border border-[var(--border-color)] bg-white shadow-xl sm:w-96"
+          className="fixed inset-x-3 top-14 z-50 mx-auto max-w-[calc(100vw-1.5rem)] rounded-2xl border border-[var(--border-color)] bg-white shadow-xl sm:absolute sm:inset-auto sm:-right-2 sm:top-12 sm:w-96 sm:max-w-[calc(100vw-1rem)]"
         >
           {/* Header */}
           <div className="flex items-center justify-between border-b border-[var(--border-color)] px-4 py-3">

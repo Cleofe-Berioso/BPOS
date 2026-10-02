@@ -16,6 +16,8 @@ export interface RequirementUploadRowData {
   documentName: string;
   description: string;
   required: boolean;
+  isClearance?: boolean;
+  uploadedDocumentName?: string;
   fileName?: string;
   uploadedAt?: Date | string;
   previewUrl?: string;
@@ -106,6 +108,7 @@ function RequirementActions({
   accept,
   disabled,
   inputId,
+  actionLabel,
   onFileChange,
   onRemove,
 }: {
@@ -115,9 +118,11 @@ function RequirementActions({
   accept?: string;
   disabled?: boolean;
   inputId: string;
+  actionLabel?: string;
   onFileChange: (documentName: string, file: File | null) => void;
-  onRemove: (documentName: string) => void;
+  onRemove: () => void;
 }) {
+  const label = fileName ? "Replace" : actionLabel || "Upload";
   return (
     <div className="flex flex-wrap items-center gap-2">
       <label
@@ -128,7 +133,7 @@ function RequirementActions({
             : `${actionButtonStyles("primary", "sm")} cursor-pointer`
         }
       >
-        {fileName ? "Replace" : "Upload"}
+        {label}
       </label>
       <input
         id={inputId}
@@ -136,7 +141,7 @@ function RequirementActions({
         accept={accept}
         disabled={disabled}
         className="sr-only"
-        aria-label={`${fileName ? "Replace" : "Upload"} ${documentName}`}
+        aria-label={`${label} ${documentName}`}
         onChange={(event) => {
           onFileChange(documentName, event.target.files?.[0] ?? null);
           event.target.value = "";
@@ -149,7 +154,7 @@ function RequirementActions({
         <button
           type="button"
           disabled={disabled}
-          onClick={() => onRemove(documentName)}
+          onClick={onRemove}
           className={`${actionButtonStyles("danger", "sm")} disabled:opacity-60`}
         >
           Remove
@@ -159,13 +164,21 @@ function RequirementActions({
   );
 }
 
-function UploadedFileCell({ fileName, uploadedAt }: { fileName?: string; uploadedAt?: Date | string }) {
+function UploadedFileCell({
+  fileName,
+  uploadedAt,
+}: {
+  fileName?: string;
+  uploadedAt?: Date | string;
+  uploadedDocumentName?: string;
+  isAffidavit?: boolean;
+}) {
   if (!fileName) {
     return <span className="text-sm italic text-[var(--ink-muted)]">No file uploaded yet.</span>;
   }
 
   return (
-    <div className="space-y-0.5">
+    <div className="space-y-1">
       <p className="text-sm font-medium text-[var(--foreground)] break-all">{fileName}</p>
       {uploadedAt ? (
         <p className="ui-caption">Uploaded {formatUploadTimestamp(uploadedAt)}</p>
@@ -211,7 +224,9 @@ export function RequirementsUploadTable({
           </thead>
           <tbody>
             {rows.map((row) => {
-              const inputId = `req-upload-${slugify(row.documentName)}`;
+              const activeUploadDocName = row.documentName;
+              const removeDocName = row.uploadedDocumentName || row.documentName;
+              const inputId = `req-upload-${slugify(activeUploadDocName)}`;
               const hasError = Boolean(row.error && !row.fileName);
 
               return (
@@ -219,24 +234,32 @@ export function RequirementsUploadTable({
                   key={row.documentName}
                   className={hasError ? "bg-[var(--danger-soft)]/40" : undefined}
                 >
-                  <td className="font-medium text-[var(--foreground)]">{row.documentName}</td>
-                  <td className="text-[var(--ink-muted)]">{row.description}</td>
+                  <td className="font-medium text-[var(--foreground)]">
+                    <div className="font-semibold">{row.documentName}</div>
+                  </td>
+                  <td className="text-[var(--ink-muted)]">
+                    {row.description}
+                  </td>
                   <td>
                     <RequirementBadge required={row.required} />
                   </td>
                   <td>
-                    <UploadedFileCell fileName={row.fileName} uploadedAt={row.uploadedAt} />
+                    <UploadedFileCell
+                      fileName={row.fileName}
+                      uploadedAt={row.uploadedAt}
+                    />
                   </td>
                   <td>
                     <RequirementActions
-                      documentName={row.documentName}
+                      documentName={activeUploadDocName}
                       fileName={row.fileName}
                       previewUrl={row.previewUrl}
                       accept={accept}
                       disabled={row.disabled}
                       inputId={inputId}
+                      actionLabel="Upload"
                       onFileChange={onFileChange}
-                      onRemove={onRemove}
+                      onRemove={() => onRemove(removeDocName)}
                     />
                   </td>
                   <td>
@@ -254,7 +277,9 @@ export function RequirementsUploadTable({
 
       <div className="space-y-3 md:hidden">
         {rows.map((row) => {
-          const inputId = `req-upload-mobile-${slugify(row.documentName)}`;
+          const activeUploadDocName = row.documentName;
+          const removeDocName = row.uploadedDocumentName || row.documentName;
+          const inputId = `req-upload-mobile-${slugify(activeUploadDocName)}`;
           const hasError = Boolean(row.error && !row.fileName);
 
           return (
@@ -265,8 +290,10 @@ export function RequirementsUploadTable({
               }`}
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
-                <h3 className="text-sm font-semibold text-[var(--foreground)]">{row.documentName}</h3>
-                <div className="flex flex-wrap gap-1.5">
+                <div>
+                  <h3 className="text-sm font-semibold text-[var(--foreground)]">{row.documentName}</h3>
+                </div>
+                <div className="flex flex-wrap gap-1.5 items-center">
                   <RequirementBadge required={row.required} />
                   <UploadStatusBadge fileName={row.fileName} uploadedAt={row.uploadedAt} />
                 </div>
@@ -275,26 +302,32 @@ export function RequirementsUploadTable({
               <dl className="mt-3 space-y-2 text-sm">
                 <div>
                   <dt className={applicantMetaLabelClass}>Description / Purpose</dt>
-                  <dd className="mt-0.5 text-[var(--ink-muted)]">{row.description}</dd>
+                  <dd className="mt-0.5 text-[var(--ink-muted)]">
+                    {row.description}
+                  </dd>
                 </div>
                 <div>
                   <dt className={applicantMetaLabelClass}>Uploaded File</dt>
                   <dd className="mt-0.5">
-                    <UploadedFileCell fileName={row.fileName} uploadedAt={row.uploadedAt} />
+                    <UploadedFileCell
+                      fileName={row.fileName}
+                      uploadedAt={row.uploadedAt}
+                    />
                   </dd>
                 </div>
                 <div>
                   <dt className={applicantMetaLabelClass}>Action</dt>
                   <dd className="mt-1">
                     <RequirementActions
-                      documentName={row.documentName}
+                      documentName={activeUploadDocName}
                       fileName={row.fileName}
                       previewUrl={row.previewUrl}
                       accept={accept}
                       disabled={row.disabled}
                       inputId={inputId}
+                      actionLabel="Upload"
                       onFileChange={onFileChange}
-                      onRemove={onRemove}
+                      onRemove={() => onRemove(removeDocName)}
                     />
                   </dd>
                 </div>

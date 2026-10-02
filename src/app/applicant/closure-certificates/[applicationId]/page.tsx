@@ -22,15 +22,17 @@ export default async function ApplicantClosureCertificatePrintPage({ params }: P
 
   return (
     <section className="space-y-4">
-      <div className="no-print flex items-center justify-between gap-3">
+      <div className="no-print flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <p className="text-sm text-[var(--ink-muted)]">
           Applicant certificate view. You can print your released Business Closure Certificate from this page.
         </p>
-        <Link href={`/applicant/my-applications/${applicationId}`} className={actionButtonStyles("secondary", "sm")}>
+        <Link href={`/applicant/my-applications/${applicationId}`} className={`${actionButtonStyles("secondary", "sm")} w-full sm:w-auto justify-center`}>
           Back to Application Detail
         </Link>
       </div>
-      <ClosureCertificateTemplate certificate={access.certificate} />
+      <div className="w-full overflow-x-auto pb-4">
+        <ClosureCertificateTemplate certificate={access.certificate} />
+      </div>
     </section>
   );
 }

@@ -86,9 +86,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             rememberMe,
           };
         } catch (error) {
-          if (process.env.NODE_ENV !== "production") {
-            console.error("Credentials authorize failed unexpectedly", error);
-          }
+          // Log at all environments so DB connection failures (which produce a
+          // CredentialsSignin error) are distinguishable from wrong-credential attempts.
+          // Do NOT log the credentials themselves.
+          const message = error instanceof Error ? error.message : String(error);
+          console.error("[auth] credentials authorize failed unexpectedly:", message);
           return null;
         }
       },

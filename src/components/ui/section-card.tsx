@@ -24,10 +24,10 @@ export function SectionCard({
     >
       {title || description || action ? (
         <div className="flex shrink-0 flex-col gap-1 border-b border-[var(--border-color)] bg-[var(--surface)] px-3 py-2 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:px-3.5 lg:gap-2 lg:px-4">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             {title ? (
               <h3
-                className="ui-section-heading font-semibold tracking-tight"
+                className="ui-section-heading font-semibold tracking-tight break-words"
                 style={{
                   fontSize: "var(--text-section-title)",
                   color: "var(--foreground)",
@@ -37,7 +37,7 @@ export function SectionCard({
               </h3>
             ) : null}
             {description ? (
-              <p className="ui-caption mt-0.5 line-clamp-2">{description}</p>
+              <p className="ui-caption mt-0.5 line-clamp-2 break-words">{description}</p>
             ) : null}
           </div>
           {action ? (

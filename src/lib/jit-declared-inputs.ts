@@ -4,7 +4,7 @@ import { mapDocumentValidationStatusToUi } from "@/lib/document-validation";
 import { tinFromDb } from "@/lib/business-rules";
 import { toMoneyNumber } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
-import { resolveRequiredDocuments } from "@/lib/required-documents";
+import { resolveRequiredDocuments, isDocumentSatisfyingRequirement } from "@/lib/required-documents";
 import {
   JIT_POST_AUDIT_CHECKLIST_ITEMS,
   type JitChecklistDepartmentKey,
@@ -144,7 +144,7 @@ function buildClearanceRows(
       }
 
       const matchedDoc = documents.find(
-        (doc) => normalizeDocumentName(doc.documentName) === normalizeDocumentName(clearanceLabel)
+        (doc) => isDocumentSatisfyingRequirement(clearanceLabel, doc.documentName)
       );
 
       rows.push({

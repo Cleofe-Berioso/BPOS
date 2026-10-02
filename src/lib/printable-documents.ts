@@ -493,8 +493,9 @@ export function canBploPrintDocument(
   const reasons: string[] = [];
   const documentType = getPrintableDocumentType(application.applicationType);
 
-  if (application.status !== "RELEASED") {
-    reasons.push("Application must be RELEASED before document printing.");
+  const allowedStatuses: ApplicationStatusForPrint[] = ["FOR_RELEASE", "RELEASED"];
+  if (!allowedStatuses.includes(application.status)) {
+    reasons.push("Application must be in FOR_RELEASE or RELEASED status before document printing.");
   }
 
   if (!application.payment?.hasVerifiedPaymentReference) {
@@ -502,11 +503,12 @@ export function canBploPrintDocument(
   }
 
   if (!hasIssuanceRecord(application)) {
-    reasons.push("Released permit issuance record is required before document printing.");
+    reasons.push("Permit issuance record is required before document printing.");
   }
 
-  if (application.permitIssuance?.status !== "RELEASED") {
-    reasons.push("Permit issuance must be RELEASED before document printing.");
+  const allowedIssuanceStatuses: PermitIssuanceStatusForPrint[] = ["FOR_RELEASE", "RELEASED", "PREPARED"];
+  if (application.permitIssuance && !allowedIssuanceStatuses.includes(application.permitIssuance.status ?? "PREPARED")) {
+    reasons.push("Permit issuance must be prepared or released before document printing.");
   }
 
   return {
@@ -527,16 +529,18 @@ export function canApplicantPrintDocument(
     reasons.push("Document does not belong to the current applicant.");
   }
 
-  if (application.status !== "RELEASED") {
-    reasons.push("Application must be RELEASED for applicant printing.");
+  const allowedStatuses: ApplicationStatusForPrint[] = ["FOR_RELEASE", "RELEASED"];
+  if (!allowedStatuses.includes(application.status)) {
+    reasons.push("Application must be in FOR_RELEASE or RELEASED status for applicant printing.");
   }
 
   if (!hasIssuanceRecord(application)) {
     reasons.push("Permit issuance record is required for applicant printing.");
   }
 
-  if (application.permitIssuance?.status !== "RELEASED") {
-    reasons.push("Permit issuance must be RELEASED for applicant printing.");
+  const allowedIssuanceStatuses: PermitIssuanceStatusForPrint[] = ["FOR_RELEASE", "RELEASED", "PREPARED"];
+  if (application.permitIssuance && !allowedIssuanceStatuses.includes(application.permitIssuance.status ?? "PREPARED")) {
+    reasons.push("Permit issuance must be prepared or released for applicant printing.");
   }
 
   if (!application.payment?.hasVerifiedPaymentReference) {

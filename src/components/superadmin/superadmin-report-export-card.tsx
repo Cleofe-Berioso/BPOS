@@ -2,6 +2,17 @@
 
 import { useState } from "react";
 import { SectionCard } from "@/components/ui/section-card";
+import {
+  BarChart3,
+  Building2,
+  CheckCircle2,
+  Download,
+  Eye,
+  FileText,
+  Loader2,
+  Shield,
+  Zap,
+} from "lucide-react";
 
 interface ReportOption {
   id: string;
@@ -165,8 +176,9 @@ export function SuperAdminReportExportCard() {
       <div className="space-y-6">
         {/* Quick Instant Downloads Strip */}
         <div className="rounded-lg border border-[var(--border-color)] bg-[var(--surface-muted,#f8fafc)] p-4 dark:bg-neutral-900/40">
-          <p className="text-xs font-semibold uppercase tracking-wider text-[var(--ink-muted)] mb-2">
-            ⚡ Quick 1-Click Downloads (Latest Complete Data)
+          <p className="text-xs font-semibold uppercase tracking-wider text-[var(--ink-muted)] mb-2 flex items-center gap-1.5">
+            <Zap className="h-3.5 w-3.5 text-[var(--ink-muted)]" aria-hidden="true" />
+            <span>Quick 1-Click Downloads (Latest Complete Data)</span>
           </p>
           <div className="flex flex-wrap gap-2">
             <button
@@ -174,28 +186,32 @@ export function SuperAdminReportExportCard() {
               onClick={() => handleDownload("/api/superadmin/reports/export?reportType=applications", "All Applications CSV downloaded!")}
               className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border-color)] bg-white dark:bg-neutral-800 px-3 py-1.5 text-xs font-medium text-[var(--foreground)] hover:bg-[var(--muted-surface)] transition-colors shadow-xs"
             >
-              <span>📥</span> Applications Summary
+              <FileText className="h-3.5 w-3.5 text-[var(--ink-muted)]" aria-hidden="true" />
+              <span>Applications Summary</span>
             </button>
             <button
               type="button"
               onClick={() => handleDownload("/api/superadmin/reports/export?reportType=business-registry", "Business Registry Masterlist CSV downloaded!")}
               className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border-color)] bg-white dark:bg-neutral-800 px-3 py-1.5 text-xs font-medium text-[var(--foreground)] hover:bg-[var(--muted-surface)] transition-colors shadow-xs"
             >
-              <span>🏢</span> Business Registry
+              <Building2 className="h-3.5 w-3.5 text-[var(--ink-muted)]" aria-hidden="true" />
+              <span>Business Registry</span>
             </button>
             <button
               type="button"
               onClick={() => handleDownload(`/api/superadmin/reports/export?reportType=monthly-summary&month=${currentMonth}&year=${currentYear}`, `Executive Summary for this month downloaded!`)}
               className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border-color)] bg-white dark:bg-neutral-800 px-3 py-1.5 text-xs font-medium text-[var(--foreground)] hover:bg-[var(--muted-surface)] transition-colors shadow-xs"
             >
-              <span>📊</span> Current Month Executive Summary
+              <BarChart3 className="h-3.5 w-3.5 text-[var(--ink-muted)]" aria-hidden="true" />
+              <span>Current Month Executive Summary</span>
             </button>
             <button
               type="button"
               onClick={() => handleDownload("/api/superadmin/reports/export?reportType=audit-trail", "Audit Trail CSV downloaded!")}
               className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border-color)] bg-white dark:bg-neutral-800 px-3 py-1.5 text-xs font-medium text-[var(--foreground)] hover:bg-[var(--muted-surface)] transition-colors shadow-xs"
             >
-              <span>🛡️</span> System Audit Trail
+              <Shield className="h-3.5 w-3.5 text-[var(--ink-muted)]" aria-hidden="true" />
+              <span>System Audit Trail</span>
             </button>
           </div>
         </div>
@@ -442,7 +458,11 @@ export function SuperAdminReportExportCard() {
               disabled={isExporting}
               className="inline-flex items-center gap-2 rounded-lg bg-[var(--foreground)] text-[var(--surface)] hover:opacity-90 px-4 py-2.5 text-sm font-semibold transition-all shadow-sm disabled:opacity-50"
             >
-              <span>{isExporting ? "⏳" : "📥"}</span>
+              {isExporting ? (
+                <Loader2 className="h-4 w-4 animate-spin text-[var(--surface)]" aria-hidden="true" />
+              ) : (
+                <Download className="h-4 w-4 text-[var(--surface)]" aria-hidden="true" />
+              )}
               <span>{isExporting ? "Generating CSV..." : "Generate & Download CSV"}</span>
             </button>
 
@@ -452,7 +472,7 @@ export function SuperAdminReportExportCard() {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--surface)] hover:bg-[var(--muted-surface)] px-3 py-2.5 text-xs font-medium text-[var(--foreground)] transition-colors"
             >
-              <span>👁️</span>
+              <Eye className="h-3.5 w-3.5 text-[var(--ink-muted)]" aria-hidden="true" />
               <span>Preview Printable View ↗</span>
             </a>
           </div>
@@ -465,7 +485,7 @@ export function SuperAdminReportExportCard() {
         {/* Success Alert Banner */}
         {exportSuccess && (
           <div className="rounded-lg border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 p-3 text-xs text-emerald-800 dark:text-emerald-200 flex items-center gap-2">
-            <span>✅</span>
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden="true" />
             <span className="font-medium">{exportSuccess}</span>
           </div>
         )}

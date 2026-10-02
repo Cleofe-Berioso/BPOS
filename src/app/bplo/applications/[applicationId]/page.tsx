@@ -7,6 +7,7 @@ import { resolveApplicantProfileImageUrl } from "@/lib/profile-image-url";
 import { StatusBadge } from "@/components/applicant/status-badge";
 import { StatusTracker } from "@/components/applicant/status-tracker";
 import { BploApplicationReviewSection } from "@/components/bplo/bplo-application-review-section";
+import { BploLocationMapViewer } from "@/components/bplo/bplo-location-map-viewer";
 import type { ApplicationStatus, BusinessInfo } from "@/lib/applicant-types";
 import { DetailHeader } from "@/components/ui/detail-header";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -327,8 +328,6 @@ export default async function BploApplicationDetailPage({ params }: PageProps) {
               <p><strong>Business Zip Code:</strong> {readText(formData, ["businessZipCode"], "6118")}</p>
               <p><strong>Barangay:</strong> {readText(formData, ["barangay"])}</p>
               <p><strong>Street:</strong> {readText(formData, ["streetAddress"])}</p>
-              <p><strong>Coordinates:</strong> {latitude != null && longitude != null ? `${latitude}, ${longitude}` : "-"}</p>
-              <p><strong>Location Verification:</strong> {latitude != null && longitude != null ? "Location pinned" : "Location not pinned"}</p>
             </div>
           </SectionCard>
 
@@ -423,6 +422,19 @@ export default async function BploApplicationDetailPage({ params }: PageProps) {
             </div>
           </SectionCard>
         </div>
+      </SectionCard>
+
+      <SectionCard
+        title="Business Location Verification"
+        description="Read-only map view of the GIS pin submitted by the applicant. Staff can verify whether the pinned location matches the declared business address."
+      >
+        <BploLocationMapViewer
+          latitude={latitude}
+          longitude={longitude}
+          businessName={String(formData.businessName ?? "") || undefined}
+          barangay={readText(formData, ["barangay"]) !== "-" ? readText(formData, ["barangay"]) : undefined}
+          businessAddress={readText(formData, ["businessAddress"]) !== "-" ? readText(formData, ["businessAddress"]) : undefined}
+        />
       </SectionCard>
 
       <SectionCard title="History / Timeline" description="Recorded workflow activity and remarks.">

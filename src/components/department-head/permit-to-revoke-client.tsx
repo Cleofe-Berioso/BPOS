@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { actionButtonStyles } from "@/components/ui/action-button";
 import { LoadingState } from "@/components/ui/loading-state";
 import {
+  dhDocumentListItemClass,
   dhFormControlClass,
   dhPanelClass,
   dhSelectableCardClass,
@@ -42,6 +43,16 @@ type PermitToRevokeRow = {
   hasEvidence: boolean;
   inspectionStatus: string;
   applicationStatus: string;
+  violationSeverity: string | null;
+  history?: Array<{
+    id: string;
+    fromStatus: string | null;
+    toStatus: string;
+    actorRole: string;
+    actorName?: string | null;
+    remarks: string | null;
+    createdAt: string;
+  }>;
 };
 
 type DecisionAction = "approve" | "deny";
@@ -53,6 +64,80 @@ function formatDateTime(value: string): string {
     timeStyle: "short",
     timeZone: "Asia/Manila",
   }).format(new Date(value));
+}
+
+function formatSeverityLabel(severity?: string | null): string {
+  if (!severity) return "Not Specified";
+  switch (severity.toUpperCase()) {
+    case "MINOR":
+      return "Minor";
+    case "MAJOR":
+      return "Major";
+    case "SEVERE":
+      return "Severe";
+    default:
+      return severity;
+  }
+}
+
+function SeverityBadge({
+  severity,
+  size = "sm",
+}: {
+  severity?: string | null;
+  size?: "sm" | "md" | "lg";
+}) {
+  const norm = severity?.toUpperCase();
+  const label = formatSeverityLabel(norm);
+
+  if (norm === "SEVERE") {
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 font-semibold rounded-full border border-rose-500/40 bg-rose-500/15 text-rose-700 dark:bg-rose-500/25 dark:text-rose-300 dark:border-rose-400/40 ${
+          size === "lg" ? "px-3 py-1 text-sm font-bold" : "px-2 py-0.5 text-xs"
+        }`}
+      >
+        <span className="h-1.5 w-1.5 rounded-full bg-rose-600 animate-pulse" />
+        {label}
+      </span>
+    );
+  }
+
+  if (norm === "MAJOR") {
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 font-medium rounded-full border border-orange-500/40 bg-orange-500/15 text-orange-800 dark:bg-orange-500/25 dark:text-orange-300 dark:border-orange-400/40 ${
+          size === "lg" ? "px-3 py-1 text-sm font-semibold" : "px-2 py-0.5 text-xs"
+        }`}
+      >
+        <span className="h-1.5 w-1.5 rounded-full bg-orange-500" />
+        {label}
+      </span>
+    );
+  }
+
+  if (norm === "MINOR") {
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 font-medium rounded-full border border-amber-500/40 bg-amber-500/15 text-amber-800 dark:bg-amber-500/25 dark:text-amber-300 dark:border-amber-400/40 ${
+          size === "lg" ? "px-3 py-1 text-sm font-medium" : "px-2 py-0.5 text-xs"
+        }`}
+      >
+        <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+        {label}
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 text-[var(--ink-muted)] rounded-full border border-[var(--border-color)] bg-[var(--muted-surface)] ${
+        size === "lg" ? "px-3 py-1 text-sm" : "px-2 py-0.5 text-xs"
+      }`}
+    >
+      {label}
+    </span>
+  );
 }
 
 
@@ -136,6 +221,8 @@ export function PermitToRevokeClient() {
 
   useEffect(() => {
     setEvidenceOpen(false);
+    setRemarks("");
+    setMessage(null);
   }, [selectedId]);
 
   async function runDecision(action: DecisionAction) {
@@ -156,7 +243,7 @@ export function PermitToRevokeClient() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ remarks }),
+          body: JSON.stringify({ remarks, severityLevel: selected.violationSeverity }),
         }
       );
     } catch (error) {
@@ -228,7 +315,10 @@ export function PermitToRevokeClient() {
                   onClick={() => setSelectedId(row.inspectionId)}
                   className={`${dhSelectableCardClass} ${active ? "border-[var(--warning)] bg-[var(--warning-soft)]" : dhSelectableCardIdleClass}`}
                 >
-                  <p className="font-mono ui-caption">{row.applicationNumber}</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-mono ui-caption">{row.applicationNumber}</p>
+                    <SeverityBadge severity={row.violationSeverity} />
+                  </div>
                   <p className={dhSummaryValueClass}>{row.tradeName ? `${row.businessName} / ${row.tradeName}` : row.businessName}</p>
                   <p className="mt-1 ui-caption">Inspector: {row.inspectorName}</p>
                   <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-[var(--warning)]">{row.inspectionStatus}</p>
@@ -315,6 +405,27 @@ export function PermitToRevokeClient() {
                 <p className={dhSummaryLabelClass}>Current Status</p>
                 <p className={dhSummaryValueClass}>{selected.inspectionStatus}</p>
               </div>
+              <div
+                className={`${dhSummaryTileClass} border-l-4 ${
+                  selected.violationSeverity === "SEVERE"
+                    ? "border-l-rose-500 bg-rose-500/5"
+                    : selected.violationSeverity === "MAJOR"
+                      ? "border-l-orange-500 bg-orange-500/5"
+                      : "border-l-amber-500 bg-amber-500/5"
+                }`}
+              >
+                <p className={dhSummaryLabelClass}>Severity Level</p>
+                <div className="mt-1.5 flex items-center gap-2">
+                  <SeverityBadge severity={selected.violationSeverity} size="md" />
+                </div>
+                <p className="ui-caption mt-1">
+                  {selected.violationSeverity === "SEVERE"
+                    ? "Severe violation: High risk to life, safety, or regulations."
+                    : selected.violationSeverity === "MAJOR"
+                      ? "Major violation: Substantial regulatory non-compliance."
+                      : "Minor violation: Standard compliance rectification terms apply."}
+                </p>
+              </div>
               <div className={`${dhSummaryTileClass} md:col-span-2 xl:col-span-3`}>
                 <p className={dhSummaryLabelClass}>JIT Comment</p>
                 <p className="mt-1 text-sm text-[var(--foreground)]">{selected.inspectorComment ?? "No comment provided."}</p>
@@ -387,6 +498,33 @@ export function PermitToRevokeClient() {
                 </div>
               </div>
             ) : null}
+
+            <SectionCard
+              title="Case History"
+              description="Audit timeline of status transitions and recorded remarks for this case."
+            >
+              {!selected.history || selected.history.length === 0 ? (
+                <div className="text-sm text-[var(--ink-muted)]">No case history recorded yet.</div>
+              ) : (
+                <ul className="space-y-2 text-sm text-[var(--ink-muted)]">
+                  {selected.history.map((item) => (
+                    <li key={item.id} className={dhDocumentListItemClass}>
+                      <div className="flex flex-wrap items-center justify-between gap-1">
+                        <p className="font-medium text-[var(--foreground)]">
+                          {item.fromStatus ? `${item.fromStatus} → ` : ""}
+                          {item.toStatus}
+                        </p>
+                        <span className="ui-caption font-mono">{formatDateTime(item.createdAt)}</span>
+                      </div>
+                      <p className="ui-caption">Actor: {item.actorName ?? item.actorRole ?? "System"}</p>
+                      <p className="mt-1 text-sm font-medium text-[var(--foreground)]">
+                        {item.remarks ?? "No remarks provided."}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </SectionCard>
 
             <div className="space-y-2">
               <label className="block text-sm font-medium text-[var(--foreground)]" htmlFor="revocation-remarks">

@@ -490,6 +490,7 @@ export function RegisterForm() {
                   id="firstName"
                   name="firstName"
                   type="text"
+                  maxLength={50}
                   aria-label="First Name"
                   autoComplete="given-name"
                   autoCapitalize="words"
@@ -515,6 +516,7 @@ export function RegisterForm() {
                   id="middleName"
                   name="middleName"
                   type="text"
+                  maxLength={50}
                   aria-label="Middle Name"
                   autoComplete="additional-name"
                   autoCapitalize="words"
@@ -539,6 +541,7 @@ export function RegisterForm() {
                   id="lastName"
                   name="lastName"
                   type="text"
+                  maxLength={50}
                   aria-label="Last Name"
                   autoComplete="family-name"
                   autoCapitalize="words"
@@ -564,6 +567,7 @@ export function RegisterForm() {
                   id="suffix"
                   name="suffix"
                   type="text"
+                  maxLength={10}
                   aria-label="Suffix"
                   autoComplete="honorific-suffix"
                   autoCapitalize="words"
@@ -589,6 +593,7 @@ export function RegisterForm() {
                 id="email"
                 name="email"
                 type="email"
+                maxLength={255}
                 aria-label="Email"
                 autoComplete="email"
                 required

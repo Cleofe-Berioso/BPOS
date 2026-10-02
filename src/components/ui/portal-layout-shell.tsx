@@ -29,7 +29,7 @@ export function sidebarAsideClass(mobileOpen: boolean, collapsed: boolean): stri
   return [
     "app-sidebar no-print fixed inset-y-0 left-0 z-50 flex h-full flex-col transition-[width,transform] duration-200 lg:z-30",
     mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
-    getPortalSidebarWidth(collapsed),
+    collapsed ? "w-72 max-w-[85vw] lg:w-20" : "w-72 max-w-[85vw] lg:w-64",
   ].join(" ");
 }
 
@@ -140,11 +140,28 @@ export function PortalSidebarBrand({
 }: PortalSidebarBrandProps) {
   if (collapsed) {
     return (
-      <div className="flex justify-center">
-        <div className="app-sidebar-brand-icon" title={portalTitle}>
-          <Image src="/images/logo.png" alt="" width={34} height={34} className="h-full w-full object-contain" />
+      <>
+        <div className="hidden justify-center lg:flex">
+          <div className="app-sidebar-brand-icon" title={portalTitle}>
+            <Image src="/images/logo.png" alt="" width={34} height={34} className="h-full w-full object-contain" />
+          </div>
         </div>
-      </div>
+        <div className="space-y-2 lg:hidden">
+          <div className="flex items-start gap-3">
+            <div className="app-sidebar-brand-icon">
+              <Image src="/images/logo.png" alt="" width={34} height={34} className="h-full w-full object-contain" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--sidebar-active-text)]">
+                Business Permit Online System
+              </p>
+              <h2 className="mt-0.5 text-[0.95rem] font-semibold leading-tight text-white">{portalTitle}</h2>
+              <p className="mt-0.5 text-xs leading-5 text-[var(--sidebar-text-muted)]">{description}</p>
+            </div>
+          </div>
+          <RoleBadge roleType={roleType} label={roleLabel} />
+        </div>
+      </>
     );
   }
 
@@ -184,19 +201,32 @@ export function PortalSidebarFooter({
     .join("");
 
   return (
-    <div className="app-sidebar-footer mt-auto hidden shrink-0 lg:block">
+    <div className="app-sidebar-footer mt-auto shrink-0 border-t border-[var(--sidebar-border)] p-3">
       {collapsed ? (
-        <div className="flex justify-center">
-          <button
-            type="button"
-            onClick={onCollapseToggle}
-            aria-expanded={false}
-            aria-label="Expand sidebar"
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-[var(--sidebar-text-muted)] transition-colors hover:bg-[var(--sidebar-hover-bg)] hover:text-white"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
+        <>
+          <div className="hidden justify-center lg:flex">
+            <button
+              type="button"
+              onClick={onCollapseToggle}
+              aria-expanded={false}
+              aria-label="Expand sidebar"
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-[var(--sidebar-text-muted)] transition-colors hover:bg-[var(--sidebar-hover-bg)] hover:text-white"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="flex items-center gap-2 lg:hidden">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-[rgba(197,160,89,0.15)] text-xs font-semibold text-[var(--sidebar-active-text)] ring-1 ring-[rgba(197,160,89,0.24)]">
+                {initials || "U"}
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-xs font-semibold text-[var(--sidebar-text)]">{userName}</p>
+                <p className="text-[10px] uppercase tracking-[0.12em] text-[var(--sidebar-text-muted)]">Signed in</p>
+              </div>
+            </div>
+          </div>
+        </>
       ) : (
         <div className="flex items-center gap-2">
           <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -213,7 +243,7 @@ export function PortalSidebarFooter({
             onClick={onCollapseToggle}
             aria-expanded
             aria-label="Collapse sidebar"
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-[var(--sidebar-text-muted)] transition-colors hover:bg-[var(--sidebar-hover-bg)] hover:text-white"
+            className="hidden lg:inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-[var(--sidebar-text-muted)] transition-colors hover:bg-[var(--sidebar-hover-bg)] hover:text-white"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
@@ -234,7 +264,7 @@ export function PortalHeaderActions({
 }: {
   name: string;
   roleLabel: string;
-  profileHref: string;
+  profileHref?: string;
   signOutAction: () => Promise<void>;
   profileImageUrl?: string | null;
   profileImageFailed?: boolean;
@@ -255,9 +285,11 @@ export function PortalHeaderActions({
           <UserCircle2 className="h-5 w-5" />
         )}
       </span>
-      <Link href={profileHref} className={`${actionButtonStyles("secondary", "sm")} hidden sm:inline-flex`}>
-        Profile
-      </Link>
+      {profileHref ? (
+        <Link href={profileHref} className={`${actionButtonStyles("secondary", "sm")} hidden sm:inline-flex`}>
+          Profile
+        </Link>
+      ) : null}
       <form action={signOutAction}>
         <button className={`${actionButtonStyles("primary", "sm")} inline-flex items-center gap-1.5`} type="submit">
           <LogOut className="h-3.5 w-3.5" />

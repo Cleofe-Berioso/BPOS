@@ -23,6 +23,7 @@ import { JitDeclaredInputsPanels } from "@/components/jit/jit-declared-inputs-pa
 import {
   createEmptyChecklistDraft,
   isChecklistComplete,
+  validateChecklistDraft,
   JitPostAuditChecklistForm,
   type ChecklistDraftState,
 } from "@/components/jit/jit-post-audit-checklist-form";
@@ -312,8 +313,9 @@ export function JitInspectBusinessClient() {
       return "Select a business first.";
     }
 
-    if (!isChecklistComplete(checklistDraft)) {
-      return "Complete all 8 post-audit checklist responses before submitting.";
+    const checklistError = validateChecklistDraft(checklistDraft);
+    if (checklistError) {
+      return checklistError;
     }
 
     if (!comment.trim()) {
@@ -411,7 +413,7 @@ export function JitInspectBusinessClient() {
                 aria-label="Search"
                 value={searchText}
                 onChange={(event) => setSearchText(event.target.value)}
-                placeholder="Business, trade name, owner/applicant, permit number"
+                placeholder="Search business, owner, permit..."
                 className={`${jitFormControlClass} py-2.5 pl-9 pr-3`}
               />
             </div>
@@ -464,58 +466,116 @@ export function JitInspectBusinessClient() {
               return (
                 <article
                   key={row.businessRecordId}
-                  className={`${jitSelectableCardClass} p-3 ${isSelected ? jitSelectableCardActiveClass : jitSelectableCardIdleClass}`}
+                  className={`${jitSelectableCardClass} p-3 sm:p-3.5 ${isSelected ? jitSelectableCardActiveClass : jitSelectableCardIdleClass}`}
                 >
-                  {/* Row 1: Business Name | Permit No. | Business Type | Inspection Status */}
-                  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                    <div>
-                      <p className={jitSummaryLabelClass}>Business / Trade Name</p>
-                      <p className={`${jitSummaryValueClass} truncate`}>
-                        {row.tradeName ? `${row.tradeName} / ${row.businessName}` : row.businessName}
-                      </p>
+                  {/* Mobile-optimized layout (<sm) */}
+                  <div className="space-y-2.5 sm:hidden">
+                    <div className="flex items-start justify-between gap-2 border-b border-[var(--border-color)] pb-2">
+                      <div className="min-w-0 flex-1">
+                        <p className={jitSummaryLabelClass}>Business / Trade Name</p>
+                        <p className={`${jitSummaryValueClass} break-words line-clamp-2`}>
+                          {row.tradeName ? `${row.tradeName} / ${row.businessName}` : row.businessName}
+                        </p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className={jitSummaryLabelClass}>Inspection</p>
+                        <p className={`text-xs font-semibold ${inspectionStatusTone(inspStatus)}`}>
+                          {formatInspectionStatus(inspStatus)}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className={jitSummaryLabelClass}>Permit No.</p>
-                      <p className={`${jitSummaryValueClass} truncate`}>{row.permitOrCertificateNumber ?? "N/A"}</p>
-                    </div>
-                    <div>
-                      <p className={jitSummaryLabelClass}>Business Type</p>
-                      <p className={`${jitSummaryValueClass} truncate`}>{row.businessType ?? "N/A"}</p>
-                    </div>
-                    <div>
-                      <p className={jitSummaryLabelClass}>Inspection Status</p>
-                      <p className={`text-sm font-semibold ${inspectionStatusTone(inspStatus)} truncate`}>
-                        {formatInspectionStatus(inspStatus)}
-                      </p>
-                    </div>
-                  </div>
 
-                  {/* Row 2: Owner | Address | Line of Business | Action */}
-                  <div className="mt-2 grid items-end gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                    <div>
-                      <p className={jitSummaryLabelClass}>Owner / Applicant</p>
-                      <p className={`${jitSummaryValueClass} truncate`}>{row.ownerName} / {row.applicantName}</p>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="min-w-0">
+                        <p className={jitSummaryLabelClass}>Permit No.</p>
+                        <p className={`${jitSummaryValueClass} break-all font-mono text-xs`}>{row.permitOrCertificateNumber ?? "N/A"}</p>
+                      </div>
+                      <div className="min-w-0">
+                        <p className={jitSummaryLabelClass}>Business Type</p>
+                        <p className={`${jitSummaryValueClass} break-words text-xs`}>{row.businessType ?? "N/A"}</p>
+                      </div>
+                      <div className="min-w-0">
+                        <p className={jitSummaryLabelClass}>Line of Business</p>
+                        <p className={`${jitSummaryValueClass} break-words text-xs`}>{row.lineOfBusiness ?? "N/A"}</p>
+                      </div>
+                      <div className="min-w-0">
+                        <p className={jitSummaryLabelClass}>Business Address</p>
+                        <p className={`${jitSummaryValueClass} break-words text-xs`}>
+                          {row.barangay ? `Brgy. ${row.barangay}` : null}
+                          {row.barangay && row.address ? " · " : null}
+                          {row.address ?? (row.barangay ? null : "N/A")}
+                        </p>
+                      </div>
+                      <div className="col-span-2 min-w-0 pt-0.5">
+                        <p className={jitSummaryLabelClass}>Owner / Applicant</p>
+                        <p className={`${jitSummaryValueClass} break-words text-xs`}>{row.ownerName} / {row.applicantName}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className={jitSummaryLabelClass}>Business Address</p>
-                      <p className={`${jitSummaryValueClass} truncate`}>
-                        {row.barangay ? `Brgy. ${row.barangay}` : null}
-                        {row.barangay && row.address ? " · " : null}
-                        {row.address ?? (row.barangay ? null : "N/A")}
-                      </p>
-                    </div>
-                    <div>
-                      <p className={jitSummaryLabelClass}>Line of Business</p>
-                      <p className={`${jitSummaryValueClass} truncate`}>{row.lineOfBusiness ?? "N/A"}</p>
-                    </div>
-                    <div className="flex justify-end">
+
+                    <div className="pt-1">
                       <button
                         type="button"
                         onClick={() => setSelectedBusinessRecordId(row.businessRecordId)}
-                        className={actionButtonStyles(isSelected ? "readOnly" : "primary", "sm")}
+                        className={`${actionButtonStyles(isSelected ? "readOnly" : "primary", "sm")} w-full justify-center text-center`}
                       >
                         {isSelected ? "Selected" : "Inspect"}
                       </button>
+                    </div>
+                  </div>
+
+                  {/* Desktop / tablet layout (>=sm) */}
+                  <div className="hidden sm:block">
+                    {/* Row 1: Business Name | Permit No. | Business Type | Inspection Status */}
+                    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                      <div className="min-w-0">
+                        <p className={jitSummaryLabelClass}>Business / Trade Name</p>
+                        <p className={`${jitSummaryValueClass} break-words sm:line-clamp-2`}>
+                          {row.tradeName ? `${row.tradeName} / ${row.businessName}` : row.businessName}
+                        </p>
+                      </div>
+                      <div className="min-w-0">
+                        <p className={jitSummaryLabelClass}>Permit No.</p>
+                        <p className={`${jitSummaryValueClass} break-all font-mono`}>{row.permitOrCertificateNumber ?? "N/A"}</p>
+                      </div>
+                      <div className="min-w-0">
+                        <p className={jitSummaryLabelClass}>Business Type</p>
+                        <p className={`${jitSummaryValueClass} break-words`}>{row.businessType ?? "N/A"}</p>
+                      </div>
+                      <div className="min-w-0">
+                        <p className={jitSummaryLabelClass}>Inspection Status</p>
+                        <p className={`text-sm font-semibold ${inspectionStatusTone(inspStatus)} break-words`}>
+                          {formatInspectionStatus(inspStatus)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Row 2: Owner | Address | Line of Business | Action */}
+                    <div className="mt-2 grid items-end gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                      <div className="min-w-0">
+                        <p className={jitSummaryLabelClass}>Owner / Applicant</p>
+                        <p className={`${jitSummaryValueClass} break-words`}>{row.ownerName} / {row.applicantName}</p>
+                      </div>
+                      <div className="min-w-0">
+                        <p className={jitSummaryLabelClass}>Business Address</p>
+                        <p className={`${jitSummaryValueClass} break-words`}>
+                          {row.barangay ? `Brgy. ${row.barangay}` : null}
+                          {row.barangay && row.address ? " · " : null}
+                          {row.address ?? (row.barangay ? null : "N/A")}
+                        </p>
+                      </div>
+                      <div className="min-w-0">
+                        <p className={jitSummaryLabelClass}>Line of Business</p>
+                        <p className={`${jitSummaryValueClass} break-words`}>{row.lineOfBusiness ?? "N/A"}</p>
+                      </div>
+                      <div className="flex justify-end pt-1 sm:pt-0">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedBusinessRecordId(row.businessRecordId)}
+                          className={`${actionButtonStyles(isSelected ? "readOnly" : "primary", "sm")} w-full sm:w-auto justify-center text-center`}
+                        >
+                          {isSelected ? "Selected" : "Inspect"}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </article>
@@ -585,11 +645,11 @@ export function JitInspectBusinessClient() {
               <div className="grid gap-3 md:grid-cols-3">
                 <div className={jitSummaryTileClass}>
                   <p className={jitSummaryLabelClass}>Application Number</p>
-                  <p className={jitSummaryValueClass}>{selectedRow.applicationNumber}</p>
+                  <p className={`${jitSummaryValueClass} break-all font-mono text-xs sm:text-sm`}>{selectedRow.applicationNumber}</p>
                 </div>
                 <div className={jitSummaryTileClass}>
                   <p className={jitSummaryLabelClass}>Permit Number</p>
-                  <p className={jitSummaryValueClass}>{selectedRow.permitOrCertificateNumber ?? "N/A"}</p>
+                  <p className={`${jitSummaryValueClass} break-all font-mono text-xs sm:text-sm`}>{selectedRow.permitOrCertificateNumber ?? "N/A"}</p>
                 </div>
                 <div className={jitSummaryTileClass}>
                   <p className={jitSummaryLabelClass}>Latest Inspection Status</p>
@@ -633,19 +693,22 @@ export function JitInspectBusinessClient() {
                 <p className="text-sm font-medium text-[var(--danger)]">{formError}</p>
               ) : null}
 
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-col sm:flex-row flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={() => {
                     void handleSubmit();
                   }}
                   disabled={isSubmitting}
-                  className={actionButtonStyles("primary", "md")}
+                  className={`${actionButtonStyles("primary", "md")} w-full sm:w-auto justify-center text-center`}
                 >
                   {isSubmitting ? "Submitting..." : "Submit Inspection"}
                 </button>
                 {selectedRow ? (
-                  <Link href="/jit/business-map" className={actionButtonStyles("secondary", "md")}>
+                  <Link
+                    href="/jit/business-map"
+                    className={`${actionButtonStyles("secondary", "md")} w-full sm:w-auto justify-center text-center`}
+                  >
                     View Business Map
                   </Link>
                 ) : null}

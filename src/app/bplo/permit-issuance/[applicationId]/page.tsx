@@ -62,19 +62,20 @@ export default async function PermitIssuanceDetailPage({
   const { applicationId } = await params;
   const qp = searchParams ? await searchParams : {};
 
+  let actionError: string | null = null;
   if (qp.action === "prepare") {
     try {
       await preparePermitIssuance(applicationId, session.user.id, "Prepared via detail action");
-    } catch {
-      // no-op; page will show latest state
+    } catch (err) {
+      actionError = err instanceof Error ? err.message : "Unable to prepare permit issuance.";
     }
   }
 
   if (qp.action === "release") {
     try {
       await releasePermitIssuance(applicationId, session.user.id, "Released via detail action");
-    } catch {
-      // no-op; page will show latest state
+    } catch (err) {
+      actionError = err instanceof Error ? err.message : "Unable to release permit.";
     }
   }
 
@@ -106,15 +107,40 @@ export default async function PermitIssuanceDetailPage({
         subtitle={detail.application.applicationNumber}
         badge={<RoleBadge roleType="BPLO" />}
         actions={
-          <Link href="/bplo/permit-issuance" className={actionButtonStyles("secondary", "sm")}>
-            Back to Permit Issuance
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            {printEligibility.canPrint && isBusinessPermit ? (
+              <Link
+                href={`/bplo/permit-issuance/${detail.application.id}/print`}
+                className={actionButtonStyles("primary", "sm")}
+              >
+                Print Permit
+              </Link>
+            ) : null}
+            {printEligibility.canPrint && isClosureCertificate ? (
+              <Link
+                href={`/bplo/permit-issuance/${detail.application.id}/closure-print`}
+                className={actionButtonStyles("primary", "sm")}
+              >
+                Print Certificate
+              </Link>
+            ) : null}
+            <Link href="/bplo/permit-issuance" className={actionButtonStyles("secondary", "sm")}>
+              Back to Permit Issuance
+            </Link>
+          </div>
         }
       />
 
+      {actionError ? (
+        <InfoBanner
+          title="Permit action could not be completed"
+          description={actionError}
+          variant="danger"
+        />
+      ) : null}
+
       <InfoBanner
         title={`Current workflow status: ${detail.application.status}`}
-        description="This view remains aligned to the existing permit preparation and release logic."
         variant={detail.application.rawStatus === "RELEASED" ? "success" : detail.application.rawStatus === "FOR_RELEASE" ? "warning" : "info"}
       />
 
@@ -153,43 +179,78 @@ export default async function PermitIssuanceDetailPage({
 
       <SectionCard title="Generated Document Preview" description={detail.preview.subtitle}>
         <div className={`${bploHighlightPanelClass} border-[var(--info)] bg-[var(--info-soft)]`}>
-          <p className="text-base font-semibold text-[var(--foreground)]">{detail.preview.title}</p>
-          <p className="mt-1 text-sm text-[var(--ink-muted)]">
-            This preview reflects the current document output view and does not alter permit issuance logic.
-          </p>
-          {isBusinessPermit && printEligibility.canPrint ? (
-            <div className="mt-3">
-              <Link
-                href={`/bplo/permit-issuance/${detail.application.id}/print`}
-                className={actionButtonStyles("primary", "sm")}
-              >
-                Open Business Permit Print Preview
-              </Link>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-base font-semibold text-[var(--foreground)]">{detail.preview.title}</p>
+              <p className="mt-1 text-sm text-[var(--ink-muted)]">
+                {detail.issuance.documentNumber
+                  ? `Document No.: ${detail.issuance.documentNumber} • Status: ${detail.issuance.status ?? detail.application.status}`
+                  : "Preview document details and output before printing."}
+              </p>
+            </div>
+            {isBusinessPermit && printEligibility.canPrint ? (
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  href={`/bplo/permit-issuance/${detail.application.id}/print`}
+                  className={actionButtonStyles("primary", "sm")}
+                >
+                  Print Permit
+                </Link>
+                <Link
+                  href={`/bplo/permit-issuance/${detail.application.id}/print`}
+                  className={actionButtonStyles("secondary", "sm")}
+                >
+                  View Permit Preview
+                </Link>
+              </div>
+            ) : null}
+            {isClosureCertificate && printEligibility.canPrint ? (
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  href={`/bplo/permit-issuance/${detail.application.id}/closure-print`}
+                  className={actionButtonStyles("primary", "sm")}
+                >
+                  Print Certificate
+                </Link>
+                <Link
+                  href={`/bplo/permit-issuance/${detail.application.id}/closure-print`}
+                  className={actionButtonStyles("secondary", "sm")}
+                >
+                  View Certificate Preview
+                </Link>
+              </div>
+            ) : null}
+          </div>
+
+          {detail.issuance.documentNumber ? (
+            <div className="mt-4 grid gap-3 rounded-[var(--radius-card)] border border-[var(--border-color)] bg-[var(--surface)] p-3 text-xs sm:grid-cols-2 md:grid-cols-4">
+              <div>
+                <span className="font-semibold text-[var(--ink-muted)]">Permit Number</span>
+                <p className="font-mono text-sm font-bold text-[var(--foreground)]">{detail.issuance.documentNumber}</p>
+              </div>
+              <div>
+                <span className="font-semibold text-[var(--ink-muted)]">Business Name</span>
+                <p className="font-medium text-[var(--foreground)]">{detail.application.businessName}</p>
+              </div>
+              <div>
+                <span className="font-semibold text-[var(--ink-muted)]">Document Type</span>
+                <p className="font-medium text-[var(--foreground)]">{detail.issuance.documentType ?? "-"}</p>
+              </div>
+              <div>
+                <span className="font-semibold text-[var(--ink-muted)]">Validity Period</span>
+                <p className="font-medium text-[var(--foreground)]">{detail.issuance.validityPeriod ?? "-"}</p>
+              </div>
             </div>
           ) : null}
-          {isClosureCertificate && printEligibility.canPrint ? (
-            <div className="mt-3">
-              <Link
-                href={`/bplo/permit-issuance/${detail.application.id}/closure-print`}
-                className={actionButtonStyles("primary", "sm")}
-              >
-                Open Closure Certificate Print Preview
-              </Link>
-            </div>
-          ) : null}
-          {!isBusinessPermit ? (
-            <p className="mt-3 text-sm font-medium text-[var(--foreground)]">
-              Business Permit printing is disabled for closure applications.
-            </p>
-          ) : null}
+
           {isBusinessPermit && !printEligibility.canPrint ? (
             <p className="mt-3 text-sm font-medium text-[var(--foreground)]">
-              Print preview unavailable until issuance is eligible for permit printing.
+              Print permit option will be enabled as soon as the permit is prepared and issued.
             </p>
           ) : null}
           {isClosureCertificate && !printEligibility.canPrint ? (
             <p className="mt-3 text-sm font-medium text-[var(--foreground)]">
-              Print preview unavailable until issuance is eligible for closure certificate printing.
+              Print certificate option will be enabled as soon as the certificate is prepared and issued.
             </p>
           ) : null}
         </div>
@@ -261,20 +322,67 @@ export default async function PermitIssuanceDetailPage({
               <>
                 <InfoBanner
                   title="Ready for release"
-                  description="Mark Released will keep the existing route behavior and complete the issuance stage for this application."
+                  description="The permit has been prepared and issued. You may view and print the permit, or officially mark it released."
                   variant="warning"
                 />
-                <form method="get" className="flex flex-wrap gap-2">
-                  <input type="hidden" name="action" value="release" />
-                  <button type="submit" className={actionButtonStyles("warning", "md")}>
-                    Mark Released
-                  </button>
-                </form>
+                <div className="flex flex-wrap items-center gap-2">
+                  <form method="get">
+                    <input type="hidden" name="action" value="release" />
+                    <button type="submit" className={actionButtonStyles("warning", "md")}>
+                      Release Permit
+                    </button>
+                  </form>
+                  {isBusinessPermit && printEligibility.canPrint ? (
+                    <Link
+                      href={`/bplo/permit-issuance/${detail.application.id}/print`}
+                      className={actionButtonStyles("primary", "md")}
+                    >
+                      Print Permit
+                    </Link>
+                  ) : null}
+                  {isClosureCertificate && printEligibility.canPrint ? (
+                    <Link
+                      href={`/bplo/permit-issuance/${detail.application.id}/closure-print`}
+                      className={actionButtonStyles("primary", "md")}
+                    >
+                      Print Certificate
+                    </Link>
+                  ) : null}
+                </div>
+              </>
+            ) : null}
+
+            {detail.application.rawStatus === "RELEASED" ? (
+              <>
+                <InfoBanner
+                  title="Permit released"
+                  description="This permit has been officially released. You may view or print the official permit at any time."
+                  variant="success"
+                />
+                <div className="flex flex-wrap items-center gap-2">
+                  {isBusinessPermit && printEligibility.canPrint ? (
+                    <Link
+                      href={`/bplo/permit-issuance/${detail.application.id}/print`}
+                      className={actionButtonStyles("primary", "md")}
+                    >
+                      Print Permit
+                    </Link>
+                  ) : null}
+                  {isClosureCertificate && printEligibility.canPrint ? (
+                    <Link
+                      href={`/bplo/permit-issuance/${detail.application.id}/closure-print`}
+                      className={actionButtonStyles("primary", "md")}
+                    >
+                      Print Certificate
+                    </Link>
+                  ) : null}
+                </div>
               </>
             ) : null}
 
             {detail.application.rawStatus !== "PAID" &&
-            detail.application.rawStatus !== "FOR_RELEASE" ? (
+            detail.application.rawStatus !== "FOR_RELEASE" &&
+            detail.application.rawStatus !== "RELEASED" ? (
               <InfoBanner
                 title="No action is required right now"
                 description="This application will show the next issuance button only when it reaches the proper workflow stage."

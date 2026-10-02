@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import type { AddressApiErrorResponse, AddressOption, BarangayOption } from "@/lib/address-types";
 import { assertAllowedPsgcCloudUrl, fetchTrustedHttpsJson, PSGC_CLOUD_BASE_URL } from "@/lib/address-server";
 import { normalizeEbMagalonaCityName } from "@/lib/address-options";
-import { EB_MAGALONA_BARANGAYS } from "@/lib/business-rules";
+import { EB_MAGALONA_BARANGAYS, normalizeEbMagalonaBarangayName } from "@/lib/business-rules";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +46,9 @@ type PsgcCloudCityMunicipality = {
   code?: string;
   name?: string;
   type?: string;
-  province?: PsgcCloudProvince;
+  province?: PsgcCloudProvince | string;
+  region?: string;
+  provinceCode?: string;
 };
 
 type PsgcCloudBarangay = {
@@ -62,23 +64,23 @@ type PsgcCloudBarangay = {
   city?: {
     code?: string;
     name?: string;
-  };
+  } | string;
   municipality?: {
     code?: string;
     name?: string;
-  };
+  } | string;
   cityMunicipality?: {
     code?: string;
     name?: string;
-  };
+  } | string;
   city_municipality?: {
     code?: string;
     name?: string;
-  };
+  } | string;
   province?: {
     code?: string;
     name?: string;
-  };
+  } | string;
 };
 
 function jsonError(status: number, error: string) {
@@ -140,21 +142,35 @@ function normalizeCode(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function sanitizeMojibake(value: string): string {
+  return value
+    .replace(/Ã±/g, "ñ")
+    .replace(/Ã‘/g, "Ñ")
+    .replace(/\u00C3\u00B1/g, "ñ")
+    .replace(/\u00C3\u0091/g, "Ñ")
+    .trim();
+}
+
 function normalizeLabel(value: unknown): string | null {
   if (typeof value !== "string") return null;
-  const trimmed = value.trim();
+  const trimmed = sanitizeMojibake(value);
   return trimmed.length > 0 ? trimmed : null;
 }
 
 function resolveBarangayCityCode(entry: PsgcCloudBarangay): string | null {
+  const objCityCode = typeof entry.city === "object" && entry.city !== null ? entry.city.code : undefined;
+  const objMunCode = typeof entry.municipality === "object" && entry.municipality !== null ? entry.municipality.code : undefined;
+  const objCityMunCode = typeof entry.cityMunicipality === "object" && entry.cityMunicipality !== null ? entry.cityMunicipality.code : undefined;
+  const objCityMunSnakeCode = typeof entry.city_municipality === "object" && entry.city_municipality !== null ? entry.city_municipality.code : undefined;
+
   return (
     normalizeCode(entry.cityCode) ??
     normalizeCode(entry.municipalityCode) ??
     normalizeCode(entry.cityMunicipalityCode) ??
-    normalizeCode(entry.city?.code) ??
-    normalizeCode(entry.municipality?.code) ??
-    normalizeCode(entry.cityMunicipality?.code) ??
-    normalizeCode(entry.city_municipality?.code)
+    normalizeCode(objCityCode) ??
+    normalizeCode(objMunCode) ??
+    normalizeCode(objCityMunCode) ??
+    normalizeCode(objCityMunSnakeCode)
   );
 }
 
@@ -163,15 +179,15 @@ function resolveBarangayCityName(entry: PsgcCloudBarangay): string | null {
     entry.cityName,
     entry.municipalityName,
     entry.cityMunicipalityName,
-    entry.city?.name,
-    entry.municipality?.name,
-    entry.cityMunicipality?.name,
-    entry.city_municipality?.name,
+    typeof entry.city === "string" ? entry.city : entry.city?.name,
+    typeof entry.municipality === "string" ? entry.municipality : entry.municipality?.name,
+    typeof entry.cityMunicipality === "string" ? entry.cityMunicipality : entry.cityMunicipality?.name,
+    typeof entry.city_municipality === "string" ? entry.city_municipality : entry.city_municipality?.name,
   ];
 
   for (const candidate of candidates) {
     if (typeof candidate === "string" && candidate.trim().length > 0) {
-      return candidate.trim();
+      return sanitizeMojibake(candidate.trim());
     }
   }
 
@@ -179,12 +195,21 @@ function resolveBarangayCityName(entry: PsgcCloudBarangay): string | null {
 }
 
 function resolveBarangayProvinceCode(entry: PsgcCloudBarangay): string | null {
-  return normalizeCode(entry.provinceCode) ?? normalizeCode(entry.province?.code);
+  const objCode = typeof entry.province === "object" && entry.province !== null ? entry.province.code : undefined;
+  return normalizeCode(entry.provinceCode) ?? normalizeCode(objCode);
 }
 
 function resolveBarangayProvinceName(entry: PsgcCloudBarangay): string | null {
-  if (typeof entry.province?.name === "string" && entry.province.name.trim().length > 0) {
-    return entry.province.name.trim();
+  if (typeof entry.province === "string" && entry.province.trim().length > 0) {
+    return sanitizeMojibake(entry.province.trim());
+  }
+  if (
+    typeof entry.province === "object" &&
+    entry.province !== null &&
+    typeof entry.province.name === "string" &&
+    entry.province.name.trim().length > 0
+  ) {
+    return sanitizeMojibake(entry.province.name.trim());
   }
   return null;
 }
@@ -233,12 +258,16 @@ async function fetchCloudArray<T>(url: string): Promise<T[]> {
   return parseCloudArrayPayload<T>(payload);
 }
 
-function toBarangayOptions(rows: PsgcCloudBarangay[], provinceCode?: string): BarangayOption[] {
+function toBarangayOptions(rows: PsgcCloudBarangay[], provinceCode?: string, isEbMagalona?: boolean): BarangayOption[] {
   return rows
     .map((row): BarangayOption | null => {
       const code = normalizeCode(row.code);
-      const name = normalizeLabel(row.name);
+      let name = normalizeLabel(row.name);
       if (!code || !name) return null;
+
+      if (isEbMagalona) {
+        name = normalizeEbMagalonaBarangayName(name);
+      }
 
       return {
         code,
@@ -279,10 +308,18 @@ function withCityTypeVariants(name: string): string[] {
   const base = name.trim();
   if (!base) return [];
 
+  const root = base
+    .replace(/\s+City$/i, "")
+    .replace(/^City\s+of\s+/i, "")
+    .replace(/^Municipality\s+of\s+/i, "")
+    .trim();
+
   const variants = [
     base,
-    `City of ${base}`,
-    `Municipality of ${base}`,
+    root,
+    `City of ${root}`,
+    `${root} City`,
+    `Municipality of ${root}`,
   ];
 
   const normalizedBase = normalizeName(base);
@@ -296,7 +333,7 @@ function withCityTypeVariants(name: string): string[] {
     variants.push("Municipality of E.B. Magalona", "Municipality of Enrique B. Magalona");
   }
 
-  return Array.from(new Set(variants));
+  return Array.from(new Set(variants.filter((v) => v.length > 0)));
 }
 
 function filterCitiesByProvince(
@@ -311,9 +348,27 @@ function filterCitiesByProvince(
     return rows;
   }
 
+  const isNcr =
+    normalizedProvinceCode === "00" ||
+    /(ncr|metro\s+manila|national\s+capital)/i.test(normalizedProvinceName);
+
   return rows.filter((row) => {
-    const rowProvinceCode = normalizeCode(row.province?.code) ?? "";
-    const rowProvinceName = normalizeCode(row.province?.name) ?? "";
+    if (isNcr) {
+      if (row.code && row.code.startsWith("13")) return true;
+      if (typeof row.region === "string" && /(national\s+capital|ncr)/i.test(row.region)) return true;
+      return false;
+    }
+
+    const rowProvinceCode =
+      normalizeCode(row.provinceCode) ??
+      (typeof row.province === "object" && row.province !== null ? normalizeCode(row.province.code) : null) ??
+      "";
+    const rowProvinceName =
+      (typeof row.province === "string"
+        ? row.province
+        : typeof row.province === "object" && row.province !== null
+        ? row.province.name
+        : "") ?? "";
 
     if (normalizedProvinceCode && rowProvinceCode && normalizedProvinceCode === rowProvinceCode) {
       return true;
@@ -331,6 +386,21 @@ async function loadProvinceCities(input: {
   provinceName?: string;
   provinceCode?: string;
 }): Promise<PsgcCloudCityMunicipality[]> {
+  const isNcr =
+    input.provinceCode?.trim() === "00" ||
+    /(ncr|metro\s+manila|national\s+capital)/i.test(input.provinceName ?? "");
+
+  if (isNcr) {
+    const allCities = await fetchCloudArray<PsgcCloudCityMunicipality>(
+      `${PSGC_CLOUD_BASE_URL}/cities-municipalities`
+    );
+    return allCities.filter(
+      (city) =>
+        (city.code && city.code.startsWith("13")) ||
+        (typeof city.region === "string" && /(national\s+capital|ncr)/i.test(city.region))
+    );
+  }
+
   const candidates = [input.provinceCode, input.provinceName]
     .map((value) => value?.trim())
     .filter((value): value is string => Boolean(value));
@@ -364,7 +434,7 @@ async function resolveCityCode(input: {
   provinceName?: string;
   provinceCode?: string;
 }): Promise<string | null> {
-  if (input.cityCode?.trim()) {
+  if (input.cityCode?.trim() && /^\d{6,10}$/.test(input.cityCode.trim())) {
     return input.cityCode.trim();
   }
 
@@ -382,17 +452,8 @@ async function resolveCityCode(input: {
   const normalizedCandidates = candidates.map((candidate) => normalizeName(candidate));
 
   const exact = cityOptions.filter((option) => normalizedCandidates.includes(normalizeName(option.name)));
-  if (exact.length === 1) {
+  if (exact.length >= 1) {
     return exact[0].value;
-  }
-
-  if (exact.length > 1) {
-    console.warn("[address/barangays] Ambiguous city/municipality match", {
-      cityName: input.cityName,
-      provinceName: input.provinceName,
-      candidateCount: exact.length,
-    });
-    return null;
   }
 
   const fuzzy = cityOptions.filter((option) => {
@@ -400,16 +461,8 @@ async function resolveCityCode(input: {
     return normalizedCandidates.some((candidate) => normalized.includes(candidate) || candidate.includes(normalized));
   });
 
-  if (fuzzy.length === 1) {
+  if (fuzzy.length >= 1) {
     return fuzzy[0].value;
-  }
-
-  if (fuzzy.length > 1) {
-    console.warn("[address/barangays] Ambiguous fuzzy city/municipality match", {
-      cityName: input.cityName,
-      provinceName: input.provinceName,
-      candidateCount: fuzzy.length,
-    });
   }
 
   return null;
@@ -433,11 +486,14 @@ function buildCityLookupCandidates(cityName: string, cityCode?: string): string[
     candidates.push(EB_MAGALONA_PSGC_CODE);
   }
 
-  candidates.push(rawCityName);
-
-  const slugLikeCityName = rawCityName.replace(/\s+/g, "-").trim();
-  if (slugLikeCityName && slugLikeCityName !== rawCityName) {
-    candidates.push(slugLikeCityName);
+  const variants = withCityTypeVariants(rawCityName);
+  for (const v of variants) {
+    candidates.push(v);
+    candidates.push(`${v} `);
+    const slug = v.replace(/\s+/g, "-").trim();
+    if (slug && slug !== v) {
+      candidates.push(slug);
+    }
   }
 
   return Array.from(new Set(candidates.filter((value) => value.length > 0)));
@@ -448,6 +504,7 @@ async function loadBarangaysFromCloud(input: {
   cityCode?: string;
   provinceName?: string;
   provinceCode?: string;
+  isEbMagalona?: boolean;
 }): Promise<BarangayOption[]> {
   const resolvedCityCode = await resolveCityCode({
     cityName: input.cityName,
@@ -463,9 +520,10 @@ async function loadBarangaysFromCloud(input: {
     try {
       const endpoint = `${PSGC_CLOUD_BASE_URL}/cities-municipalities/${encodeURIComponent(candidate)}/barangays`;
       const barangays = await fetchCloudArray<PsgcCloudBarangay>(endpoint);
-      const mapped = toBarangayOptions(barangays, input.provinceCode);
+      const mapped = toBarangayOptions(barangays, input.provinceCode, input.isEbMagalona);
       if (mapped.length > 0) {
         collected.push(...mapped);
+        break;
       }
     } catch (error) {
       if (error instanceof CloudFetchError) {
@@ -552,6 +610,7 @@ export async function GET(request: Request) {
       cityCode: cityCode || undefined,
       provinceName: provinceName || undefined,
       provinceCode: provinceCode || undefined,
+      isEbMagalona: ebMagalonaCityRequest,
     });
 
     if (!ebMagalonaCityRequest) {
@@ -563,28 +622,13 @@ export async function GET(request: Request) {
       return NextResponse.json(options);
     }
 
-    if (options.length > 0) {
+    if (options.length === 23) {
       logBarangayLookup("response", {
         normalizedCityName,
-        source: "external",
+        source: "external-normalized",
         count: options.length,
       });
       return NextResponse.json(options);
-    }
-
-    const ebMagalonaOptions = await loadBarangaysFromCloud({
-      cityName: EB_MAGALONA_PSGC_CODE,
-      provinceName: provinceName || undefined,
-      provinceCode: provinceCode || undefined,
-    });
-
-    if (ebMagalonaOptions.length > 0) {
-      logBarangayLookup("response", {
-        normalizedCityName,
-        source: "external-eb-code",
-        count: ebMagalonaOptions.length,
-      });
-      return NextResponse.json(ebMagalonaOptions);
     }
 
     const localFallback = buildLocalEbMagalonaFallbackOptions();

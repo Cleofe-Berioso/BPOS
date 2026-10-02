@@ -678,6 +678,7 @@ export function SuperAdminUsersManager({ currentUserId }: { currentUserId: strin
               <label className="mb-1 block text-sm font-medium text-[var(--foreground)]" htmlFor="create-bplo-first-name">First Name</label>
               <input
                 id="create-bplo-first-name"
+                maxLength={50}
                 value={createForm.firstName}
                 onChange={(e) =>
                   setCreateForm((prev) => ({
@@ -694,6 +695,7 @@ export function SuperAdminUsersManager({ currentUserId }: { currentUserId: strin
               <label className="mb-1 block text-sm font-medium text-[var(--foreground)]" htmlFor="create-bplo-last-name">Last Name</label>
               <input
                 id="create-bplo-last-name"
+                maxLength={50}
                 value={createForm.lastName}
                 onChange={(e) =>
                   setCreateForm((prev) => ({
@@ -710,6 +712,7 @@ export function SuperAdminUsersManager({ currentUserId }: { currentUserId: strin
               <label className="mb-1 block text-sm font-medium text-[var(--foreground)]" htmlFor="create-bplo-middle-name">Middle Name (optional)</label>
               <input
                 id="create-bplo-middle-name"
+                maxLength={50}
                 value={createForm.middleName}
                 onChange={(e) =>
                   setCreateForm((prev) => ({
@@ -725,6 +728,7 @@ export function SuperAdminUsersManager({ currentUserId }: { currentUserId: strin
               <label className="mb-1 block text-sm font-medium text-[var(--foreground)]" htmlFor="create-bplo-suffix">Suffix (optional)</label>
               <input
                 id="create-bplo-suffix"
+                maxLength={10}
                 value={createForm.suffix}
                 onChange={(e) =>
                   setCreateForm((prev) => ({
@@ -742,6 +746,7 @@ export function SuperAdminUsersManager({ currentUserId }: { currentUserId: strin
             <label className="mb-1 block text-sm font-medium text-[var(--foreground)]" htmlFor="create-bplo-email">Email</label>
             <input
               id="create-bplo-email"
+              maxLength={255}
               value={createForm.email}
               onChange={(e) => setCreateForm((prev) => ({ ...prev, email: e.target.value }))}
               required

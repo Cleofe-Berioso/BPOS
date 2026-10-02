@@ -149,6 +149,10 @@ export function BusinessInformationFields({
   const [cityList, setCityList] = useState<FetchedAddressList>(EMPTY_FETCHED_ADDRESS_LIST);
   const [barangayList, setBarangayList] = useState<FetchedAddressList>(EMPTY_FETCHED_ADDRESS_LIST);
 
+  const [manualProvinceEntry, setManualProvinceEntry] = useState<boolean | null>(null);
+  const [manualCityEntry, setManualCityEntry] = useState<boolean | null>(null);
+  const [manualBarangayEntry, setManualBarangayEntry] = useState<boolean | null>(null);
+
   // Business address barangays: loaded from API, with static EB_MAGALONA_BARANGAYS as fallback.
   const [businessBarangayOptions, setBusinessBarangayOptions] = useState<string[]>([...EB_MAGALONA_BARANGAYS]);
   const [businessBarangayLoading, setBusinessBarangayLoading] = useState(false);
@@ -190,6 +194,56 @@ export function BusinessInformationFields({
   const barangayOptions = barangayList.key === barangayFetchKey ? barangayList.options : [];
   const barangayLoading = barangayList.key === barangayFetchKey && barangayList.loading;
   const barangayError = barangayList.key === barangayFetchKey ? barangayList.error : undefined;
+
+  const hasMatchedProvinceOption = provinceOptions.some(
+    (option) =>
+      option.value === value.mainOfficeProvinceCode ||
+      option.name === selectedMainOfficeProvince ||
+      normalizeAddressName(option.name) === normalizeAddressName(selectedMainOfficeProvince)
+  );
+
+  const isProvinceManual =
+    manualProvinceEntry !== null
+      ? manualProvinceEntry
+      : hasMainOfficeCountry &&
+        !provinceLoading &&
+        (provinceOptions.length === 0 ||
+          Boolean(provinceError) ||
+          (hasMainOfficeProvince && !hasMatchedProvinceOption));
+
+  const hasMatchedCityOption = cityOptions.some(
+    (option) =>
+      option.value === selectedMainOfficeCityCode ||
+      option.name === selectedMainOfficeCity ||
+      normalizeAddressName(option.name) === normalizeAddressName(selectedMainOfficeCity)
+  );
+
+  const isCityManual =
+    isProvinceManual ||
+    (manualCityEntry !== null
+      ? manualCityEntry
+      : hasMainOfficeProvince &&
+        !cityLoading &&
+        (cityOptions.length === 0 ||
+          Boolean(cityError) ||
+          (hasMainOfficeCity && !hasMatchedCityOption)));
+
+  const hasMatchedBarangayOption = barangayOptions.some(
+    (option) =>
+      option.value === value.mainOfficeBarangay ||
+      option.name === mainOfficeBarangayValue ||
+      normalizeAddressName(option.name) === normalizeAddressName(mainOfficeBarangayValue)
+  );
+
+  const isBarangayManual =
+    isCityManual ||
+    (manualBarangayEntry !== null
+      ? manualBarangayEntry
+      : hasMainOfficeCity &&
+        !barangayLoading &&
+        (barangayOptions.length === 0 ||
+          Boolean(barangayError) ||
+          (mainOfficeBarangayValue.length > 0 && !hasMatchedBarangayOption)));
 
   useEffect(() => {
     let active = true;
@@ -314,9 +368,12 @@ export function BusinessInformationFields({
     })
       .then((options) => {
         if (!active) return;
-        const names = options.map((opt) => opt.name).filter(Boolean);
+        const names = options
+          .map((opt) => normalizeEbMagalonaBarangayName(opt.name))
+          .filter(Boolean);
         if (names.length > 0) {
-          setBusinessBarangayOptions(names);
+          const uniqueNames = Array.from(new Set(names));
+          setBusinessBarangayOptions(uniqueNames);
         }
         // If API returns empty, keep the static fallback already in state.
       })
@@ -402,10 +459,16 @@ export function BusinessInformationFields({
     [isMapPinningLocked] // stable with lock dependency
   );
 
-  const generatedBusinessAddress = buildEbMagalonaBusinessAddress({
-    barangay: value.businessBarangay,
-    streetAddress: value.businessStreetAddress,
-  });
+  const psgcBarangayOptions: AddressOption[] = [
+    ...(value.businessBarangay && !businessBarangayOptions.includes(value.businessBarangay)
+      ? [{ name: value.businessBarangay, value: value.businessBarangay, label: value.businessBarangay }]
+      : []),
+    ...businessBarangayOptions.map((brgy) => ({
+      name: brgy,
+      value: brgy,
+      label: brgy,
+    })),
+  ];
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
@@ -829,7 +892,10 @@ export function BusinessInformationFields({
               selectedLabel={value.mainOfficeCountry ?? ""}
               loading={countryLoading}
               error={countryError}
-              onChange={(nextCountry) =>
+              onChange={(nextCountry) => {
+                setManualProvinceEntry(null);
+                setManualCityEntry(null);
+                setManualBarangayEntry(null);
                 onChange({
                   ...value,
                   mainOfficeCountry: nextCountry.name,
@@ -839,8 +905,8 @@ export function BusinessInformationFields({
                   mainOfficeCityMunicipality: "",
                   mainOfficeBarangay: "",
                   mainOfficeStreetAddress: "",
-                })
-              }
+                });
+              }}
               disabled={fieldLocked(lockedFields, "mainOfficeCountry")}
               placeholder="Select country"
             />
@@ -849,111 +915,329 @@ export function BusinessInformationFields({
 
           <FormField
             label="Main Office Province / State"
-            hint="Select province/state for main office address."
+            hint={
+              isProvinceManual
+                ? "Enter province, state, or region for main office address."
+                : "Select province/state for main office address."
+            }
             required
             error={fieldErrors.mainOfficeProvince}
           >
-            <div data-field-key="mainOfficeProvince">
-            <SearchableSelect
-              ariaLabel="Main Office Province / State"
-              options={provinceOptions}
-              value={value.mainOfficeProvinceCode ?? ""}
-              selectedLabel={value.mainOfficeProvince ?? ""}
-              loading={provinceLoading}
-              error={provinceError}
-              onChange={(nextProvince) =>
-                onChange({
-                  ...value,
-                  mainOfficeProvince: nextProvince.name,
-                  mainOfficeProvinceCode: nextProvince.value,
-                  mainOfficeCityMunicipality: "",
-                  mainOfficeBarangay: "",
-                  mainOfficeStreetAddress: "",
-                })
-              }
-              disabled={fieldLocked(lockedFields, "mainOfficeProvince") || !hasMainOfficeCountry}
-              placeholder={!hasMainOfficeCountry ? "Select country first" : "Select province/state"}
-            />
+            <div data-field-key="mainOfficeProvince" className="space-y-1.5">
+              {isProvinceManual ? (
+                <input
+                  type="text"
+                  data-field-key="mainOfficeProvince"
+                  aria-label="Main Office Province / State"
+                  className={fieldClasses(fieldLocked(lockedFields, "mainOfficeProvince"))}
+                  value={value.mainOfficeProvince ?? ""}
+                  placeholder={
+                    !hasMainOfficeCountry
+                      ? "Select country first"
+                      : "Enter province, state, or region"
+                  }
+                  disabled={fieldLocked(lockedFields, "mainOfficeProvince") || !hasMainOfficeCountry}
+                  onChange={(event) => {
+                    setManualCityEntry(null);
+                    setManualBarangayEntry(null);
+                    onChange({
+                      ...value,
+                      mainOfficeProvince: event.target.value,
+                      mainOfficeProvinceCode: "",
+                    });
+                  }}
+                />
+              ) : (
+                <SearchableSelect
+                  ariaLabel="Main Office Province / State"
+                  options={provinceOptions}
+                  value={value.mainOfficeProvinceCode ?? ""}
+                  selectedLabel={value.mainOfficeProvince ?? ""}
+                  loading={provinceLoading}
+                  error={provinceError}
+                  onChange={(nextProvince) => {
+                    setManualCityEntry(null);
+                    setManualBarangayEntry(null);
+                    onChange({
+                      ...value,
+                      mainOfficeProvince: nextProvince.name,
+                      mainOfficeProvinceCode: nextProvince.value,
+                      mainOfficeCityMunicipality: "",
+                      mainOfficeBarangay: "",
+                      mainOfficeStreetAddress: "",
+                    });
+                  }}
+                  disabled={fieldLocked(lockedFields, "mainOfficeProvince") || !hasMainOfficeCountry}
+                  placeholder={!hasMainOfficeCountry ? "Select country first" : "Select province/state"}
+                />
+              )}
+
+              <div className="flex flex-wrap items-center justify-between gap-1 text-xs">
+                {hasMainOfficeCountry && !provinceLoading && provinceOptions.length === 0 ? (
+                  <span className="text-[var(--ink-muted)]">
+                    No places listed under this country. You can enter text manually.
+                  </span>
+                ) : provinceError ? (
+                  <span className="text-[var(--danger,#dc2626)]">
+                    Unable to load places for this country. You can enter text manually.
+                  </span>
+                ) : null}
+
+                {provinceOptions.length > 0 && !fieldLocked(lockedFields, "mainOfficeProvince") ? (
+                  isProvinceManual ? (
+                    <button
+                      type="button"
+                      onClick={() => setManualProvinceEntry(false)}
+                      className="ml-auto font-medium text-[var(--brand-primary)] hover:underline focus:outline-none"
+                    >
+                      Choose from list
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setManualProvinceEntry(true)}
+                      className="ml-auto font-medium text-[var(--brand-primary)] hover:underline focus:outline-none"
+                    >
+                      Can&apos;t find in list? Enter text manually
+                    </button>
+                  )
+                ) : null}
+              </div>
             </div>
           </FormField>
 
           <FormField
             label="Main Office City / Municipality"
-            hint="Select city/municipality for main office address."
+            hint={
+              isCityManual
+                ? "Enter city or municipality for main office address."
+                : "Select city/municipality for main office address."
+            }
             required
             error={fieldErrors.mainOfficeCityMunicipality}
           >
-            <div data-field-key="mainOfficeCityMunicipality">
-            <SearchableSelect
-              ariaLabel="Main Office City / Municipality"
-              options={cityOptions}
-              value={selectedMainOfficeCityCode ?? value.mainOfficeCityMunicipality ?? ""}
-              selectedLabel={value.mainOfficeCityMunicipality ?? ""}
-              loading={cityLoading}
-              error={cityError}
-              onChange={(nextCityMunicipality) =>
-                onChange({
-                  ...value,
-                  mainOfficeCityMunicipality: nextCityMunicipality.name,
-                  mainOfficeBarangay: "",
-                  mainOfficeStreetAddress: "",
-                })
-              }
-              disabled={fieldLocked(lockedFields, "mainOfficeCityMunicipality") || !hasMainOfficeCountry || !hasMainOfficeProvince}
-              placeholder={!hasMainOfficeCountry ? "Select country first" : !hasMainOfficeProvince ? "Select province/state first" : "Select city/municipality"}
-            />
+            <div data-field-key="mainOfficeCityMunicipality" className="space-y-1.5">
+              {isCityManual ? (
+                <input
+                  type="text"
+                  data-field-key="mainOfficeCityMunicipality"
+                  aria-label="Main Office City / Municipality"
+                  className={fieldClasses(fieldLocked(lockedFields, "mainOfficeCityMunicipality"))}
+                  value={value.mainOfficeCityMunicipality ?? ""}
+                  placeholder={
+                    !hasMainOfficeCountry
+                      ? "Select country first"
+                      : !hasMainOfficeProvince
+                        ? (isProvinceManual ? "Enter province/state first" : "Select province/state first")
+                        : "Enter city or municipality"
+                  }
+                  disabled={
+                    fieldLocked(lockedFields, "mainOfficeCityMunicipality") ||
+                    !hasMainOfficeCountry ||
+                    !hasMainOfficeProvince
+                  }
+                  onChange={(event) => {
+                    setManualBarangayEntry(null);
+                    onChange({
+                      ...value,
+                      mainOfficeCityMunicipality: event.target.value,
+                    });
+                  }}
+                />
+              ) : (
+                <SearchableSelect
+                  ariaLabel="Main Office City / Municipality"
+                  options={cityOptions}
+                  value={selectedMainOfficeCityCode ?? value.mainOfficeCityMunicipality ?? ""}
+                  selectedLabel={value.mainOfficeCityMunicipality ?? ""}
+                  loading={cityLoading}
+                  error={cityError}
+                  onChange={(nextCityMunicipality) => {
+                    setManualBarangayEntry(null);
+                    onChange({
+                      ...value,
+                      mainOfficeCityMunicipality: nextCityMunicipality.name,
+                      mainOfficeBarangay: "",
+                      mainOfficeStreetAddress: "",
+                    });
+                  }}
+                  disabled={
+                    fieldLocked(lockedFields, "mainOfficeCityMunicipality") ||
+                    !hasMainOfficeCountry ||
+                    !hasMainOfficeProvince
+                  }
+                  placeholder={
+                    !hasMainOfficeCountry
+                      ? "Select country first"
+                      : !hasMainOfficeProvince
+                        ? (isProvinceManual ? "Enter province/state first" : "Select province/state first")
+                        : "Select city/municipality"
+                  }
+                />
+              )}
+
+              <div className="flex flex-wrap items-center justify-between gap-1 text-xs">
+                {hasMainOfficeProvince && !cityLoading && cityOptions.length === 0 && !isProvinceManual ? (
+                  <span className="text-[var(--ink-muted)]">
+                    No cities listed for this province/state. You can enter text manually.
+                  </span>
+                ) : cityError && !isProvinceManual ? (
+                  <span className="text-[var(--danger,#dc2626)]">
+                    Unable to load cities for this location. You can enter text manually.
+                  </span>
+                ) : null}
+
+                {cityOptions.length > 0 && !isProvinceManual && !fieldLocked(lockedFields, "mainOfficeCityMunicipality") ? (
+                  isCityManual ? (
+                    <button
+                      type="button"
+                      onClick={() => setManualCityEntry(false)}
+                      className="ml-auto font-medium text-[var(--brand-primary)] hover:underline focus:outline-none"
+                    >
+                      Choose from list
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setManualCityEntry(true)}
+                      className="ml-auto font-medium text-[var(--brand-primary)] hover:underline focus:outline-none"
+                    >
+                      Can&apos;t find in list? Enter text manually
+                    </button>
+                  )
+                ) : null}
+              </div>
             </div>
           </FormField>
 
           {hasMainOfficeCountry && isMainOfficePhilippines ? (
             <FormField
               label="Main Office Barangay"
-              hint="Barangay is required for Philippine main office addresses."
+              hint={
+                isBarangayManual
+                  ? "Enter barangay for Philippine main office address."
+                  : "Barangay is required for Philippine main office addresses."
+              }
               required
               error={fieldErrors.mainOfficeBarangay}
             >
-              <div data-field-key="mainOfficeBarangay">
-              <SearchableSelect
-                ariaLabel="Main Office Barangay"
-                options={barangayOptions}
-                value={value.mainOfficeBarangay ?? ""}
-                selectedLabel={value.mainOfficeBarangay ?? ""}
-                loading={barangayLoading}
-                error={barangayError}
-                onChange={(nextBarangay) =>
-                  onChange({
-                    ...value,
-                    mainOfficeBarangay: nextBarangay.name,
-                    ...(value.sameAsMainOffice && sameAsMainOfficeAllowed
-                      ? {
-                          businessBarangay: normalizeEbMagalonaBarangayName(nextBarangay.name),
-                          barangay: normalizeEbMagalonaBarangayName(nextBarangay.name),
-                          businessAddress: buildEbMagalonaBusinessAddress({
-                            barangay: normalizeEbMagalonaBarangayName(nextBarangay.name),
-                            streetAddress: value.businessStreetAddress,
-                          }),
-                        }
-                      : {}),
-                    mainOfficeStreetAddress: "",
-                  })
-                }
-                disabled={
-                  fieldLocked(lockedFields, "mainOfficeBarangay") ||
-                  !hasMainOfficeCountry ||
-                  !hasMainOfficeProvince ||
-                  !hasMainOfficeCity
-                }
-                placeholder={
-                  !hasMainOfficeCountry
-                    ? "Select country first"
-                    : !hasMainOfficeProvince
-                      ? "Select province/state first"
-                      : !hasMainOfficeCity
-                        ? "Select city/municipality first"
-                        : "Select barangay"
-                }
-              />
+              <div data-field-key="mainOfficeBarangay" className="space-y-1.5">
+                {isBarangayManual ? (
+                  <input
+                    type="text"
+                    data-field-key="mainOfficeBarangay"
+                    aria-label="Main Office Barangay"
+                    className={fieldClasses(fieldLocked(lockedFields, "mainOfficeBarangay"))}
+                    value={value.mainOfficeBarangay ?? ""}
+                    placeholder={
+                      !hasMainOfficeCountry
+                        ? "Select country first"
+                        : !hasMainOfficeProvince
+                          ? (isProvinceManual ? "Enter province/state first" : "Select province/state first")
+                          : !hasMainOfficeCity
+                            ? (isCityManual ? "Enter city/municipality first" : "Select city/municipality first")
+                            : "Enter barangay"
+                    }
+                    disabled={
+                      fieldLocked(lockedFields, "mainOfficeBarangay") ||
+                      !hasMainOfficeCountry ||
+                      !hasMainOfficeProvince ||
+                      !hasMainOfficeCity
+                    }
+                    onChange={(event) => {
+                      const brgy = event.target.value;
+                      onChange({
+                        ...value,
+                        mainOfficeBarangay: brgy,
+                        ...(value.sameAsMainOffice && sameAsMainOfficeAllowed
+                          ? {
+                              businessBarangay: normalizeEbMagalonaBarangayName(brgy),
+                              barangay: normalizeEbMagalonaBarangayName(brgy),
+                              businessAddress: buildEbMagalonaBusinessAddress({
+                                barangay: normalizeEbMagalonaBarangayName(brgy),
+                                streetAddress: value.businessStreetAddress,
+                              }),
+                            }
+                          : {}),
+                        mainOfficeStreetAddress: "",
+                      });
+                    }}
+                  />
+                ) : (
+                  <SearchableSelect
+                    ariaLabel="Main Office Barangay"
+                    options={barangayOptions}
+                    value={value.mainOfficeBarangay ?? ""}
+                    selectedLabel={value.mainOfficeBarangay ?? ""}
+                    loading={barangayLoading}
+                    error={barangayError}
+                    onChange={(nextBarangay) =>
+                      onChange({
+                        ...value,
+                        mainOfficeBarangay: nextBarangay.name,
+                        ...(value.sameAsMainOffice && sameAsMainOfficeAllowed
+                          ? {
+                              businessBarangay: normalizeEbMagalonaBarangayName(nextBarangay.name),
+                              barangay: normalizeEbMagalonaBarangayName(nextBarangay.name),
+                              businessAddress: buildEbMagalonaBusinessAddress({
+                                barangay: normalizeEbMagalonaBarangayName(nextBarangay.name),
+                                streetAddress: value.businessStreetAddress,
+                              }),
+                            }
+                          : {}),
+                        mainOfficeStreetAddress: "",
+                      })
+                    }
+                    disabled={
+                      fieldLocked(lockedFields, "mainOfficeBarangay") ||
+                      !hasMainOfficeCountry ||
+                      !hasMainOfficeProvince ||
+                      !hasMainOfficeCity
+                    }
+                    placeholder={
+                      !hasMainOfficeCountry
+                        ? "Select country first"
+                        : !hasMainOfficeProvince
+                          ? (isProvinceManual ? "Enter province/state first" : "Select province/state first")
+                          : !hasMainOfficeCity
+                            ? (isCityManual ? "Enter city/municipality first" : "Select city/municipality first")
+                            : "Select barangay"
+                    }
+                  />
+                )}
+
+                <div className="flex flex-wrap items-center justify-between gap-1 text-xs">
+                  {hasMainOfficeCity && !barangayLoading && barangayOptions.length === 0 && !isCityManual ? (
+                    <span className="text-[var(--ink-muted)]">
+                      No barangays listed for this city. You can enter text manually.
+                    </span>
+                  ) : barangayError && !isCityManual ? (
+                    <span className="text-[var(--danger,#dc2626)]">
+                      Unable to load barangays for this city. You can enter text manually.
+                    </span>
+                  ) : null}
+
+                  {barangayOptions.length > 0 && !isCityManual && !fieldLocked(lockedFields, "mainOfficeBarangay") ? (
+                    isBarangayManual ? (
+                      <button
+                        type="button"
+                        onClick={() => setManualBarangayEntry(false)}
+                        className="ml-auto font-medium text-[var(--brand-primary)] hover:underline focus:outline-none"
+                      >
+                        Choose from list
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setManualBarangayEntry(true)}
+                        className="ml-auto font-medium text-[var(--brand-primary)] hover:underline focus:outline-none"
+                      >
+                        Can&apos;t find in list? Enter text manually
+                      </button>
+                    )
+                  ) : null}
                 </div>
+              </div>
             </FormField>
           ) : null}
 
@@ -979,9 +1263,9 @@ export function BusinessInformationFields({
                   !hasMainOfficeCountry
                     ? "Select country first"
                     : !hasMainOfficeProvince
-                      ? "Select province/state first"
+                      ? (isProvinceManual ? "Enter province/state first" : "Select province/state first")
                       : !hasMainOfficeCity
-                        ? "Select city/municipality first"
+                        ? (isCityManual ? "Enter city/municipality first" : "Select city/municipality first")
                         : "Enter street, building, unit, or mailing line"
                 }
                 onChange={(event) => onChange({ ...value, mainOfficeStreetAddress: event.target.value })}
@@ -1057,7 +1341,6 @@ export function BusinessInformationFields({
 
       <div className="md:col-span-2">
         <div className="mb-4">
-          <div data-field-key="businessAddress" />
           <div className="flex items-center gap-2 mb-1">
             <p className="text-sm font-semibold text-[var(--foreground)]">
               Business Address / Place of Operation
@@ -1083,18 +1366,9 @@ export function BusinessInformationFields({
               Main Office Address is outside EB Magalona. Please enter the Business Address separately.
             </p>
           ) : null}
-          {generatedBusinessAddress ? (
-            <div className="w-full rounded-[var(--radius-control)] border border-[var(--border-color)] bg-[var(--muted-surface)] px-3 py-3 text-sm text-[var(--ink-muted)] shadow-inner">
-              {generatedBusinessAddress}
-            </div>
-          ) : (
-            <div className="w-full rounded-[var(--radius-control)] border border-dashed border-[var(--border-color)] bg-[var(--muted-surface)] px-3 py-3 text-sm italic text-[var(--ink-muted)]">
-              Complete Barangay and Street fields below to generate address preview.
-            </div>
-          )}
         </div>
 
-        <div className="space-y-3 rounded-[var(--radius-card)] border border-[var(--border-color)] bg-[var(--muted-surface)] p-3.5 sm:p-4 md:col-span-2">
+        <div className="space-y-3 rounded-[var(--radius-card)] border border-[var(--border-color)] bg-[var(--muted-surface)] p-3.5 sm:p-4 mb-4">
           <p className="text-sm font-semibold text-[var(--foreground)]">Fixed Business Location</p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <FormField
@@ -1139,58 +1413,118 @@ export function BusinessInformationFields({
           </div>
         </div>
 
-        <FormField
-          label="Business Barangay"
-          hint="Barangay within EB Magalona where business operates."
-          required
-          error={fieldErrors.businessBarangay}
-        >
-          {businessAddressLocked ? (
-            <div className="mb-2">
-              <span className="ui-badge bg-[var(--muted-surface)] text-[var(--ink-muted)]">
-                Locked
-              </span>
-            </div>
-          ) : null}
-          <select
-            data-field-key="businessBarangay"
-            aria-label="Business Barangay"
-            className={fieldClasses(businessBarangayLoading || businessAddressLocked)}
-            value={value.businessBarangay ?? ""}
-            disabled={businessBarangayLoading || businessAddressLocked}
-            onChange={(event) => {
-              const newBarangay = event.target.value ? normalizeEbMagalonaBarangayName(event.target.value) : undefined;
-              onChange({
-                ...value,
-                businessBarangay: newBarangay,
-                barangay: newBarangay,
-                businessAddress: buildEbMagalonaBusinessAddress({
-                  barangay: newBarangay,
-                  streetAddress: value.businessStreetAddress,
-                }),
-              });
-            }}
+        <div className="grid gap-4 md:grid-cols-2 mb-4">
+          <FormField
+            label="PSGC Location Search (Optional)"
+            hint="Search barangay via PSGC. If your location is not found, leave blank and enter your Business Address manually."
+            error={fieldErrors.businessBarangay}
           >
-            <option value="" disabled>
-              {businessBarangayLoading ? "Loading barangays…" : "Select barangay"}
-            </option>
-            {value.businessBarangay && !businessBarangayOptions.includes(value.businessBarangay) ? (
-              <option value={value.businessBarangay}>{value.businessBarangay}</option>
+            {businessAddressLocked ? (
+              <div className="mb-2">
+                <span className="ui-badge bg-[var(--muted-surface)] text-[var(--ink-muted)]">
+                  Locked
+                </span>
+              </div>
             ) : null}
-            {businessBarangayOptions.map((brgy) => (
-              <option key={brgy} value={brgy}>
-                {brgy}
-              </option>
-            ))}
-          </select>
-          <LockedHint visible={businessAddressLocked} />
-        </FormField>
+            <div data-field-key="businessBarangay">
+              <SearchableSelect
+                ariaLabel="PSGC Location Search (Barangay)"
+                options={psgcBarangayOptions}
+                value={value.businessBarangay ?? ""}
+                selectedLabel={value.businessBarangay ?? ""}
+                loading={businessBarangayLoading}
+                placeholder={businessBarangayLoading ? "Loading PSGC barangays…" : "Search barangay via PSGC (optional)…"}
+                disabled={businessBarangayLoading || businessAddressLocked}
+                onChange={(nextOption) => {
+                  const newBarangay = nextOption.name ? normalizeEbMagalonaBarangayName(nextOption.name) : undefined;
+                  const newAddress = buildEbMagalonaBusinessAddress({
+                    barangay: newBarangay,
+                    streetAddress: value.businessStreetAddress,
+                  });
+                  onChange({
+                    ...value,
+                    businessBarangay: newBarangay,
+                    barangay: newBarangay,
+                    businessAddress: newAddress || value.businessAddress,
+                  });
+                  onClearFieldError?.("businessBarangay");
+                  if (newAddress) {
+                    onClearFieldError?.("businessAddress");
+                  }
+                }}
+              />
+            </div>
+            <LockedHint visible={businessAddressLocked} />
+            {value.businessBarangay && !businessAddressLocked ? (
+              <div className="mt-1 flex items-center justify-between text-xs">
+                <span className="text-[var(--ink-muted)]">Selected: {value.businessBarangay}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange({
+                      ...value,
+                      businessBarangay: undefined,
+                      barangay: undefined,
+                    });
+                    onClearFieldError?.("businessBarangay");
+                  }}
+                  className="text-[var(--primary)] hover:underline font-medium"
+                >
+                  Clear PSGC search
+                </button>
+              </div>
+            ) : null}
+          </FormField>
+
+          <FormField
+            label="Business Street / Purok / Building / Unit"
+            hint="Street name, purok, building number, or unit (optional details)."
+            error={fieldErrors.businessStreetAddress}
+          >
+            {businessAddressLocked ? (
+              <div className="mb-2">
+                <span className="ui-badge bg-[var(--muted-surface)] text-[var(--ink-muted)]">
+                  Locked
+                </span>
+              </div>
+            ) : null}
+            <input
+              data-field-key="businessStreetAddress"
+              aria-label="Business Street / Purok / Building / Unit"
+              className={fieldClasses(businessAddressLocked)}
+              value={value.businessStreetAddress ?? ""}
+              disabled={businessAddressLocked}
+              readOnly={businessAddressLocked}
+              onChange={(event) => {
+                const newStreet = event.target.value;
+                const updatedAddress = value.businessBarangay
+                  ? buildEbMagalonaBusinessAddress({
+                      barangay: value.businessBarangay,
+                      streetAddress: newStreet,
+                    })
+                  : (value.businessAddress || newStreet);
+                onChange({
+                  ...value,
+                  businessStreetAddress: newStreet,
+                  streetAddress: newStreet,
+                  businessAddress: updatedAddress,
+                });
+                onClearFieldError?.("businessStreetAddress");
+                if (updatedAddress) {
+                  onClearFieldError?.("businessAddress");
+                }
+              }}
+              placeholder="e.g., 123 Main St, Purok 5, or Building A Unit 201"
+            />
+            <LockedHint visible={businessAddressLocked} />
+          </FormField>
+        </div>
 
         <FormField
-          label="Business Street / Purok / Building / Unit"
-          hint="Street name, purok, building number, unit, or other details of the business location."
+          label="Business Address"
+          hint="Full official business address / place of operation (required before submitting). Enter manually if not found in PSGC search."
           required
-          error={fieldErrors.businessStreetAddress}
+          error={fieldErrors.businessAddress}
         >
           {businessAddressLocked ? (
             <div className="mb-2">
@@ -1200,30 +1534,27 @@ export function BusinessInformationFields({
             </div>
           ) : null}
           <input
-            data-field-key="businessStreetAddress"
-            aria-label="Business Street / Purok / Building / Unit"
+            data-field-key="businessAddress"
+            aria-label="Business Address"
             className={fieldClasses(businessAddressLocked)}
-            value={value.businessStreetAddress ?? ""}
+            value={value.businessAddress ?? ""}
             disabled={businessAddressLocked}
             readOnly={businessAddressLocked}
+            placeholder="e.g., 123 Main St, Purok 5, Poblacion 1, EB Magalona, Negros Occidental"
             onChange={(event) => {
-              const newStreet = event.target.value;
+              const nextAddress = event.target.value;
               onChange({
                 ...value,
-                businessStreetAddress: newStreet,
-                streetAddress: newStreet,
-                businessAddress: buildEbMagalonaBusinessAddress({
-                  barangay: value.businessBarangay,
-                  streetAddress: newStreet,
-                }),
+                businessAddress: nextAddress,
               });
+              onClearFieldError?.("businessAddress");
             }}
-            placeholder="e.g., 123 Main St, Purok 5, or Building A Unit 201"
+            onBlur={() => onFieldBlur?.("businessAddress")}
           />
           <LockedHint visible={businessAddressLocked} />
-          {value.businessLatitude != null && !value.businessStreetAddress ? (
-            <p className="mt-1 text-xs text-[var(--warning)]">
-              Enter the exact street, purok, building, or unit.
+          {!value.businessBarangay && !businessAddressLocked ? (
+            <p className="mt-1 text-xs text-[var(--ink-muted)]">
+              Manual address entry enabled. This Business Address is required and will be saved as your official place of operation.
             </p>
           ) : null}
         </FormField>

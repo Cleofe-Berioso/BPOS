@@ -96,9 +96,13 @@ describe("WB-PAY-PRINT — payment refs, print gates, geo, address", () => {
     expect(inferMapBusinessCategory({ businessType: "Sole Proprietorship" })).toBe("SOLE_PROPRIETORSHIP");
     expect(inferMapBusinessCategory({ businessType: "Partnership" })).toBe("PARTNERSHIP");
     expect(inferMapBusinessCategory({ businessType: "ABC Inc." })).toBe("CORPORATION");
+    expect(inferMapBusinessCategory({ businessType: "One Person Corporation" })).toBe("ONE_PERSON_CORPORATION");
+    expect(inferMapBusinessCategory({ businessType: "OPC" })).toBe("ONE_PERSON_CORPORATION");
     expect(inferMapBusinessCategory({ businessType: "", lineOfBusiness: "Coop Store" })).toBe("COOPERATIVE");
-    expect(inferMapBusinessCategory({ businessType: "Unknown" })).toBe("OTHER");
+    expect(inferMapBusinessCategory({ businessType: "Unknown" })).toBe("SOLE_PROPRIETORSHIP");
     expect(Object.keys(MAP_CATEGORY_META)).toHaveLength(5);
+    expect(MAP_CATEGORY_META.ONE_PERSON_CORPORATION.label).toBe("One Person Corporation");
+    expect(MAP_CATEGORY_META.ONE_PERSON_CORPORATION.color).toBe("#ea580c");
   });
 
   it("WB-ADDR-01 Magalona address helpers and builders", () => {

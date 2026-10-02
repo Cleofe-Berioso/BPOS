@@ -195,13 +195,12 @@ export function SearchableSelect({
                     setQuery("");
                   }}
                   onMouseEnter={() => setHighlightIndex(index)}
-                  className={`cursor-pointer px-3 py-2 text-sm transition-colors ${
-                    index === highlightIndex
+                  className={`cursor-pointer px-3 py-2 text-sm transition-colors ${index === highlightIndex
                       ? "bg-[var(--primary-soft)] text-[var(--primary-strong)]"
                       : option.value === value
                         ? "bg-[var(--muted-surface)] font-medium text-[var(--foreground)]"
                         : "text-[var(--foreground)] hover:bg-[var(--muted-surface)]"
-                  }`}
+                    }`}
                 >
                   {option.label}
                 </div>

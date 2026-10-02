@@ -266,6 +266,7 @@ export function DepartmentHeadProfileSettingsClient({
               <span className="font-medium">First Name</span>
               <input
                 value={form.firstName}
+                maxLength={50}
                 onChange={(event) => setForm((current) => ({ ...current, firstName: event.target.value }))}
                 required
                 className={`w-full rounded-xl border border-[var(--border-color)] px-3 py-2 ${dhFormControlClass}`}
@@ -276,6 +277,7 @@ export function DepartmentHeadProfileSettingsClient({
               <span className="font-medium">Last Name</span>
               <input
                 value={form.lastName}
+                maxLength={50}
                 onChange={(event) => setForm((current) => ({ ...current, lastName: event.target.value }))}
                 required
                 className={`w-full rounded-xl border border-[var(--border-color)] px-3 py-2 ${dhFormControlClass}`}
@@ -286,6 +288,7 @@ export function DepartmentHeadProfileSettingsClient({
               <span className="font-medium">Middle Name</span>
               <input
                 value={form.middleName}
+                maxLength={50}
                 onChange={(event) => setForm((current) => ({ ...current, middleName: event.target.value }))}
                 className={`w-full rounded-xl border border-[var(--border-color)] px-3 py-2 ${dhFormControlClass}`}
               />
@@ -295,6 +298,7 @@ export function DepartmentHeadProfileSettingsClient({
               <span className="font-medium">Suffix</span>
               <input
                 value={form.suffix}
+                maxLength={10}
                 onChange={(event) => setForm((current) => ({ ...current, suffix: event.target.value }))}
                 className={`w-full rounded-xl border border-[var(--border-color)] px-3 py-2 ${dhFormControlClass}`}
               />
