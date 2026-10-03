@@ -13,6 +13,7 @@ import {
   parseOptionalIntForDb,
   tinToBigInt,
 } from "@/lib/business-rules";
+import { getLatestPaymentReference } from "@/lib/payment-reference";
 
 type DbApplicationStatus =
   | "DRAFT"
@@ -38,7 +39,7 @@ export interface PermitIssuanceRow {
   applicantEmail: string;
   applicationType: ApplicationType;
   topNumber: string | null;
-  paymentStatus: "PENDING" | "VERIFIED" | "REJECTED" | null;
+  paymentStatus: "PENDING" | "VERIFIED" | "RETURNED" | "REJECTED" | null;
   datePaid: string | null;
   requiredReleasePayment: number;
   amountPaid: number;
@@ -60,15 +61,17 @@ export interface PermitIssuanceLists {
 
 function getBlockingReason(params: {
   rawStatus: DbApplicationStatus;
-  latestPaymentStatus: "PENDING" | "VERIFIED" | "REJECTED" | null;
+  latestPaymentStatus: "PENDING" | "VERIFIED" | "RETURNED" | "REJECTED" | null;
   amountPaid: number;
   requiredReleasePayment: number;
 }): string | null {
   const { rawStatus, latestPaymentStatus, amountPaid, requiredReleasePayment } = params;
 
+  if (rawStatus === "RELEASED") return null;
   if (rawStatus !== "APPROVED_FOR_PAYMENT") return null;
   if (!latestPaymentStatus) return "Awaiting applicant payment submission";
   if (latestPaymentStatus === "PENDING") return "Awaiting BPLO payment verification";
+  if (latestPaymentStatus === "RETURNED") return "Payment reference returned; applicant must resubmit";
   if (latestPaymentStatus === "REJECTED") return "Payment reference rejected; applicant must resubmit";
   if (requiredReleasePayment > 0 && amountPaid < requiredReleasePayment) {
     return "Required release payment has not been completed";
@@ -101,7 +104,7 @@ export interface PermitIssuanceDetail {
     topNumber: string | null;
     totalAmountPaid: number;
     paymentReferenceNumber: string | null;
-    paymentVerificationStatus: "PENDING" | "VERIFIED" | "REJECTED" | null;
+    paymentVerificationStatus: "PENDING" | "VERIFIED" | "RETURNED" | "REJECTED" | null;
   };
   preview: {
     title: string;
@@ -236,7 +239,9 @@ function findPaidDate(history: Array<{ toStatus: DbApplicationStatus; createdAt:
 }
 
 function toListRow(app: any): PermitIssuanceRow {
-  const latestRef = app.paymentReferences?.[0] ?? null;
+  const latestDbRef = app.paymentReferences?.[0] ?? null;
+  const latestFormRef = getLatestPaymentReference(app.formData, app.businessApplicationId, app.status);
+  const latestRef = latestDbRef ?? latestFormRef ?? null;
   const requiredReleasePayment = toMoneyNumber(app.feeAssessment?.releasePaymentAmount);
   const amountPaid =
     app.feeAssessment?.paymentStatus === "PAID"
@@ -396,7 +401,6 @@ export async function getPermitIssuanceDetail(applicationId: string): Promise<Pe
         },
       },
       paymentReferences: {
-        where: { status: "VERIFIED" },
         orderBy: { submittedAt: "desc" },
         take: 1,
         select: {
@@ -426,7 +430,9 @@ export async function getPermitIssuanceDetail(applicationId: string): Promise<Pe
     return null;
   }
 
-  const latestRef = app.paymentReferences?.[0] ?? null;
+  const latestDbRef = app.paymentReferences?.[0] ?? null;
+  const latestFormRef = getLatestPaymentReference(app.formData, app.businessApplicationId, app.status);
+  const latestRef = latestDbRef ?? latestFormRef ?? null;
   const docType = resolveDocumentType(app.applicationType as ApplicationType);
 
   return {
@@ -635,6 +641,21 @@ export async function preparePermitIssuance(
     });
 
     if (!app) throw new Error("Application not found");
+
+    if (app.status === "RELEASED") {
+      return {
+        applicationId,
+        applicationNumber: app.applicationNumber,
+        documentNumber: app.permitIssuance?.documentNumber ?? "-",
+        documentType:
+          (app.permitIssuance?.documentType as IssuanceDocumentType) ??
+          resolveDocumentType(app.applicationType as ApplicationType),
+        status: "RELEASED" as const,
+        newApplicationStatus: "RELEASED" as const,
+        smsContext: null,
+      };
+    }
+
     if (app.status !== "PAID") {
       throw new Error("Only PAID applications can be prepared for release");
     }
@@ -720,7 +741,7 @@ export async function preparePermitIssuance(
     };
   });
 
-  const smsDelivery = await sendReleaseStatusSms(result.smsContext);
+  const smsDelivery = result.smsContext ? await sendReleaseStatusSms(result.smsContext) : null;
   return {
     applicationId: result.applicationId,
     applicationNumber: result.applicationNumber,

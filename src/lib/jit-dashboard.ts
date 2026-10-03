@@ -53,11 +53,15 @@ function formatShortDate(isoDate: string): string {
 }
 
 function resolveInspectionClassification(status: string, complianceStatus: string): JitInspectionCurrentStatus {
+  if (status === "REVOCATION_DENIED") {
+    return "VERIFIED_COMPLIANT";
+  }
+
   if (status === "DH_VERIFICATION_PENDING" || status === "VERIFIED_COMPLIANT" || status === "VERIFIED_NON_COMPLIANT") {
     return status;
   }
 
-  if (status === "REVOCATION_REVIEW" || status === "REVOCATION_DENIED" || status === "REVOKED") {
+  if (status === "REVOCATION_REVIEW" || status === "REVOKED") {
     return status;
   }
 
@@ -294,6 +298,8 @@ const getCachedJitDashboardSummary = cache(async (): Promise<JitDashboardSummary
     const isSettled =
       latest.isSettled === true ||
       latest.complianceCaseStatus === "SETTLED" ||
+      latest.revocationDecision === "DENIED" ||
+      s === "REVOCATION_DENIED" ||
       Boolean(latest.revocationSettledAt);
 
     const isRevokedOrRestricted =

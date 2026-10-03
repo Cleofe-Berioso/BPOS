@@ -61,7 +61,7 @@ export async function POST(req: Request) {
     data: { passwordHash },
   });
 
-  void logUserManagementAction(
+  await logUserManagementAction(
     authContext.applicantId,
     authContext.session.user.name ?? authContext.applicantEmail,
     "APPLICANT",

@@ -71,7 +71,7 @@ export async function POST(_req: Request, context: { params: Promise<{ applicati
   });
 
   // Non-blocking audit log
-  void createAuditLog({
+  await createAuditLog({
     actorId: session.user.id,
     actorName: session.user.name,
     actorRole: "APPLICANT",

@@ -279,7 +279,7 @@ export async function POST(req: Request) {
 
       // Audit: Application submission
       if (payload.mode === "SUBMIT") {
-        void logApplicationAction(
+        await logApplicationAction(
           authContext.applicantId,
           session.user.name ?? session.user.email ?? null,
           "APPLICANT",

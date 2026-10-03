@@ -432,6 +432,7 @@ enum PaymentReferenceStatus {
   PENDING
   VERIFIED
   REJECTED
+  RETURNED
 }
 
 enum PaymentSettlementStatus {

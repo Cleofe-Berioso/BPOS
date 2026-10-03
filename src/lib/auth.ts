@@ -29,13 +29,34 @@ const authSecret =
   configuredSecret ||
   (process.env.NODE_ENV === "development" ? "dev-only-auth-secret-change-me" : undefined);
 
-// Emit a loud warning at startup so misconfigured deployments are immediately visible.
-if (!configuredSecret && process.env.NODE_ENV === "production") {
-  console.error(
-    "[auth] CRITICAL: Neither AUTH_SECRET nor NEXTAUTH_SECRET is set in production. " +
-    "Sessions are signed with an insecure fallback. Set AUTH_SECRET in your environment variables immediately."
-  );
+// In production, loopback addresses (localhost, 127.0.0.1, 0.0.0.0) must never be used
+// as the application URL because they cause client redirects to fail with
+// "failed to get redirect response TypeError: fetch failed".
+function sanitizeLoopbackAuthUrl(key: string): void {
+  const val = process.env[key]?.trim();
+  if (!val) return;
+  try {
+    const parsed = new URL(val);
+    const host = parsed.hostname.toLowerCase();
+    if (
+      process.env.NODE_ENV === "production" &&
+      (host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0")
+    ) {
+      console.warn(
+        `[auth] ${key} is configured with loopback address ("${val}") in production. ` +
+        `Removing so Auth.js resolves the public domain from request headers (x-forwarded-host).`
+      );
+      delete process.env[key];
+    }
+  } catch {
+    if (process.env.NODE_ENV === "production") {
+      delete process.env[key];
+    }
+  }
 }
+
+sanitizeLoopbackAuthUrl("AUTH_URL");
+sanitizeLoopbackAuthUrl("NEXTAUTH_URL");
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,

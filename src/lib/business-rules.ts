@@ -282,11 +282,11 @@ export function splitOwnerName(ownerName: string): {
 }
 
 const REGISTRATION_NUMBER_REGEX_BY_BUSINESS_TYPE: Record<BusinessType, RegExp> = {
-  "Sole Proprietorship": /^DTI-\d{4}-\d{6}$/,
+  "Sole Proprietorship": /^(?:\d{7}|DTI-\d{4}-\d{6})$/,
   "One Person Corporation": /^CS\d{4}-\d{5}$/,
   Partnership: /^CS\d{4}-\d{5}$/,
   Corporation: /^CS\d{4}-\d{5}$/,
-  Cooperative: /^CDA-\d{4}-\d{6}$/,
+  Cooperative: /^(?:\d{4}-\d{10,12}|CDA-\d{4}-\d{6})$/,
 };
 
 const TIN_REGEX = /^\d{9,15}$/;
@@ -302,7 +302,7 @@ export const REGISTRATION_METADATA: Record<
   "Sole Proprietorship": {
     label: "DTI Registration Number",
     agency: "Department of Trade and Industry",
-    helperText: "Use DTI-YYYY-NNNNNN format (example: DTI-2026-123456).",
+    helperText: "Use 7-digit format (example: 4789351).",
   },
   Partnership: {
     label: "SEC Registration Number",
@@ -322,23 +322,40 @@ export const REGISTRATION_METADATA: Record<
   Cooperative: {
     label: "CDA Registration Number",
     agency: "Cooperative Development Authority",
-    helperText: "Use CDA-YYYY-NNNNNN format (example: CDA-2026-123456).",
+    helperText: "Use XXXX-XXXXXXXXXX format (example: 9520-101300033148).",
   },
 };
 
-export const RENEWAL_LOCKED_FIELDS: Array<keyof BusinessInfo> = [
+/**
+ * Automatically format registration number input while typing according to business type.
+ * - Sole Proprietorship (DTI): exactly 7 digits only (XXXXXXX)
+ * - Cooperative (CDA): 14 digits with a hyphen after the first 4 digits (XXXX-XXXXXXXXXX)
+ * - Others (SEC): uppercase string
+ */
+export function formatRegistrationNumberInput(
+  businessType: BusinessType,
+  value: string
+): string {
+  if (businessType === "Sole Proprietorship") {
+    return value.replace(/\D/g, "").slice(0, 7);
+  }
+  if (businessType === "Cooperative") {
+    const digits = value.replace(/\D/g, "").slice(0, 16);
+    if (digits.length <= 4) {
+      return digits;
+    }
+    return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+  }
+  return value.toUpperCase();
+}
+
+export const RENEWAL_LOCKED_FIELDS_BASE: Array<keyof BusinessInfo> = [
   "businessName",
   "businessType",
   "registrationNumber",
   "tin",
-  "ownerName",
-  "ownerFirstName",
-  "ownerMiddleName",
-  "ownerSurname",
-  "ownerSuffix",
   "tradeName",
   "nationality",
-  "sex",
   "corporationNationality",
   "businessAddress",
   "businessStreetAddress",
@@ -348,6 +365,52 @@ export const RENEWAL_LOCKED_FIELDS: Array<keyof BusinessInfo> = [
   "businessLatitude",
   "businessLongitude",
 ];
+
+export const RENEWAL_OWNER_LOCKED_FIELDS: Array<keyof BusinessInfo> = [
+  "ownerName",
+  "ownerFirstName",
+  "ownerMiddleName",
+  "ownerSurname",
+  "ownerSuffix",
+  "sex",
+];
+
+export const RENEWAL_LOCKED_FIELDS: Array<keyof BusinessInfo> = [
+  ...RENEWAL_LOCKED_FIELDS_BASE,
+  ...RENEWAL_OWNER_LOCKED_FIELDS,
+];
+
+/**
+ * Returns true if the business type allows modifying President Name, President Surname, and Sex during renewal.
+ * Business types: Partnership, One-Person Corporation, Cooperative, Corporation.
+ * For Sole Proprietorship, these fields remain locked.
+ */
+export function isRenewalPresidentEditable(
+  businessType: BusinessType | string | null | undefined
+): boolean {
+  if (!businessType) return false;
+  const normalized = businessType.trim().toLowerCase().replace(/-/g, " ");
+  return (
+    normalized === "partnership" ||
+    normalized === "one person corporation" ||
+    normalized === "cooperative" ||
+    normalized === "corporation"
+  );
+}
+
+/**
+ * Get locked fields for renewal based on business type.
+ * For Partnership, One-Person Corporation, Cooperative, and Corporation, President Name and Sex are editable.
+ * For Sole Proprietorship, all identity fields are locked.
+ */
+export function getRenewalLockedFields(
+  businessType?: BusinessType | string | null
+): Array<keyof BusinessInfo> {
+  if (isRenewalPresidentEditable(businessType)) {
+    return RENEWAL_LOCKED_FIELDS_BASE;
+  }
+  return RENEWAL_LOCKED_FIELDS;
+}
 
 /** Fields restored from the business record for CLOSURE so normalize cannot wipe them. */
 export const CLOSURE_LOCKED_FIELDS: Array<keyof BusinessInfo> = [
@@ -485,6 +548,36 @@ export function validateBusinessIdentityFormats(input: Pick<BusinessInfo, "busin
     registrationNumber: validateRegistrationNumberFormat(input.businessType, input.registrationNumber),
     tin: validateTinFormat(input.tin),
   };
+}
+
+/**
+ * Validate Tax Declaration Number format.
+ * Established format: YYYY-XXXXX-XXXXX (e.g. 2026-18045-00001) or TD-prefixed format (e.g. TD-2026-B1-0042, TD-1).
+ */
+export const TAX_DECLARATION_NUMBER_EXAMPLE = "2026-18045-00001";
+export const TAX_DECLARATION_NUMBER_FORMAT_ERROR = "Invalid format. Example: 2026-18045-00001";
+export const TAX_DECLARATION_NUMBER_REGEX = /^(\d{2,4}(-\d{1,6})+|(TDN?-)?[A-Za-z0-9]+(-[A-Za-z0-9]+)+|TD-\d+|\d{6,30})$/i;
+
+export function validateTaxDeclarationNumberFormat(value: string | null | undefined): boolean {
+  if (!value || typeof value !== "string") return false;
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  return TAX_DECLARATION_NUMBER_REGEX.test(trimmed);
+}
+
+/**
+ * Validate Property Identification Number format.
+ * Established format: XXX-XX-XXX-XXX-XXX (e.g. 180-08-002-001-001) or PIN-prefixed format (e.g. PIN-2026-0001, PIN-1).
+ */
+export const PROPERTY_IDENTIFICATION_NUMBER_EXAMPLE = "180-08-002-001-001";
+export const PROPERTY_IDENTIFICATION_NUMBER_FORMAT_ERROR = "Invalid format. Example: 180-08-002-001-001";
+export const PROPERTY_IDENTIFICATION_NUMBER_REGEX = /^(\d{1,4}(-\d{1,4})+|(PIN-|PROP-)[A-Za-z0-9-]+|PIN-\d+|\d{6,30})$/i;
+
+export function validatePropertyIdentificationNumberFormat(value: string | null | undefined): boolean {
+  if (!value || typeof value !== "string") return false;
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  return PROPERTY_IDENTIFICATION_NUMBER_REGEX.test(trimmed);
 }
 
 export function isCorporation(businessType: BusinessType): boolean {
@@ -739,9 +832,10 @@ export function applyLockedBusinessFields(
     return normalizedCandidate;
   }
 
+  const businessType = source.businessType ?? candidate.businessType;
   const lockedFields =
     applicationType === "RENEWAL"
-      ? RENEWAL_LOCKED_FIELDS
+      ? getRenewalLockedFields(businessType)
       : applicationType === "CLOSURE"
         ? CLOSURE_LOCKED_FIELDS
         : null;
@@ -775,9 +869,44 @@ export function applyLockedBusinessFields(
   }
 
   if (applicationType === "RENEWAL") {
-    if (source.sex?.trim()) {
-      merged.sex = source.sex.trim();
+    if (isRenewalPresidentEditable(businessType)) {
+      // For Partnership, One-Person Corporation, Cooperative, Corporation:
+      // Allow modifying President Name, President Surname, and Sex.
+      // Existing saved information remains intact unless applicant edited an allowed field.
+      merged.ownerFirstName = candidate.ownerFirstName?.trim() || source.ownerFirstName?.trim() || "";
+      merged.ownerMiddleName = candidate.ownerMiddleName?.trim() || source.ownerMiddleName?.trim() || "";
+      merged.ownerSurname = candidate.ownerSurname?.trim() || source.ownerSurname?.trim() || "";
+      merged.ownerSuffix = candidate.ownerSuffix?.trim() || source.ownerSuffix?.trim() || "";
+      merged.ownerName = formatOwnerName({
+        ownerFirstName: merged.ownerFirstName,
+        ownerMiddleName: merged.ownerMiddleName,
+        ownerLastName: merged.ownerSurname,
+        ownerSuffix: merged.ownerSuffix,
+        ownerName: candidate.ownerName?.trim() || source.ownerName?.trim(),
+      });
+      merged.sex = source.sex?.trim() || candidate.sex?.trim() || "";
+    } else {
+      // For Sole Proprietorship: keep these fields locked/non-editable during renewal
+      if (source.sex?.trim()) {
+        merged.sex = source.sex.trim();
+      }
+      if (source.ownerFirstName?.trim()) {
+        merged.ownerFirstName = source.ownerFirstName.trim();
+      }
+      if (source.ownerMiddleName?.trim()) {
+        merged.ownerMiddleName = source.ownerMiddleName.trim();
+      }
+      if (source.ownerSurname?.trim()) {
+        merged.ownerSurname = source.ownerSurname.trim();
+      }
+      if (source.ownerSuffix?.trim()) {
+        merged.ownerSuffix = source.ownerSuffix.trim();
+      }
+      if (source.ownerName?.trim()) {
+        merged.ownerName = source.ownerName.trim();
+      }
     }
+
     if (source.corporationNationality?.trim()) {
       merged.corporationNationality = source.corporationNationality.trim() as BusinessInfo["corporationNationality"];
     }

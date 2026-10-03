@@ -79,7 +79,7 @@ async function createSmsDeliveryLog(input: {
         providerResponse: input.providerResponse,
       },
     });
-    void logSmsAction(
+    await logSmsAction(
       null,
       "SMS_SYSTEM",
       input.applicantId,

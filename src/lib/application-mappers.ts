@@ -27,3 +27,13 @@ export function mapDbStatusToUi(status: DbApplicationStatus): ApplicationStatus 
 export function isEditableStatus(status: DbApplicationStatus): boolean {
   return EDITABLE_APPLICATION_STATUSES.includes(status);
 }
+
+export function mapPaymentStatusToUi(status: string | null | undefined): string {
+  if (!status) return "-";
+  const upper = status.trim().toUpperCase();
+  if (upper === "VERIFIED") return "Verified";
+  if (upper === "RETURNED") return "Returned";
+  if (upper === "REJECTED") return "Rejected";
+  if (upper === "PENDING") return "Pending";
+  return status;
+}

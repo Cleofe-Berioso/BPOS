@@ -80,9 +80,17 @@ describe("WB-PAY-PRINT — payment refs, print gates, geo, address", () => {
     expect(
       canBploPrintDocument({
         ...printableBase,
+        status: "FOR_RELEASE",
         payment: { hasVerifiedPaymentReference: false },
       }).reasons.length
     ).toBeGreaterThan(0);
+    expect(
+      canBploPrintDocument({
+        ...printableBase,
+        status: "RELEASED",
+        payment: { hasVerifiedPaymentReference: false },
+      }).canPrint
+    ).toBe(true);
 
     expect(canApplicantPrintDocument(printableBase, "user-1").canPrint).toBe(true);
     expect(canApplicantPrintDocument(printableBase, "other").canPrint).toBe(false);

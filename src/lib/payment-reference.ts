@@ -1,4 +1,4 @@
-export type PaymentReferenceStatus = "PENDING" | "VERIFIED" | "REJECTED";
+export type PaymentReferenceStatus = "PENDING" | "VERIFIED" | "RETURNED" | "REJECTED";
 
 export interface PaymentReferenceEntry {
   id: string;
@@ -23,7 +23,7 @@ function parseStatus(
   raw: unknown,
   fallbackStatus: string
 ): PaymentReferenceStatus {
-  if (raw === "PENDING" || raw === "VERIFIED" || raw === "REJECTED") {
+  if (raw === "PENDING" || raw === "VERIFIED" || raw === "RETURNED" || raw === "REJECTED") {
     return raw;
   }
   return VERIFIED_APP_STATUSES.has(fallbackStatus) ? "VERIFIED" : "PENDING";

@@ -30,7 +30,7 @@ export async function POST(
     );
 
     // Audit: Permit prepared
-    void logPermitAction(
+    await logPermitAction(
       session.user.id,
       session.user.name ?? session.user.email ?? null,
       "BPLO",

@@ -35,13 +35,17 @@ export const bploEmptyStateClass = "px-6 py-8 text-sm text-[var(--ink-muted)]";
 
 export const bploTypeBadgeClass = "ui-badge border-[var(--border-color)] bg-[var(--info-soft)] text-[var(--info)]";
 
-export function paymentStatusBadgeClass(status: "PENDING" | "VERIFIED" | "REJECTED"): string {
+export function paymentStatusBadgeClass(status: "PENDING" | "VERIFIED" | "RETURNED" | "REJECTED" | string): string {
   switch (status) {
     case "PENDING":
       return "ui-badge bg-[var(--warning-soft)] text-[var(--warning)]";
     case "VERIFIED":
       return "ui-badge bg-[var(--success-soft)] text-[var(--success)]";
+    case "RETURNED":
+      return "ui-badge bg-[var(--warning-soft)] text-[var(--warning)]";
     case "REJECTED":
       return "ui-badge bg-[var(--danger-soft)] text-[var(--danger)]";
+    default:
+      return "ui-badge bg-[var(--surface-muted)] text-[var(--ink-muted)]";
   }
 }

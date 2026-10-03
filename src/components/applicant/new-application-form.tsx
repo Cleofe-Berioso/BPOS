@@ -7,9 +7,19 @@ import { normalizeBusinessInfo as normalizeBusinessInfoRules } from "@/lib/busin
 import {
   isPhilippinesCountry,
   validateBusinessIdentityFormats,
+  validateTaxDeclarationNumberFormat,
+  validatePropertyIdentificationNumberFormat,
+  TAX_DECLARATION_NUMBER_FORMAT_ERROR,
+  PROPERTY_IDENTIFICATION_NUMBER_FORMAT_ERROR,
   BUSINESS_ACTIVITY_OPTIONS,
 } from "@/lib/business-rules";
-import { phMobileFieldError, sanitizePhMobileInput } from "@/lib/ph-mobile";
+import {
+  isValidPhMobile,
+  PH_MOBILE_FORMAT_ERROR,
+  PH_MOBILE_REQUIRED_ERROR,
+  phMobileFieldError,
+  sanitizePhMobileInput,
+} from "@/lib/ph-mobile";
 import {
   EB_MAGALONA_CITY,
   EB_MAGALONA_COUNTRY,
@@ -43,6 +53,7 @@ import {
   validateTotalPendingUploadSize,
 } from "@/lib/document-upload-rules";
 import { useLineOfBusinessOptions } from "@/hooks/use-line-of-business-options";
+import { isDisallowedForNewApplications } from "@/lib/business-options";
 import { resolveBusinessBarangayFromFormState } from "@/lib/business-rules";
 import { sanitizeDecimalInput, sanitizeIntegerInput } from "@/lib/numeric-input";
 import { BusinessInformationFields } from "./business-information-fields";
@@ -160,7 +171,7 @@ const FIELD_LABELS: Partial<Record<keyof BusinessInfo, string>> = {
   mainOfficeBarangay: "Main Office Barangay",
   mainOfficeAddress: "Main Office Address",
   businessAddress: "Business Address",
-  businessBarangay: "Business Barangay",
+  businessBarangay: "Barangay",
   businessStreetAddress: "Business Street / Purok / Building / Unit",
   businessLatitude: "Business Location Latitude",
   businessLongitude: "Business Location Longitude",
@@ -214,6 +225,8 @@ const STEP_REQUIRED_FIELDS: Record<number, Array<keyof BusinessInfo>> = {
     "businessActivity",
     "lineOfBusiness",
     "assetSize",
+    "taxDeclarationNumber",
+    "propertyIdentificationNumber",
   ],
 };
 
@@ -224,10 +237,10 @@ const FIELD_NAVIGATION_MAP: Record<NewApplicationFieldKey, FieldNavigationConfig
     label: "Capital Investment / Asset Size",
     selector: '[data-field-key="assetSize"]',
   },
-  barangay: { step: 0, label: "Business Barangay", selector: '[data-field-key="businessBarangay"]' },
+  barangay: { step: 0, label: "Barangay", selector: '[data-field-key="businessBarangay"]' },
   businessBarangay: {
     step: 0,
-    label: "Business Barangay",
+    label: "Barangay",
     selector: '[data-field-key="businessBarangay"]',
   },
   totalEmployees: {
@@ -817,6 +830,45 @@ export function NewApplicationForm() {
         delete nextErrors.tin;
       }
 
+      const rawPhone = normalizedInfo.phone?.trim() ?? "";
+      if (rawPhone.length > 0) {
+        if (!isValidPhMobile(rawPhone)) {
+          if (
+            rawPhone.length === 11 ||
+            (!rawPhone.startsWith("09") && (rawPhone.length >= 2 || (rawPhone.length === 1 && rawPhone !== "0"))) ||
+            nextErrors.phone
+          ) {
+            nextErrors.phone = PH_MOBILE_FORMAT_ERROR;
+          }
+        } else if (nextErrors.phone === PH_MOBILE_FORMAT_ERROR || nextErrors.phone === PH_MOBILE_REQUIRED_ERROR) {
+          delete nextErrors.phone;
+        }
+      } else if (nextErrors.phone === PH_MOBILE_FORMAT_ERROR) {
+        delete nextErrors.phone;
+      }
+
+      const rawTaxDeclaration = normalizedInfo.taxDeclarationNumber?.trim() ?? "";
+      if (rawTaxDeclaration.length > 0) {
+        if (!validateTaxDeclarationNumberFormat(rawTaxDeclaration)) {
+          nextErrors.taxDeclarationNumber = TAX_DECLARATION_NUMBER_FORMAT_ERROR;
+        } else if (nextErrors.taxDeclarationNumber === TAX_DECLARATION_NUMBER_FORMAT_ERROR) {
+          delete nextErrors.taxDeclarationNumber;
+        }
+      } else if (nextErrors.taxDeclarationNumber === TAX_DECLARATION_NUMBER_FORMAT_ERROR) {
+        delete nextErrors.taxDeclarationNumber;
+      }
+
+      const rawPin = normalizedInfo.propertyIdentificationNumber?.trim() ?? "";
+      if (rawPin.length > 0) {
+        if (!validatePropertyIdentificationNumberFormat(rawPin)) {
+          nextErrors.propertyIdentificationNumber = PROPERTY_IDENTIFICATION_NUMBER_FORMAT_ERROR;
+        } else if (nextErrors.propertyIdentificationNumber === PROPERTY_IDENTIFICATION_NUMBER_FORMAT_ERROR) {
+          delete nextErrors.propertyIdentificationNumber;
+        }
+      } else if (nextErrors.propertyIdentificationNumber === PROPERTY_IDENTIFICATION_NUMBER_FORMAT_ERROR) {
+        delete nextErrors.propertyIdentificationNumber;
+      }
+
       return nextErrors;
     });
   }, [info]);
@@ -1036,6 +1088,17 @@ export function NewApplicationForm() {
       }
     }
 
+    if (field === "lineOfBusiness") {
+      const lob = normalizedInfo.lineOfBusiness?.trim() ?? "";
+      if (!lob) {
+        nextErrors.lineOfBusiness = "Line of Business is required.";
+      } else if (isDisallowedForNewApplications(lob) || !lineOfBusinessOptions.includes(lob)) {
+        nextErrors.lineOfBusiness = "Bank is no longer available as a Line of Business.";
+      } else if (nextErrors.lineOfBusiness !== "This already exist") {
+        delete nextErrors.lineOfBusiness;
+      }
+    }
+
     if (field === "birthDate") {
       // Birthdate field removed from New application form per Phase 1.
     }
@@ -1056,11 +1119,25 @@ export function NewApplicationForm() {
     }
 
     if (field === "taxDeclarationNumber") {
-      delete nextErrors.taxDeclarationNumber;
+      const raw = normalizedInfo.taxDeclarationNumber?.trim() ?? "";
+      if (raw.length === 0) {
+        nextErrors.taxDeclarationNumber = "Tax Declaration Number is required.";
+      } else if (!validateTaxDeclarationNumberFormat(raw)) {
+        nextErrors.taxDeclarationNumber = TAX_DECLARATION_NUMBER_FORMAT_ERROR;
+      } else {
+        delete nextErrors.taxDeclarationNumber;
+      }
     }
 
     if (field === "propertyIdentificationNumber") {
-      delete nextErrors.propertyIdentificationNumber;
+      const raw = normalizedInfo.propertyIdentificationNumber?.trim() ?? "";
+      if (raw.length === 0) {
+        nextErrors.propertyIdentificationNumber = "Property Identification Number is required.";
+      } else if (!validatePropertyIdentificationNumberFormat(raw)) {
+        nextErrors.propertyIdentificationNumber = PROPERTY_IDENTIFICATION_NUMBER_FORMAT_ERROR;
+      } else {
+        delete nextErrors.propertyIdentificationNumber;
+      }
     }
 
     setFieldErrors(nextErrors);
@@ -1118,6 +1195,17 @@ export function NewApplicationForm() {
     // Birthdate validation removed from New application form per Phase 1.
 
     if (currentStep === 1) {
+
+      const tdn = normalizedInfo.taxDeclarationNumber?.trim() ?? "";
+      if (tdn.length > 0 && !validateTaxDeclarationNumberFormat(tdn)) {
+        nextErrors.taxDeclarationNumber = TAX_DECLARATION_NUMBER_FORMAT_ERROR;
+      }
+
+      const pin = normalizedInfo.propertyIdentificationNumber?.trim() ?? "";
+      if (pin.length > 0 && !validatePropertyIdentificationNumberFormat(pin)) {
+        nextErrors.propertyIdentificationNumber = PROPERTY_IDENTIFICATION_NUMBER_FORMAT_ERROR;
+      }
+
       const capitalRaw = normalizedInfo.capitalInvestment?.trim() ?? "";
       if (!capitalRaw) {
         nextErrors.capitalInvestment = "Capital Investment is required.";
@@ -1125,6 +1213,11 @@ export function NewApplicationForm() {
         nextErrors.capitalInvestment = "Capital Investment must be a positive amount.";
       } else if (nextErrors.capitalInvestment !== "This already exist") {
         delete nextErrors.capitalInvestment;
+      }
+
+      const lob = normalizedInfo.lineOfBusiness?.trim() ?? "";
+      if (lob && (isDisallowedForNewApplications(lob) || !lineOfBusinessOptions.includes(lob))) {
+        nextErrors.lineOfBusiness = "Bank is no longer available as a Line of Business.";
       }
     }
 
@@ -1210,13 +1303,26 @@ export function NewApplicationForm() {
       identityErrors.tin = "Wrong Format";
     }
 
+    if (normalizedInfo.taxDeclarationNumber?.trim()) {
+      if (!validateTaxDeclarationNumberFormat(normalizedInfo.taxDeclarationNumber)) {
+        identityErrors.taxDeclarationNumber = TAX_DECLARATION_NUMBER_FORMAT_ERROR;
+      }
+    }
+
+    if (normalizedInfo.propertyIdentificationNumber?.trim()) {
+      if (!validatePropertyIdentificationNumberFormat(normalizedInfo.propertyIdentificationNumber)) {
+        identityErrors.propertyIdentificationNumber = PROPERTY_IDENTIFICATION_NUMBER_FORMAT_ERROR;
+      }
+    }
+
     if (Object.keys(identityErrors).length > 0) {
       setFieldErrors(identityErrors);
       setErrorSummaryItems(
         Object.keys(identityErrors).map((rawKey) => getFieldConfig(rawKey).label)
       );
       navigateToFirstMissingField(Object.keys(identityErrors), []);
-      setStatusMessage({ kind: "error", text: "Wrong Format" });
+      const firstErrorMessage = Object.values(identityErrors)[0] ?? "Wrong Format";
+      setStatusMessage({ kind: "error", text: firstErrorMessage });
       setSubmitting(false);
       return null;
     }
@@ -1698,6 +1804,12 @@ export function NewApplicationForm() {
                 return nextErrors;
               });
             }}
+            onSetFieldError={(field, error) => {
+              setFieldErrors((current) => ({
+                ...current,
+                [field]: error,
+              }));
+            }}
             lockedFields={isReadOnly ? READ_ONLY_LOCKED_FIELDS : []}
             fieldErrors={fieldErrors}
             enableCascadingAddress
@@ -1948,39 +2060,35 @@ export function NewApplicationForm() {
                 </select>
               </label>
 
-              {info.propertyOwnership !== "Owned" && (
-                <FieldCard
-                  label="Tax Declaration Number"
-                  value={info.taxDeclarationNumber}
-                  fieldKey="taxDeclarationNumber"
-                  placeholder="2026-18045-00001"
-                  helperText="Example format: 2026-18045-00001"
-                  error={fieldErrors.taxDeclarationNumber}
-                  required={false}
-                  disabled={isReadOnly}
-                  onBlur={() => validateFieldOnBlur("taxDeclarationNumber")}
-                  onChange={(value) =>
-                    setInfo((current) => ({ ...current, taxDeclarationNumber: value }))
-                  }
-                />
-              )}
+              <FieldCard
+                label="Tax Declaration Number"
+                value={info.taxDeclarationNumber}
+                fieldKey="taxDeclarationNumber"
+                placeholder="2026-18045-00001"
+                helperText="Example format: 2026-18045-00001"
+                error={fieldErrors.taxDeclarationNumber}
+                required={true}
+                disabled={isReadOnly}
+                onBlur={() => validateFieldOnBlur("taxDeclarationNumber")}
+                onChange={(value) =>
+                  setInfo((current) => ({ ...current, taxDeclarationNumber: value }))
+                }
+              />
 
-              {info.propertyOwnership !== "Owned" && (
-                <FieldCard
-                  label="Property Identification Number"
-                  value={info.propertyIdentificationNumber}
-                  fieldKey="propertyIdentificationNumber"
-                  placeholder="180-08-002-001-001"
-                  helperText="Example format: 180-08-002-001-001"
-                  error={fieldErrors.propertyIdentificationNumber}
-                  required={false}
-                  disabled={isReadOnly}
-                  onBlur={() => validateFieldOnBlur("propertyIdentificationNumber")}
-                  onChange={(value) =>
-                    setInfo((current) => ({ ...current, propertyIdentificationNumber: value }))
-                  }
-                />
-              )}
+              <FieldCard
+                label="Property Identification Number"
+                value={info.propertyIdentificationNumber}
+                fieldKey="propertyIdentificationNumber"
+                placeholder="180-08-002-001-001"
+                helperText="Example format: 180-08-002-001-001"
+                error={fieldErrors.propertyIdentificationNumber}
+                required={true}
+                disabled={isReadOnly}
+                onBlur={() => validateFieldOnBlur("propertyIdentificationNumber")}
+                onChange={(value) =>
+                  setInfo((current) => ({ ...current, propertyIdentificationNumber: value }))
+                }
+              />
 
 
               <div className={`md:col-span-2 ${applicantPanelClass}`}>

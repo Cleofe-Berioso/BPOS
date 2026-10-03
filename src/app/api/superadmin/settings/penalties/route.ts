@@ -38,7 +38,7 @@ export async function PUT(req: Request) {
       updatedById: session.user.id,
     });
     // Audit: Penalties/system fees updated
-    void logSettingsAction(
+    await logSettingsAction(
       session.user.id,
       session.user.name ?? session.user.email ?? null,
       "SUPER_ADMIN",

@@ -1098,7 +1098,7 @@ async function persistAssessment(
   });
 
   if (hadReassessment && mode === "GENERATED") {
-    void createAuditLog({
+    await createAuditLog({
       actorId: bploUserId,
       actorRole: "BPLO",
       action: "REASSESSMENT_RESOLVED",

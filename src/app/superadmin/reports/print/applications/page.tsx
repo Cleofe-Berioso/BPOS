@@ -27,13 +27,13 @@ interface PageProps {
 }
 
 const COLUMNS = [
-  { key: "applicationNumber", label: "Application No.", className: "font-mono text-xs whitespace-nowrap" },
-  { key: "applicationType", label: "Type", className: "whitespace-nowrap" },
-  { key: "businessName", label: "Business Name" },
-  { key: "ownerName", label: "Owner / Applicant" },
-  { key: "status", label: "Status", className: "whitespace-nowrap" },
-  { key: "submittedDate", label: "Submitted", className: "whitespace-nowrap" },
-  { key: "lastUpdated", label: "Last Updated", className: "whitespace-nowrap" },
+  { key: "applicationNumber", label: "Application No.", className: "font-mono text-xs whitespace-nowrap print:whitespace-nowrap" },
+  { key: "applicationType", label: "Type", className: "whitespace-nowrap print:whitespace-normal" },
+  { key: "businessName", label: "Business Name", className: "print:break-words" },
+  { key: "ownerName", label: "Owner / Applicant", className: "print:break-words" },
+  { key: "status", label: "Status", className: "whitespace-nowrap print:whitespace-normal" },
+  { key: "submittedDate", label: "Submitted", className: "whitespace-nowrap print:whitespace-normal" },
+  { key: "lastUpdated", label: "Last Updated", className: "whitespace-nowrap print:whitespace-normal" },
 ];
 
 export default async function ApplicationSummaryReportPage({ searchParams }: PageProps) {
@@ -86,7 +86,12 @@ export default async function ApplicationSummaryReportPage({ searchParams }: Pag
 
   return (
     <div className="report-print-container mx-auto max-w-[1200px] space-y-6 p-4 sm:p-8">
-      <ReportPageHeader meta={meta} backHref="/superadmin/reports" csvExportUrl={csvExportUrl} />
+      <ReportPageHeader
+        meta={meta}
+        backHref="/superadmin/reports"
+        csvExportUrl={csvExportUrl}
+        orientation="landscape"
+      />
 
       {/* ── Filter form (screen only) ──────────────────────────────── */}
       <div className="no-print rounded-xl border border-slate-200 bg-slate-50 p-4">

@@ -62,7 +62,7 @@ export async function POST(req: Request) {
     },
   });
 
-  void createAuditLog({
+  await createAuditLog({
     actorId: session.user.id,
     actorName: session.user.name ?? session.user.email ?? null,
     actorRole: "SUPER_ADMIN",

@@ -14,6 +14,7 @@ import {
   bploSummaryTileClass,
   bploSummaryValueClass,
 } from "@/components/bplo/bplo-ui-styles";
+import { mapPaymentStatusToUi } from "@/lib/application-mappers";
 import { DetailHeader } from "@/components/ui/detail-header";
 import { InfoBanner } from "@/components/ui/info-banner";
 import { RoleBadge } from "@/components/ui/role-badge";
@@ -82,6 +83,11 @@ export default async function PermitIssuanceDetailPage({
   const detail = await getPermitIssuanceDetail(applicationId);
   if (!detail) notFound();
 
+  const isReleased = detail.application.rawStatus === "RELEASED";
+  if (isReleased) {
+    actionError = null;
+  }
+
   const printEligibility = canBploPrintDocument({
     id: detail.application.id,
     applicantId: "bplo-context",
@@ -93,7 +99,8 @@ export default async function PermitIssuanceDetailPage({
       status: detail.issuance.status,
     },
     payment: {
-      hasVerifiedPaymentReference: detail.paymentSummary.paymentVerificationStatus === "VERIFIED",
+      hasVerifiedPaymentReference:
+        isReleased || detail.paymentSummary.paymentVerificationStatus === "VERIFIED",
     },
   });
   const printableType = getPrintableDocumentType(detail.application.applicationType);
@@ -172,7 +179,7 @@ export default async function PermitIssuanceDetailPage({
             <p>TOP Number: <strong>{detail.paymentSummary.topNumber ?? "-"}</strong></p>
             <p>Total Amount Paid: <strong>{money(detail.paymentSummary.totalAmountPaid)}</strong></p>
             <p>Payment Ref / OR: <strong>{detail.paymentSummary.paymentReferenceNumber ?? "-"}</strong></p>
-            <p>Payment Verification: <strong>{detail.paymentSummary.paymentVerificationStatus ?? "-"}</strong></p>
+            <p>Payment Verification: <strong>{mapPaymentStatusToUi(detail.paymentSummary.paymentVerificationStatus)}</strong></p>
           </div>
         </SectionCard>
       </div>
@@ -288,7 +295,7 @@ export default async function PermitIssuanceDetailPage({
             />
             <SummaryTile
               label="Payment Verification"
-              value={detail.paymentSummary.paymentVerificationStatus ?? "-"}
+              value={mapPaymentStatusToUi(detail.paymentSummary.paymentVerificationStatus)}
               helper="Reference point before prepare or release."
             />
           </div>

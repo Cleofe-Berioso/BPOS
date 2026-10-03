@@ -79,7 +79,7 @@ interface TopSummary {
     amountPaid?: number;
     paymentDate?: string;
     submittedAt?: string;
-    status?: "PENDING" | "VERIFIED" | "REJECTED";
+    status?: "PENDING" | "VERIFIED" | "RETURNED" | "REJECTED";
     reviewerRemarks?: string | null;
     reviewedAt?: string | null;
     proofFileName?: string;
@@ -123,7 +123,7 @@ export default function TaxOrderOfPaymentPage() {
   const isPaidStatus = summary?.status === "Paid";
   const isPaymentVerified = paymentRefStatus === "VERIFIED";
   const isPaymentPending = paymentRefStatus === "PENDING";
-  // Allow re-submission only when paymentRef is null or REJECTED.
+  // Allow re-submission when paymentRef is null, RETURNED, or REJECTED.
   // Block if: already paid, VERIFIED (already accepted), PENDING (awaiting review), or reassessment active.
   const canSubmitPaymentReference =
     !!summary &&
@@ -296,7 +296,7 @@ export default function TaxOrderOfPaymentPage() {
 
   const paymentBanner = !summary
     ? null
-    : paymentRefStatus === "REJECTED"
+    : paymentRefStatus === "RETURNED" || paymentRefStatus === "REJECTED"
       ? {
           title: "Payment returned for correction",
           description: paymentRef?.reviewerRemarks
@@ -316,11 +316,7 @@ export default function TaxOrderOfPaymentPage() {
               description: "Your submitted payment reference is waiting for BPLO review.",
               variant: "warning" as const,
             }
-          : {
-              title: "Ready for OR submission",
-              description: "This Tax Order of Payment is for permit release payment. Submit the OR number and official receipt or payment proof after payment.",
-              variant: "info" as const,
-            };
+          : null;
 
   if (loading && topData.records.length === 0 && !topData.activeSummary) {
     return (
@@ -482,7 +478,7 @@ export default function TaxOrderOfPaymentPage() {
             )}
           </Modal>
 
-          <div ref={summarySectionRef}>
+          <div ref={summarySectionRef} className="space-y-4">
           {paymentBanner ? (
             <InfoBanner
               title={paymentBanner.title}
@@ -499,10 +495,21 @@ export default function TaxOrderOfPaymentPage() {
             />
           ) : null}
 
+          <InfoBanner
+            title="Notice"
+            description="This is partial. Final Assessment will be at MTO."
+            variant="warning"
+          />
+
           <SectionCard
             title="TOP Summary"
             description={`${summary.applicationNumber} • ${summary.applicationType} • ${summary.businessName}`}
           >
+            <div className="mb-4 rounded-[var(--radius-card)] border border-[var(--warning)] bg-[var(--warning-soft)] p-3 text-sm text-[var(--foreground)]">
+              <span className="font-semibold text-[var(--warning)]">Notice: </span>
+              <span>This is partial. Final Assessment will be at MTO.</span>
+            </div>
+
             <div className="mb-3 flex items-center justify-end">
               {summary.reassessmentRequestedAt ? (
                 <span className="ui-badge bg-[var(--warning-soft)] text-[var(--warning)]">Re-assessment Requested</span>
@@ -647,14 +654,14 @@ export default function TaxOrderOfPaymentPage() {
                 <div className={`mb-4 rounded-[var(--radius-card)] border p-4 text-sm ${
                   paymentRefStatus === "VERIFIED"
                     ? "border-[var(--success)] bg-[var(--success-soft)] text-[var(--foreground)]"
-                    : paymentRefStatus === "REJECTED"
+                    : paymentRefStatus === "RETURNED" || paymentRefStatus === "REJECTED"
                     ? "border-[var(--warning)] bg-[var(--warning-soft)] text-[var(--foreground)]"
                     : "border-[var(--warning)] bg-[var(--warning-soft)] text-[var(--foreground)]"
                 }`}>
                   <p className="font-semibold">
                     {paymentRefStatus === "VERIFIED"
                       ? "✅ Payment Verified"
-                      : paymentRefStatus === "REJECTED"
+                      : paymentRefStatus === "RETURNED" || paymentRefStatus === "REJECTED"
                       ? "↩ Payment returned for correction — please resubmit with a corrected OR"
                       : "⏳ OR Submitted — Awaiting BPLO Verification"}
                   </p>
@@ -672,7 +679,7 @@ export default function TaxOrderOfPaymentPage() {
                 <div className="space-y-3">
                   <div>
                     <label className="mb-1 block text-sm font-medium text-[var(--foreground)]" htmlFor="top-or-number">
-                      OR Number (Payment Reference Number)
+                      Input 7 Digit Number
                       <span className="text-[var(--danger)]">*</span>
                     </label>
                     <input

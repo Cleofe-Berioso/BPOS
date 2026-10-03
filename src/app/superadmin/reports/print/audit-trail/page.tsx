@@ -26,15 +26,15 @@ interface PageProps {
 }
 
 const COLUMNS = [
-  { key: "date", label: "Date", className: "whitespace-nowrap" },
-  { key: "actorName", label: "Actor" },
-  { key: "actorRole", label: "Role", className: "whitespace-nowrap" },
-  { key: "action", label: "Action", className: "whitespace-nowrap font-mono text-xs" },
-  { key: "module", label: "Module", className: "whitespace-nowrap" },
-  { key: "entityType", label: "Entity", className: "whitespace-nowrap" },
-  { key: "description", label: "Description" },
-  { key: "beforeStatus", label: "Before", className: "whitespace-nowrap" },
-  { key: "afterStatus", label: "After", className: "whitespace-nowrap" },
+  { key: "date", label: "Date", className: "whitespace-nowrap print:whitespace-normal print:text-[9.5px]" },
+  { key: "actorName", label: "Actor", className: "print:text-[9.5px] print:break-words" },
+  { key: "actorRole", label: "Role", className: "whitespace-nowrap print:whitespace-normal print:text-[9.5px]" },
+  { key: "action", label: "Action", className: "whitespace-nowrap font-mono text-xs print:whitespace-nowrap print:text-[8.5px]" },
+  { key: "module", label: "Module", className: "whitespace-nowrap print:whitespace-normal print:text-[9.5px]" },
+  { key: "entityType", label: "Entity", className: "whitespace-nowrap print:whitespace-normal print:text-[9.5px]" },
+  { key: "description", label: "Description", className: "print:text-[9.5px] print:break-words" },
+  { key: "beforeStatus", label: "Before", className: "whitespace-nowrap print:whitespace-normal print:text-[9.5px]" },
+  { key: "afterStatus", label: "After", className: "whitespace-nowrap print:whitespace-normal print:text-[9.5px]" },
 ];
 
 export default async function AuditTrailReportPage({ searchParams }: PageProps) {
@@ -78,7 +78,12 @@ export default async function AuditTrailReportPage({ searchParams }: PageProps) 
 
   return (
     <div className="report-print-container mx-auto max-w-[1200px] space-y-6 p-4 sm:p-8">
-      <ReportPageHeader meta={meta} backHref="/superadmin/reports" csvExportUrl={csvExportUrl} />
+      <ReportPageHeader
+        meta={meta}
+        backHref="/superadmin/reports"
+        csvExportUrl={csvExportUrl}
+        orientation="landscape"
+      />
 
       {/* ── Filter form (screen only) ──────────────────────────────── */}
       <div className="no-print rounded-xl border border-slate-200 bg-slate-50 p-4">

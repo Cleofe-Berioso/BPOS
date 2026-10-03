@@ -28,7 +28,7 @@ export async function POST(_req: Request, context: RouteContext) {
     );
 
     // Audit: Application approved by Department Head
-    void logApplicationAction(
+    await logApplicationAction(
       session.user.id,
       session.user.name ?? session.user.email ?? null,
       "DEPARTMENT_HEAD",

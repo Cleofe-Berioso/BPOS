@@ -38,7 +38,7 @@ export async function POST(
     });
 
     // Audit: Renewal extension toggled
-    void logSettingsAction(
+    await logSettingsAction(
       session.user.id,
       session.user.name ?? session.user.email ?? null,
       "SUPER_ADMIN",

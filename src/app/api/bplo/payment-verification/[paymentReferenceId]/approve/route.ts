@@ -30,7 +30,7 @@ export async function POST(
     );
 
     // Audit: Payment approved
-    void logPaymentAction(
+    await logPaymentAction(
       session.user.id,
       session.user.name ?? session.user.email ?? null,
       "BPLO",
@@ -38,7 +38,7 @@ export async function POST(
       result.applicationNumber,
       result.applicationId,
       "VERIFIED",
-      "PENDING",
+      result.previousPaymentStatus ?? "PENDING",
       "VERIFIED",
       result.totalAmountDue,
       `Payment approved`,

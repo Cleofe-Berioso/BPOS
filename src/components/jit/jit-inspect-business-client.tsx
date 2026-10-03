@@ -88,7 +88,7 @@ function formatInspectionStatus(status: string | undefined | null): string {
     case "VERIFIED_COMPLIANT": return "Verified Compliant";
     case "VERIFIED_NON_COMPLIANT": return "Verified Non-Compliant";
     case "REVOCATION_REVIEW": return "Revocation Review";
-    case "REVOCATION_DENIED": return "Revocation Denied";
+    case "REVOCATION_DENIED": return "Verified Compliant";
     case "REVOKED": return "Revoked";
     case "COMPLIANT": return "Compliant";
     case "NON_COMPLIANT": return "Non-Compliant";
@@ -101,6 +101,7 @@ function inspectionStatusTone(status: string | undefined | null): string {
   switch (status) {
     case "VERIFIED_COMPLIANT":
     case "COMPLIANT":
+    case "REVOCATION_DENIED":
       return "text-[var(--success)]";
     case "VERIFIED_NON_COMPLIANT":
     case "NON_COMPLIANT":

@@ -68,6 +68,8 @@ export function getJitMapMarkerStatus(
   const isSettledCase =
     settlement?.isSettled === true ||
     settlement?.complianceCaseStatus === "SETTLED" ||
+    settlement?.revocationDecision === "DENIED" ||
+    inspectionStatus === "REVOCATION_DENIED" ||
     Boolean(settlement?.revocationSettledAt);
 
   // Settlement restores map readiness: settled cases show as green even when the
@@ -160,6 +162,9 @@ async function attachLatestInspections(rows: BusinessLocationMapRow[]): Promise<
       complianceStatus: true,
       status: true,
       createdAt: true,
+      isSettled: true,
+      complianceCaseStatus: true,
+      revocationDecision: true,
     },
   });
 
@@ -173,15 +178,27 @@ async function attachLatestInspections(rows: BusinessLocationMapRow[]): Promise<
   return rows.map((row) => {
     const latest = latestByRecord.get(row.businessRecordId);
 
+    if (!latest) {
+      return {
+        ...row,
+        latestInspection: null,
+      };
+    }
+
+    const isSettledOrDenied =
+      latest.status === "VERIFIED_COMPLIANT" ||
+      latest.isSettled ||
+      latest.complianceCaseStatus === "SETTLED" ||
+      latest.revocationDecision === "DENIED" ||
+      latest.status === "REVOCATION_DENIED";
+
     return {
       ...row,
-      latestInspection: latest
-        ? {
-            complianceStatus: latest.complianceStatus as ComplianceStatus,
-            status: latest.status as InspectionStatus,
-            createdAt: latest.createdAt.toISOString(),
-          }
-        : null,
+      latestInspection: {
+        complianceStatus: (isSettledOrDenied ? "COMPLIANT" : latest.complianceStatus) as ComplianceStatus,
+        status: (isSettledOrDenied ? "VERIFIED_COMPLIANT" : latest.status) as InspectionStatus,
+        createdAt: latest.createdAt.toISOString(),
+      },
     };
   });
 }

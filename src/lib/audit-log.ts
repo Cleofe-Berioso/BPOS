@@ -172,7 +172,7 @@ export async function logPaymentAction(
   paymentReferenceId: string,
   transactionNumber: string,
   applicationId: string,
-  action: "SUBMITTED" | "REVIEWED" | "VERIFIED" | "REJECTED" | "REFUNDED",
+  action: "SUBMITTED" | "REVIEWED" | "VERIFIED" | "RETURNED" | "REJECTED" | "REFUNDED",
   beforeStatus: string | null,
   afterStatus: string,
   amount?: number,

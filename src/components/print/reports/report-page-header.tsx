@@ -15,6 +15,8 @@ interface ReportPageHeaderProps {
   csvExportUrl?: string;
   /** Custom handler for CSV download. */
   onDownloadCsv?: () => void;
+  /** Page orientation for printing ('portrait' | 'landscape'). Defaults to 'portrait'. */
+  orientation?: "portrait" | "landscape";
 }
 
 /**
@@ -28,6 +30,7 @@ export function ReportPageHeader({
   backHref,
   csvExportUrl,
   onDownloadCsv,
+  orientation = "portrait",
 }: ReportPageHeaderProps) {
   return (
     <>
@@ -107,14 +110,15 @@ export function ReportPageHeader({
 
       <style jsx global>{`
         @page {
-          size: A4 portrait;
-          margin: 14mm 12mm;
+          size: A4 ${orientation};
+          margin: ${orientation === "landscape" ? "8mm 8mm" : "14mm 12mm"};
         }
 
         @media print {
           html,
           body {
             background: #ffffff !important;
+            width: 100% !important;
           }
 
           .no-print,
@@ -128,7 +132,8 @@ export function ReportPageHeader({
           }
 
           .report-print-container {
-            max-width: none !important;
+            max-width: 100% !important;
+            width: 100% !important;
             margin: 0 !important;
             padding: 0 !important;
           }
@@ -139,6 +144,51 @@ export function ReportPageHeader({
 
           .report-page-break {
             page-break-before: always;
+          }
+
+          /* Detailed records table print layout */
+          .report-table-wrapper {
+            overflow: visible !important;
+            width: 100% !important;
+            max-width: 100% !important;
+          }
+
+          .report-table-wrapper table,
+          table.report-table {
+            width: 100% !important;
+            max-width: 100% !important;
+            table-layout: auto !important;
+            border-collapse: collapse !important;
+          }
+
+          .report-table-wrapper th,
+          table.report-table th {
+            font-size: 9.5px !important;
+            padding: 3px 4px !important;
+            line-height: 1.25 !important;
+            white-space: normal !important;
+            word-break: break-word !important;
+          }
+
+          .report-table-wrapper td,
+          table.report-table td {
+            font-size: 9.5px !important;
+            line-height: 1.25 !important;
+            padding: 3px 4px !important;
+            word-break: break-word !important;
+            overflow-wrap: break-word !important;
+          }
+
+          /* In print, allow table cells to wrap to fit page width while preserving on-screen whitespace-nowrap */
+          .report-table-wrapper td.whitespace-nowrap:not(.font-mono),
+          table.report-table td.whitespace-nowrap:not(.font-mono) {
+            white-space: normal !important;
+          }
+
+          .report-table-wrapper td.font-mono,
+          table.report-table td.font-mono {
+            font-size: 9px !important;
+            white-space: nowrap !important;
           }
         }
       `}</style>

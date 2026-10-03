@@ -100,7 +100,7 @@ export function JitPostAuditChecklistForm({
   return (
     <SectionCard
       title="Post-Audit Checklist"
-      description="Answer Yes or No for each department. When No is selected, Findings and Evidence are required."
+      description="Select Yes or No based on the information obtained from the concerned office or group. If No is selected, provide the findings and supporting evidence."
     >
       <div className="space-y-2">
         {JIT_POST_AUDIT_CHECKLIST_ITEMS.map((item) => {

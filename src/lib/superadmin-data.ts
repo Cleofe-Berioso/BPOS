@@ -25,7 +25,7 @@ type DbApplicationStatus =
   | "REJECTED";
 
 type ApplicationType = "NEW" | "RENEWAL" | "CLOSURE";
-type PaymentRefStatus = "PENDING" | "VERIFIED" | "REJECTED";
+type PaymentRefStatus = "PENDING" | "VERIFIED" | "RETURNED" | "REJECTED";
 type ActorRole = "APPLICANT" | "BPLO" | "SUPER_ADMIN" | "DEPARTMENT_HEAD" | "JIT";
 type AuditActorRole = ActorRole | "SYSTEM";
 

@@ -37,7 +37,7 @@ export async function POST(
       : "Department Head verified non-compliant inspection";
 
     // Audit: Inspection verified
-    void logInspectionAction(
+    await logInspectionAction(
       session.user.id,
       session.user.name ?? session.user.email ?? null,
       "DEPARTMENT_HEAD",

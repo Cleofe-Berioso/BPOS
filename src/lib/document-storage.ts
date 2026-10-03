@@ -400,7 +400,11 @@ function configuredPublicOrigin(): string | null {
     const trimmed = value?.trim();
     if (!trimmed) continue;
     try {
-      return new URL(trimmed).origin;
+      const parsed = new URL(trimmed);
+      if (process.env.NODE_ENV === "production" && isLocalHostName(parsed.hostname)) {
+        continue;
+      }
+      return parsed.origin;
     } catch {
       // Ignore invalid env URL values.
     }
@@ -413,8 +417,10 @@ function isLocalHostName(host: string): boolean {
   return (
     normalized.startsWith("localhost:") ||
     normalized.startsWith("127.0.0.1:") ||
+    normalized.startsWith("0.0.0.0:") ||
     normalized === "localhost" ||
-    normalized === "127.0.0.1"
+    normalized === "127.0.0.1" ||
+    normalized === "0.0.0.0"
   );
 }
 

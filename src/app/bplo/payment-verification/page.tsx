@@ -27,7 +27,7 @@ import {
 import { SectionCard } from "@/components/ui/section-card";
 import type { PaginationPageSize } from "@/lib/pagination";
 
-type PaymentStatus = "PENDING" | "VERIFIED" | "REJECTED";
+type PaymentStatus = "PENDING" | "VERIFIED" | "RETURNED" | "REJECTED";
 
 interface PaymentVerificationRow {
   paymentReferenceId: string;
@@ -99,7 +99,7 @@ interface ProofModalState {
   error: string | null;
 }
 
-type TabKey = "PENDING" | "VERIFIED" | "REJECTED";
+type TabKey = "PENDING" | "VERIFIED" | "RETURNED" | "REJECTED";
 
 // Hoist Intl formatter to avoid recreating on every render
 const dateFormatter = new Intl.DateTimeFormat("en-PH", {
@@ -137,9 +137,10 @@ function SummaryTile({
   );
 }
 
-function passFailLabel(status: PaymentStatus): "Pass" | "Returned" | "Pending" {
+function passFailLabel(status: PaymentStatus): "Pass" | "Returned" | "Rejected" | "Pending" {
   if (status === "VERIFIED") return "Pass";
-  if (status === "REJECTED") return "Returned";
+  if (status === "RETURNED") return "Returned";
+  if (status === "REJECTED") return "Rejected";
   return "Pending";
 }
 
@@ -152,6 +153,7 @@ export default function BploPaymentVerificationPage() {
   const [tabCounts, setTabCounts] = useState<Record<TabKey, number>>({
     PENDING: 0,
     VERIFIED: 0,
+    RETURNED: 0,
     REJECTED: 0,
   });
   const [loading, setLoading] = useState(true);
@@ -265,6 +267,7 @@ export default function BploPaymentVerificationPage() {
     const data = (await response.json()) as {
       records?: PaymentVerificationRow[];
       totalCount?: number;
+      tabCounts?: Record<TabKey, number>;
       page?: number;
       pageSize?: PaginationPageSize;
       totalPages?: number;
@@ -280,7 +283,11 @@ export default function BploPaymentVerificationPage() {
     setPage(data.page ?? nextPage);
     setPageSize(data.pageSize ?? nextPageSize);
     setTotalPages(data.totalPages ?? 1);
-    setTabCounts((current) => ({ ...current, [tab]: data.totalCount ?? 0 }));
+    if (data.tabCounts) {
+      setTabCounts(data.tabCounts);
+    } else {
+      setTabCounts((current) => ({ ...current, [tab]: data.totalCount ?? 0 }));
+    }
     setLoading(false);
   }
 
@@ -315,7 +322,7 @@ export default function BploPaymentVerificationPage() {
     detail ? detail.row.amountPaid < detail.top.totalAmount : false;
 
   async function verifySelected() {
-    if (!detail || detail.row.paymentStatus !== "PENDING") return;
+    if (!detail || (detail.row.paymentStatus !== "PENDING" && detail.row.paymentStatus !== "RETURNED")) return;
 
     setActionBusy(true);
     setStatusMessage(null);
@@ -356,7 +363,7 @@ export default function BploPaymentVerificationPage() {
   }
 
   async function returnForCorrectionSelected() {
-    if (!detail || detail.row.paymentStatus !== "PENDING") return;
+    if (!detail || (detail.row.paymentStatus !== "PENDING" && detail.row.paymentStatus !== "RETURNED")) return;
     if (!remarks.trim()) {
       setStatusMessage({
         kind: "error",
@@ -470,12 +477,12 @@ export default function BploPaymentVerificationPage() {
             <button
               type="button"
               onClick={() => {
-                setActiveTab("REJECTED");
+                setActiveTab("RETURNED");
                 setPage(1);
               }}
-              className={activeTab === "REJECTED" ? actionButtonStyles("warning", "sm") : actionButtonStyles("secondary", "sm")}
+              className={activeTab === "RETURNED" ? actionButtonStyles("warning", "sm") : actionButtonStyles("secondary", "sm")}
             >
-              Returned for Correction ({tabCounts.REJECTED})
+              Returned for Correction ({tabCounts.RETURNED})
             </button>
           </div>
         </SectionCard>
@@ -622,22 +629,34 @@ export default function BploPaymentVerificationPage() {
                 subtitle={`${detail.row.applicationNumber} • ${detail.row.transactionNumber}`}
                 badge={
                   <span className={paymentStatusBadgeClass(detail.row.paymentStatus)}>
-                    {detail.row.paymentStatus === "REJECTED"
+                    {detail.row.paymentStatus === "RETURNED"
                       ? "RETURNED FOR CORRECTION"
                       : detail.row.paymentStatus}
                   </span>
                 }
               />
 
-              {detail.row.paymentStatus === "REJECTED" ? (
+              {detail.row.paymentStatus === "RETURNED" ? (
                 <InfoBanner
                   title="Returned for correction"
                   description={
                     detail.row.reviewerRemarks
                       ? `Previous BPLO remarks: ${detail.row.reviewerRemarks}`
-                      : "This payment reference was returned for correction. The applicant may submit a corrected OR and proof."
+                      : "This payment reference was returned for correction. Staff may verify if satisfied, or the applicant may submit a corrected OR and proof."
                   }
                   variant="warning"
+                />
+              ) : null}
+
+              {detail.row.paymentStatus === "REJECTED" ? (
+                <InfoBanner
+                  title="Payment rejected"
+                  description={
+                    detail.row.reviewerRemarks
+                      ? `Previous BPLO remarks: ${detail.row.reviewerRemarks}`
+                      : "This payment reference was rejected."
+                  }
+                  variant="danger"
                 />
               ) : null}
 
@@ -676,12 +695,7 @@ export default function BploPaymentVerificationPage() {
                   helper="Pass for verified, Returned for correction, Pending when under review"
                 />
                 <SummaryTile
-                  label="Amount Paid"
-                  value={money(detail.row.amountPaid)}
-                  helper="Submitted by applicant"
-                />
-                <SummaryTile
-                  label="Required Payment Amount"
+                  label="Required Annual Payment Amount"
                   value={money(detail.top.totalAmount)}
                   helper="Total amount due for payment"
                 />
@@ -699,11 +713,6 @@ export default function BploPaymentVerificationPage() {
                   label="Annual Assessed Amount"
                   value={money(detail.top.annualAssessedAmount)}
                   helper="Full annual assessment basis"
-                />
-                <SummaryTile
-                  label="Remaining Balance"
-                  value={money(detail.top.remainingBalance)}
-                  helper="Balance after verified payments"
                 />
                 <SummaryTile
                   label="Mode of Payment"
@@ -777,11 +786,11 @@ export default function BploPaymentVerificationPage() {
                     rows={3}
                     className={bploFormControlClass}
                     placeholder="Add verification notes or return-for-correction reason"
-                    readOnly={detail.row.paymentStatus !== "PENDING" || actionBusy}
+                    readOnly={(detail.row.paymentStatus !== "PENDING" && detail.row.paymentStatus !== "RETURNED") || actionBusy}
                   />
                 </FormField>
 
-                {detail.row.paymentStatus === "PENDING" ? (
+                {detail.row.paymentStatus === "PENDING" || detail.row.paymentStatus === "RETURNED" ? (
                   <div className="mt-4 flex flex-wrap gap-2">
                     <button
                       type="button"
@@ -809,7 +818,7 @@ export default function BploPaymentVerificationPage() {
                     <p className="text-sm text-[var(--ink-muted)]">
                       This payment reference is already{" "}
                       {detail.row.paymentStatus === "REJECTED"
-                        ? "returned for correction"
+                        ? "rejected"
                         : detail.row.paymentStatus.toLowerCase()}{" "}
                       and is now read-only.
                     </p>

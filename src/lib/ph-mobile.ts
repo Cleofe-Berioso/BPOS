@@ -3,11 +3,10 @@
  * Canonical UI format: 09XXXXXXXXX (11 digits, numbers only).
  */
 
-export const PH_MOBILE_REGEX = /^(\+63|0)9\d{9}$/;
-export const PH_MOBILE_HINT = "Use 09XXXXXXXXX (11 digits). Numbers only.";
-export const PH_MOBILE_REQUIRED_ERROR = "Mobile Number is required.";
-export const PH_MOBILE_FORMAT_ERROR =
-  "Enter a valid Philippine mobile number (09XXXXXXXXX).";
+export const PH_MOBILE_REGEX = /^09\d{9}$/;
+export const PH_MOBILE_HINT = "Enter valid Philippine Number";
+export const PH_MOBILE_REQUIRED_ERROR = "Enter valid Philippine Number";
+export const PH_MOBILE_FORMAT_ERROR = "Enter valid Philippine Number";
 
 const PH_MOBILE_NAV_KEYS = new Set([
   "Backspace",
@@ -23,11 +22,13 @@ const PH_MOBILE_NAV_KEYS = new Set([
   "End",
 ]);
 
-/** Strip non-digits and normalize 63… / 9… input toward 09XXXXXXXXX while typing. */
+/** Strip non-digits, reject spaces/symbols/letters, normalize 63…/9… toward 09XXXXXXXXX, and limit to 11 digits. */
 export function sanitizePhMobileInput(raw: string): string {
   let digits = raw.replace(/\D/g, "");
 
-  if (digits.startsWith("63") && digits.length >= 2) {
+  if (digits.startsWith("639") && digits.length >= 3) {
+    digits = `0${digits.slice(2)}`;
+  } else if (digits.startsWith("63") && digits.length >= 2) {
     digits = `0${digits.slice(2)}`;
   }
 
@@ -38,18 +39,18 @@ export function sanitizePhMobileInput(raw: string): string {
   return digits.slice(0, 11);
 }
 
-/** Block letter / symbol keypresses; allow digits and navigation/shortcuts. */
+/** Block letter / symbol / space keypresses; allow digits and navigation/shortcuts. */
 export function handlePhMobileKeyDown(
   event: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "altKey" | "preventDefault">
 ): void {
   if (event.ctrlKey || event.metaKey || event.altKey) return;
   if (PH_MOBILE_NAV_KEYS.has(event.key)) return;
-  if (event.key.length === 1 && !/\d/.test(event.key)) {
+  if (event.key.length === 1 && !/^\d$/.test(event.key)) {
     event.preventDefault();
   }
 }
 
-/** Block non-digit typed inserts; paste/autofill still go through sanitize on change. */
+/** Block non-digit typed inserts (letters, symbols, spaces); paste/autofill go through sanitize on change. */
 export function handlePhMobileBeforeInput(
   event: Pick<InputEvent, "inputType" | "data" | "preventDefault">
 ): void {
@@ -65,20 +66,19 @@ export function compactPhMobile(raw: string | null | undefined): string {
 export function normalizePhMobile(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const compact = compactPhMobile(raw);
-  if (/^\+639\d{9}$/.test(compact)) return compact;
   if (/^09\d{9}$/.test(compact)) return `+63${compact.slice(1)}`;
+  if (/^\+639\d{9}$/.test(compact)) return compact;
   if (/^639\d{9}$/.test(compact)) return `+${compact}`;
   return null;
 }
 
 export function isValidPhMobile(raw: string | null | undefined): boolean {
-  const compact = compactPhMobile(raw);
-  if (!compact) return false;
-  return PH_MOBILE_REGEX.test(compact) || normalizePhMobile(compact) !== null;
+  if (!raw || typeof raw !== "string") return false;
+  return PH_MOBILE_REGEX.test(raw.trim());
 }
 
 /** Returns an error message, or null when the value is a valid PH mobile. */
-export function phMobileFieldError(raw: string | null | undefined): string | null {
+export function phMobileFieldError(raw: string | null | undefined, _label?: string): string | null {
   const trimmed = (raw ?? "").trim();
   if (!trimmed) return PH_MOBILE_REQUIRED_ERROR;
   if (!isValidPhMobile(trimmed)) return PH_MOBILE_FORMAT_ERROR;

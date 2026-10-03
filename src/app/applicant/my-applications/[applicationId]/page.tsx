@@ -54,7 +54,7 @@ function readFlag(formData: Record<string, unknown>, key: string) {
 }
 
 
-function getStatusSummary(status: string): { meaning: string; nextStep: string } {
+function getStatusSummary(status: string, paymentStatus?: string | null): { meaning: string; nextStep: string } {
   if (status === "Draft") {
     return {
       meaning: "Your application is saved as a draft and has not been submitted to BPLO yet.",
@@ -84,6 +84,18 @@ function getStatusSummary(status: string): { meaning: string; nextStep: string }
   }
 
   if (status === "Approved for Payment") {
+    if (paymentStatus === "RETURNED" || paymentStatus === "REJECTED") {
+      return {
+        meaning: "Your submitted payment proof was returned for correction.",
+        nextStep: "Review the remarks and resubmit your payment proof in Tax Order of Payment.",
+      };
+    }
+    if (paymentStatus === "PENDING") {
+      return {
+        meaning: "Your payment proof has been submitted and is currently being verified by BPLO.",
+        nextStep: "Wait for BPLO payment verification.",
+      };
+    }
     return {
       meaning: "Your application is approved to proceed to payment.",
       nextStep: "Open your TOP and submit your payment reference after payment.",
@@ -157,8 +169,12 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
   const paymentReferencesRaw = Array.isArray((application.formData as Record<string, unknown>).paymentReferences)
     ? ((application.formData as Record<string, unknown>).paymentReferences as Array<Record<string, unknown>>)
     : [];
-  const latestPayment = paymentReferencesRaw.length > 0 ? paymentReferencesRaw[paymentReferencesRaw.length - 1] : null;
-  const statusSummary = getStatusSummary(application.status);
+  const activePayment =
+    application.latestPaymentReference ??
+    (paymentReferencesRaw.length > 0 ? (paymentReferencesRaw[paymentReferencesRaw.length - 1] as any) : null);
+  const latestPayment = activePayment;
+  const latestPaymentStatus = (activePayment?.status as string | undefined) ?? null;
+  const statusSummary = getStatusSummary(application.status, latestPaymentStatus);
 
   const latestRemarkEntry = application.history.find(
     (item: any) => typeof item.remarks === "string" && item.remarks.trim().length > 0
@@ -278,16 +294,44 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
           ) : null}
 
           {application.status === "Approved for Payment" ? (
-            <InfoBanner
-              title="Proceed to payment step"
-              description="Your Tax Order of Payment is available. Pay first, then submit your OR number or payment reference."
-              variant="info"
-              action={
-                <Link href="/applicant/top" className={actionButtonStyles("primary", "sm")}>
-                  View Tax Order of Payment
-                </Link>
-              }
-            />
+            latestPaymentStatus === "RETURNED" || latestPaymentStatus === "REJECTED" ? (
+              <InfoBanner
+                title="Payment proof returned for correction"
+                description={
+                  activePayment?.reviewerRemarks
+                    ? `Payment proof was returned by BPLO. Remarks: ${activePayment.reviewerRemarks}. Please resubmit your official receipt and payment proof.`
+                    : "Payment proof was returned by BPLO for correction. Please resubmit your official receipt and payment proof."
+                }
+                variant="warning"
+                action={
+                  <Link href="/applicant/top" className={actionButtonStyles("warning", "sm")}>
+                    Resubmit Payment Proof
+                  </Link>
+                }
+              />
+            ) : latestPaymentStatus === "PENDING" ? (
+              <InfoBanner
+                title="Payment verification pending"
+                description="Your submitted official receipt (OR) is currently awaiting BPLO verification."
+                variant="warning"
+                action={
+                  <Link href="/applicant/top" className={actionButtonStyles("secondary", "sm")}>
+                    View Tax Order of Payment
+                  </Link>
+                }
+              />
+            ) : (
+              <InfoBanner
+                title="Proceed to payment step"
+                description="Your Tax Order of Payment is available. Pay first, then submit your OR number or payment reference."
+                variant="info"
+                action={
+                  <Link href="/applicant/top" className={actionButtonStyles("primary", "sm")}>
+                    View Tax Order of Payment
+                  </Link>
+                }
+              />
+            )
           ) : null}
 
           {application.status === "For Release" ? (
@@ -442,6 +486,40 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
                   return receiptName !== "-" ? receiptName : "None uploaded";
                 })()}
               </p>
+              {activePayment ? (
+                <>
+                  <p>
+                    <strong>Payment OR Number:</strong> {activePayment.transactionNumber ?? "-"}
+                  </p>
+                  <p>
+                    <strong>Payment Status:</strong>{" "}
+                    <span
+                      className={
+                        activePayment.status === "VERIFIED"
+                          ? "font-semibold text-[var(--success)]"
+                          : activePayment.status === "RETURNED"
+                          ? "font-semibold text-[var(--warning)]"
+                          : activePayment.status === "REJECTED"
+                          ? "font-semibold text-[var(--danger)]"
+                          : "font-semibold text-[var(--ink-muted)]"
+                      }
+                    >
+                      {activePayment.status === "RETURNED"
+                        ? "Returned for Correction"
+                        : activePayment.status === "REJECTED"
+                        ? "Rejected"
+                        : activePayment.status === "VERIFIED"
+                        ? "Verified"
+                        : "Pending Verification"}
+                    </span>
+                  </p>
+                  {activePayment.reviewerRemarks ? (
+                    <p>
+                      <strong>Payment Remarks:</strong> {activePayment.reviewerRemarks}
+                    </p>
+                  ) : null}
+                </>
+              ) : null}
               <p><strong>Tax Incentives:</strong> {readText(formData, ["taxIncentives"])}</p>
               <p><strong>Market Business:</strong> {readFlag(formData, "isMarket")}</p>
               <p><strong>Agriculture-related:</strong> {readFlag(formData, "isAgriculture")}</p>
@@ -529,6 +607,10 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
 
       <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
         <SectionCard title="Tax Order of Payment" description="Current payment reference details in this application record.">
+          <div className="mb-3 rounded-[var(--radius-card)] border border-[var(--warning)] bg-[var(--warning-soft)] p-2.5 text-xs sm:text-sm text-[var(--foreground)]">
+            <span className="font-semibold text-[var(--warning)]">Notice: </span>
+            <span>This is partial. Final Assessment will be at MTO.</span>
+          </div>
           {latestPayment ? (
             <div className="grid gap-3 md:grid-cols-2">
               <div className={applicantSummaryTileClass}>
@@ -539,13 +621,33 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
               </div>
               <div className={applicantSummaryTileClass}>
                 <p className={applicantSummaryLabelClass}>Payment Status</p>
-                <p className={applicantSummaryValueClass}>{String(latestPayment.status ?? "-")}</p>
+                <p
+                  className={`${applicantSummaryValueClass} ${
+                    latestPayment.status === "RETURNED"
+                      ? "font-semibold text-[var(--warning)]"
+                      : latestPayment.status === "REJECTED"
+                      ? "font-semibold text-[var(--danger)]"
+                      : latestPayment.status === "VERIFIED"
+                      ? "font-semibold text-[var(--success)]"
+                      : ""
+                  }`}
+                >
+                  {latestPayment.status === "RETURNED"
+                    ? "Returned for Correction"
+                    : latestPayment.status === "REJECTED"
+                    ? "Rejected"
+                    : latestPayment.status === "VERIFIED"
+                    ? "Verified"
+                    : latestPayment.status === "PENDING"
+                    ? "Pending Verification"
+                    : String(latestPayment.status ?? "-")}
+                </p>
               </div>
               <div className={applicantSummaryTileClass}>
                 <p className={applicantSummaryLabelClass}>Amount Paid</p>
                 <p className={applicantSummaryValueClass}>
                   {typeof latestPayment.amountPaid === "number"
-                    ? `P ${latestPayment.amountPaid.toLocaleString("en-PH", { minimumFractionDigits: 2 })}`
+                    ? `₱ ${latestPayment.amountPaid.toLocaleString("en-PH", { minimumFractionDigits: 2 })}`
                     : "-"}
                 </p>
               </div>
@@ -555,6 +657,12 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
                   {latestPayment.reviewedAt ? new Date(String(latestPayment.reviewedAt)).toLocaleString("en-PH") : "-"}
                 </p>
               </div>
+              {latestPayment.reviewerRemarks ? (
+                <div className={`${applicantSummaryTileClass} md:col-span-2 border-[var(--warning)] bg-[var(--warning-soft)]`}>
+                  <p className={`${applicantSummaryLabelClass} text-[var(--warning)]`}>Reviewer Remarks</p>
+                  <p className="mt-1 text-sm font-medium text-[var(--foreground)]">{latestPayment.reviewerRemarks}</p>
+                </div>
+              ) : null}
             </div>
           ) : (
             <EmptyState

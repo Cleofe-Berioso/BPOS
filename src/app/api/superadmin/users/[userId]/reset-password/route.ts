@@ -64,7 +64,7 @@ export async function POST(
   });
 
   // Audit log — record the action but never the password itself.
-  void createAuditLog({
+  await createAuditLog({
     actorId: session.user.id,
     actorName: session.user.name ?? session.user.email ?? null,
     actorRole: "SUPER_ADMIN",

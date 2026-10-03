@@ -11,8 +11,15 @@ import {
   isDocumentSatisfyingRequirement,
 } from "@/lib/required-documents";
 import { toMoneyNumber } from "@/lib/money";
-import { resolveBucketByMimeType } from "@/lib/document-storage";
-import { removeApplicantDocument, storeApplicantDocument } from "@/lib/document-storage";
+import {
+  removeApplicantDocument,
+  storeApplicantDocument,
+  resolveBucketByMimeType,
+} from "@/lib/document-storage";
+import {
+  getPaymentReferencesFromFormData,
+  upsertPaymentReferencesInFormData,
+} from "@/lib/payment-reference";
 import { mapDocumentValidationStatusToUi } from "@/lib/document-validation";
 import {
   DOCUMENT_UPLOAD_ERROR_MAX_SIZE,
@@ -21,6 +28,49 @@ import {
 } from "@/lib/document-upload-rules";
 import { buildPaginatedResult, resolvePagination, type PaginatedResult } from "@/lib/pagination";
 import type { NotificationType } from "@/types/notifications";
+import {
+  applyLockedBusinessFields,
+  BUSINESS_ACTIVITY_OPTIONS,
+  resolveBusinessBarangayFromFormState,
+  isRecognizedEbMagalonaBarangay as isRecognizedEbMagalonaBarangayFromRules,
+  normalizeBusinessInfo,
+  normalizeRegistrationNumber,
+  normalizeTin,
+  tinFromDb,
+  optionalDecimalFromDb,
+  optionalIntFromDb,
+  validateBusinessIdentityFormats,
+  validateTaxDeclarationNumberFormat,
+  validatePropertyIdentificationNumberFormat,
+  TAX_DECLARATION_NUMBER_FORMAT_ERROR,
+  PROPERTY_IDENTIFICATION_NUMBER_FORMAT_ERROR,
+  requiresCorporationNationality,
+  isValidCorporationNationality,
+  calculateAgeFromBirthDate,
+} from "@/lib/business-rules";
+import {
+  EB_MAGALONA_CITY,
+  EB_MAGALONA_COUNTRY,
+  EB_MAGALONA_COUNTRY_CODE,
+  EB_MAGALONA_PROVINCE,
+  buildEbMagalonaBusinessAddress,
+  isEbMagalonaCity,
+  isEbMagalonaProvince,
+  isPhilippinesCountry,
+} from "@/lib/address-options";
+import { isValidLineOfBusiness, isDisallowedForNewApplications } from "@/lib/business-options";
+import { isAllowedLineOfBusiness } from "@/lib/business-options-server";
+import { isWithinEbMagalona } from "@/lib/eb-magalona";
+import { isValidPhMobile } from "@/lib/ph-mobile";
+import { resolveRenewalEligibilityForBusiness } from "@/lib/renewal-eligibility";
+import { resolveClosureEligibilityForBusiness } from "@/lib/closure-eligibility";
+import type {
+  ApplicantApplicationRow,
+  ApplicationDocumentInput,
+  BusinessInfo,
+  SaveApplicationInput,
+  SubmitValidationErrorDetail,
+} from "@/lib/applicant-types";
 
 function isRevocationHistoryRemarks(remarks: string | null | undefined): boolean {
   if (!remarks) return false;
@@ -43,45 +93,6 @@ function resolveRevocationNotificationTitle(type: "REVOCATION_REVIEW_ENTERED" | 
       return "Permit Revocation Request Denied";
   }
 }
-import {
-  applyLockedBusinessFields,
-  BUSINESS_ACTIVITY_OPTIONS,
-  resolveBusinessBarangayFromFormState,
-  isRecognizedEbMagalonaBarangay as isRecognizedEbMagalonaBarangayFromRules,
-  normalizeBusinessInfo,
-  normalizeRegistrationNumber,
-  normalizeTin,
-  optionalDecimalFromDb,
-  optionalIntFromDb,
-  tinFromDb,
-  validateBusinessIdentityFormats,
-  requiresCorporationNationality,
-  isValidCorporationNationality,
-  calculateAgeFromBirthDate,
-} from "@/lib/business-rules";
-import {
-  EB_MAGALONA_CITY,
-  EB_MAGALONA_COUNTRY,
-  EB_MAGALONA_COUNTRY_CODE,
-  EB_MAGALONA_PROVINCE,
-  buildEbMagalonaBusinessAddress,
-  isEbMagalonaCity,
-  isEbMagalonaProvince,
-  isPhilippinesCountry,
-} from "@/lib/address-options";
-import { isValidLineOfBusiness } from "@/lib/business-options";
-import { isAllowedLineOfBusiness } from "@/lib/business-options-server";
-import { isWithinEbMagalona } from "@/lib/eb-magalona";
-import { isValidPhMobile } from "@/lib/ph-mobile";
-import { resolveRenewalEligibilityForBusiness } from "@/lib/renewal-eligibility";
-import { resolveClosureEligibilityForBusiness } from "@/lib/closure-eligibility";
-import type {
-  ApplicantApplicationRow,
-  ApplicationDocumentInput,
-  BusinessInfo,
-  SaveApplicationInput,
-  SubmitValidationErrorDetail,
-} from "@/lib/applicant-types";
 
 type DbApplicationStatus =
   | "DRAFT"
@@ -886,8 +897,7 @@ async function validateSubmitPayload(
       missingFields.push("paymentFrequency (must be ANNUAL, BI_ANNUAL, or QUARTERLY)");
     }
 
-    const normalizedPhone = normalizedFormData.phone.replace(/[\s-]/g, "");
-    if (!isValidPhMobile(normalizedPhone)) {
+    if (!isValidPhMobile(normalizedFormData.phone.trim())) {
       missingFields.push("phone (must be a valid Philippine mobile number)");
     }
 
@@ -937,7 +947,16 @@ async function validateSubmitPayload(
   if (input.applicationType === "NEW" || input.applicationType === "RENEWAL") {
     if (!normalizedFormData.lineOfBusiness.trim()) {
       missingFields.push("lineOfBusiness");
-    } else if (!(await isAllowedLineOfBusiness(normalizedFormData.lineOfBusiness))) {
+    } else if (
+      input.applicationType === "NEW" &&
+      isDisallowedForNewApplications(normalizedFormData.lineOfBusiness)
+    ) {
+      missingFields.push("lineOfBusiness (Bank is no longer available for new applications)");
+    } else if (
+      !(await isAllowedLineOfBusiness(normalizedFormData.lineOfBusiness, {
+        applicationType: input.applicationType,
+      }))
+    ) {
       missingFields.push("lineOfBusiness (must be one of the allowed options)");
     }
 
@@ -992,9 +1011,7 @@ async function validateSubmitPayload(
     } else if (!normalizedFormData.mainOfficeStreetAddress?.trim()) {
       missingFields.push("mainOfficeStreetAddress");
     }
-  }
 
-  if (input.applicationType === "NEW" || input.applicationType === "RENEWAL") {
     const totalEmployeesRaw = normalizedFormData.totalEmployees.trim();
     if (!totalEmployeesRaw) {
       missingFields.push("totalEmployees");
@@ -1012,6 +1029,24 @@ async function validateSubmitPayload(
       !normalizedFormData.taxIncentives.trim()
     ) {
       missingFields.push("taxIncentives");
+    }
+
+    const taxDeclaration = normalizedFormData.taxDeclarationNumber?.trim() ?? "";
+    if (!taxDeclaration) {
+      missingFields.push("taxDeclarationNumber");
+      fieldErrors.taxDeclarationNumber = "Tax Declaration Number is required.";
+    } else if (!validateTaxDeclarationNumberFormat(taxDeclaration)) {
+      fieldErrors.taxDeclarationNumber = TAX_DECLARATION_NUMBER_FORMAT_ERROR;
+      missingFields.push("taxDeclarationNumber (invalid format)");
+    }
+
+    const pin = normalizedFormData.propertyIdentificationNumber?.trim() ?? "";
+    if (!pin) {
+      missingFields.push("propertyIdentificationNumber");
+      fieldErrors.propertyIdentificationNumber = "Property Identification Number is required.";
+    } else if (!validatePropertyIdentificationNumberFormat(pin)) {
+      fieldErrors.propertyIdentificationNumber = PROPERTY_IDENTIFICATION_NUMBER_FORMAT_ERROR;
+      missingFields.push("propertyIdentificationNumber (invalid format)");
     }
   }
 
@@ -1165,10 +1200,28 @@ export async function getApplicantApplicationDetail(applicantId: string, applica
           releasedAt: true,
         },
       },
+      paymentReferences: {
+        orderBy: {
+          submittedAt: "desc",
+        },
+      },
     },
   });
 
   if (!app) return null;
+
+  const paymentReferences = (app.paymentReferences ?? []).map((ref: any) => ({
+    id: ref.paymentReferenceId ?? ref.id,
+    transactionNumber: ref.transactionNumber,
+    amountPaid: toMoneyNumber(ref.amountPaid),
+    submittedAt: ref.submittedAt.toISOString(),
+    status: ref.status as "PENDING" | "VERIFIED" | "RETURNED" | "REJECTED",
+    reviewerRemarks: ref.reviewerRemarks ?? null,
+    reviewedAt: ref.reviewedAt ? ref.reviewedAt.toISOString() : null,
+    proofFileName: ref.proofFileName,
+  }));
+
+  const latestPaymentReference = paymentReferences[0] ?? null;
 
   return {
     id: app.businessApplicationId,
@@ -1183,6 +1236,8 @@ export async function getApplicantApplicationDetail(applicantId: string, applica
     createdAt: app.createdAt.toISOString(),
     updatedAt: app.updatedAt.toISOString(),
     formData: app.formData,
+    paymentReferences,
+    latestPaymentReference,
     documents: app.documents.map((doc: any) => ({
       id: doc.applicationDocumentId ?? doc.id,
       documentName: doc.documentName,
@@ -2191,7 +2246,7 @@ function mapApplicationToTopSummary(application: {
     transactionNumber: string;
     paymentDate: Date;
     submittedAt: Date;
-    status: "PENDING" | "VERIFIED" | "REJECTED";
+    status: "PENDING" | "VERIFIED" | "RETURNED" | "REJECTED";
     reviewerRemarks: string | null;
     reviewedAt: Date | null;
     proofFileName: string;
@@ -2261,6 +2316,7 @@ function resolveBestActiveTopSummary(
   const approvedSummaries = summaries.filter((s) => s.rawStatus === "APPROVED_FOR_PAYMENT");
   return (
     approvedSummaries.find((s) => !s.paymentReference) ??
+    approvedSummaries.find((s) => s.paymentReference?.status === "RETURNED") ??
     approvedSummaries.find((s) => s.paymentReference?.status === "REJECTED") ??
     approvedSummaries.find((s) => s.paymentReference?.status === "PENDING") ??
     approvedSummaries[0] ??
@@ -2351,19 +2407,10 @@ export async function submitApplicantPaymentReference(
     );
   }
 
-  const duplicate = await prisma.paymentReference.findUnique({
-    where: { transactionNumber: transactionNumber.trim() },
-    select: { paymentReferenceId: true },
-  });
-
-  if (duplicate) {
-    throw new Error("This OR number has already been submitted. Please check your payment details.");
-  }
-
   const latest = await prisma.paymentReference.findFirst({
     where: { applicationId: application.businessApplicationId },
     orderBy: { submittedAt: "desc" },
-    select: { status: true },
+    select: { paymentReferenceId: true, status: true, transactionNumber: true },
   });
 
   if (latest?.status === "PENDING") {
@@ -2374,6 +2421,25 @@ export async function submitApplicantPaymentReference(
     throw new Error("Payment has already been verified and is read-only");
   }
 
+  const latestStatus = latest?.status as string | undefined;
+  const isResubmission = latestStatus === "RETURNED" || latestStatus === "REJECTED";
+
+  const duplicate = await prisma.paymentReference.findUnique({
+    where: { transactionNumber: transactionNumber.trim() },
+    select: { paymentReferenceId: true, applicationId: true, status: true },
+  });
+
+  if (duplicate) {
+    const isSameReturnedRef =
+      isResubmission &&
+      duplicate.paymentReferenceId === latest?.paymentReferenceId &&
+      duplicate.applicationId === application.businessApplicationId;
+
+    if (!isSameReturnedRef) {
+      throw new Error("This OR number has already been submitted. Please check your payment details.");
+    }
+  }
+
   const parsedPaymentDate = new Date();
 
   const normalizedAmountPaid = Math.round(Math.max(0, toMoneyNumber(application.feeAssessment.totalAmount)) * 100) / 100;
@@ -2381,29 +2447,91 @@ export async function submitApplicantPaymentReference(
     throw new Error("TOP amount is invalid for payment submission");
   }
 
-  const updated = await prisma.$transaction(async (tx: any) => {
-    await tx.paymentReference.create({
-      data: {
-        applicationId: application.businessApplicationId,
-        transactionNumber: transactionNumber.trim(),
-        paymentDate: parsedPaymentDate,
-        proofFileName: proof.proofFileName,
-        proofStoragePath: proof.proofStoragePath,
-        proofBucket: proof.proofBucket ?? resolveBucketByMimeType(proof.proofMimeType),
-        proofMimeType: proof.proofMimeType,
-        proofSizeBytes: proof.proofSizeBytes,
-        status: "PENDING",
-      },
-    });
+  const now = new Date();
 
-    await tx.applicationHistory.create({
+  const updated = await prisma.$transaction(async (tx: any) => {
+    let paymentRefId: string;
+
+    if (isResubmission && latest) {
+      const updatedRef = await tx.paymentReference.update({
+        where: { paymentReferenceId: latest.paymentReferenceId },
+        data: {
+          transactionNumber: transactionNumber.trim(),
+          paymentDate: parsedPaymentDate,
+          proofFileName: proof.proofFileName,
+          proofStoragePath: proof.proofStoragePath,
+          proofBucket: proof.proofBucket ?? resolveBucketByMimeType(proof.proofMimeType),
+          proofMimeType: proof.proofMimeType,
+          proofSizeBytes: proof.proofSizeBytes,
+          status: "PENDING",
+          reviewerRemarks: null,
+          reviewedAt: null,
+          reviewedById: null,
+          submittedAt: now,
+        },
+      });
+      paymentRefId = updatedRef.paymentReferenceId;
+
+      await tx.applicationHistory.create({
+        data: {
+          applicationId: application.businessApplicationId,
+          actorId: applicantId,
+          actorRole: "APPLICANT",
+          fromStatus: application.status,
+          toStatus: application.status,
+          remarks: `Applicant resubmitted payment proof for OR number ${transactionNumber.trim()}`,
+        },
+      });
+    } else {
+      const createdRef = await tx.paymentReference.create({
+        data: {
+          applicationId: application.businessApplicationId,
+          transactionNumber: transactionNumber.trim(),
+          paymentDate: parsedPaymentDate,
+          proofFileName: proof.proofFileName,
+          proofStoragePath: proof.proofStoragePath,
+          proofBucket: proof.proofBucket ?? resolveBucketByMimeType(proof.proofMimeType),
+          proofMimeType: proof.proofMimeType,
+          proofSizeBytes: proof.proofSizeBytes,
+          status: "PENDING",
+        },
+      });
+      paymentRefId = createdRef.paymentReferenceId;
+
+      await tx.applicationHistory.create({
+        data: {
+          applicationId: application.businessApplicationId,
+          actorId: applicantId,
+          actorRole: "APPLICANT",
+          fromStatus: application.status,
+          toStatus: application.status,
+          remarks: `Applicant submitted OR number ${transactionNumber.trim()} with amount ₱${toMoneyNumber(normalizedAmountPaid).toLocaleString("en-PH", { minimumFractionDigits: 2 })}`,
+        },
+      });
+    }
+
+    const currentFormData = (application.formData ?? {}) as Record<string, unknown>;
+    const updatedFormData = upsertPaymentReferencesInFormData(currentFormData, [
+      ...getPaymentReferencesFromFormData(currentFormData, application.businessApplicationId, application.status).filter(
+        (r) => r.id !== paymentRefId
+      ),
+      {
+        id: paymentRefId,
+        transactionNumber: transactionNumber.trim(),
+        amountPaid: normalizedAmountPaid,
+        submittedAt: now.toISOString(),
+        status: "PENDING",
+        reviewerRemarks: null,
+        reviewedAt: null,
+        reviewedById: null,
+      },
+    ]);
+
+    await tx.businessApplication.update({
+      where: { businessApplicationId: application.businessApplicationId },
       data: {
-        applicationId: application.businessApplicationId,
-        actorId: applicantId,
-        actorRole: "APPLICANT",
-        fromStatus: application.status,
-        toStatus: application.status,
-        remarks: `Applicant submitted OR number ${transactionNumber.trim()} with amount ₱${toMoneyNumber(normalizedAmountPaid).toLocaleString("en-PH", { minimumFractionDigits: 2 })}`,
+        formData: updatedFormData,
+        updatedAt: now,
       },
     });
 

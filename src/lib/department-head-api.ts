@@ -251,7 +251,7 @@ function remarksRequired(action: DepartmentHeadAction): boolean {
 }
 
 function toRevocationInspectionStatus(action: RevocationDecisionAction) {
-  return action === "APPROVE" ? "REVOKED" : "REVOCATION_DENIED";
+  return action === "APPROVE" ? "REVOKED" : "VERIFIED_COMPLIANT";
 }
 
 export async function listDepartmentHeadApprovalQueue(): Promise<DepartmentHeadApprovalRow[]> {
@@ -797,8 +797,19 @@ export async function applyDepartmentHeadSettlement(
           settledById: departmentHeadUserId,
           complianceCaseStatus: "SETTLED",
           settlementRemarks: normalizedRemarks,
+          complianceStatus: "COMPLIANT",
+          status: "VERIFIED_COMPLIANT",
+          decidedById: departmentHeadUserId,
+          decidedAt: new Date(),
         },
       });
+
+      if (inspection.businessRecordId) {
+        await tx.businessRecord.update({
+          where: { businessRecordId: inspection.businessRecordId },
+          data: { businessStatus: "ACTIVE" },
+        });
+      }
 
       // Settled minor/major government cases leave the revocation track so renewal can proceed.
       if (inspection.application?.businessApplicationId && inspection.application.status === "REVOCATION_REVIEW") {
@@ -1066,8 +1077,22 @@ export async function applyDepartmentHeadInspectionVerification(
 export async function listDepartmentHeadCompliantList(): Promise<DepartmentHeadCompliantListRow[]> {
   const rows = await prisma.inspection.findMany({
     where: {
-      status: "VERIFIED_COMPLIANT",
-      complianceStatus: "COMPLIANT",
+      OR: [
+        {
+          status: "VERIFIED_COMPLIANT",
+          complianceStatus: "COMPLIANT",
+        },
+        {
+          isSettled: true,
+          complianceCaseStatus: "SETTLED",
+        },
+        {
+          revocationDecision: "DENIED",
+        },
+        {
+          status: "REVOCATION_DENIED",
+        },
+      ],
       application: {
         status: "RELEASED",
       },
@@ -1078,6 +1103,7 @@ export async function listDepartmentHeadCompliantList(): Promise<DepartmentHeadC
     include: {
       inspector: { select: { name: true } },
       decidedBy: { select: { name: true } },
+      settledBy: { select: { name: true } },
       application: {
         select: {
           businessApplicationId: true,
@@ -1101,7 +1127,11 @@ export async function listDepartmentHeadCompliantList(): Promise<DepartmentHeadC
   });
 
   return rows
-    .filter((row: any) => Boolean(row.application) && Boolean(row.decidedAt) && Boolean(row.decidedBy))
+    .filter(
+      (row: any) =>
+        Boolean(row.application) &&
+        (Boolean(row.decidedAt) || Boolean(row.settledAt) || Boolean(row.createdAt))
+    )
     .map((row: any) => ({
       inspectionId: row.inspectionId ?? row.id,
       businessRecordId: row.businessRecordId,
@@ -1117,12 +1147,12 @@ export async function listDepartmentHeadCompliantList(): Promise<DepartmentHeadC
       lineOfBusiness: row.businessRecord.lineOfBusiness ?? "-",
       jitComment: row.comment?.trim() || null,
       inspectionDate: row.createdAt.toISOString(),
-      verifiedAt: row.decidedAt.toISOString(),
-      verifiedBy: row.decidedBy?.name ?? row.inspector.name,
+      verifiedAt: (row.decidedAt ?? row.settledAt ?? row.createdAt).toISOString(),
+      verifiedBy: row.decidedBy?.name ?? row.settledBy?.name ?? row.inspector?.name ?? "Department Head",
       evidenceFileName: row.evidenceFileName,
       evidenceMimeType: row.evidenceMimeType,
       hasEvidence: Boolean(row.evidenceStoragePath),
-      inspectionStatus: row.status,
+      inspectionStatus: "VERIFIED_COMPLIANT",
     }));
 }
 
@@ -1361,6 +1391,7 @@ export async function applyDepartmentHeadRevocationDecision(
         where: { inspectionId: inspection.inspectionId },
         data: {
           status: toRevocationInspectionStatus(action),
+          complianceStatus: "COMPLIANT",
           revocationDecision: "DENIED",
           revocationRemarks: normalizedRemarks,
           decidedById: departmentHeadUserId,

@@ -36,16 +36,16 @@ export async function POST(
       payload.remarks
     );
 
-    void logPaymentAction(
+    await logPaymentAction(
       session.user.id,
       session.user.name ?? session.user.email ?? null,
       "BPLO",
       paymentReferenceId,
       result.applicationNumber,
       result.applicationId,
-      "REJECTED",
+      "RETURNED",
       "PENDING",
-      "REJECTED",
+      "RETURNED",
       0,
       `Payment returned for correction: ${payload.remarks || "No remarks"}`,
       { remarks: payload.remarks, action: "RETURN_FOR_CORRECTION" }

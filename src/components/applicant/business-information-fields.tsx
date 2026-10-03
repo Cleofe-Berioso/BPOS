@@ -7,6 +7,7 @@ import {
   EB_MAGALONA_BARANGAYS,
   canUseMainOfficeAsBusinessLocation,
   CORPORATION_NATIONALITY_OPTIONS,
+  formatRegistrationNumberInput,
   getOwnerRoleLabel,
   getRegistrationHelperText,
   getRegistrationLabel,
@@ -30,7 +31,7 @@ import { loadBarangays, loadCities, loadCountries, loadStates } from "@/lib/addr
 import { FormField } from "@/components/ui/form-field";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { BusinessLocationPicker } from "@/components/maps/business-location-picker";
-import { PH_MOBILE_HINT, handlePhMobileBeforeInput, handlePhMobileKeyDown, sanitizePhMobileInput } from "@/lib/ph-mobile";
+import { PH_MOBILE_HINT, PH_MOBILE_FORMAT_ERROR, handlePhMobileBeforeInput, handlePhMobileKeyDown, sanitizePhMobileInput } from "@/lib/ph-mobile";
 
 interface BusinessInformationFieldsProps {
   value: BusinessInfo;
@@ -41,6 +42,7 @@ interface BusinessInformationFieldsProps {
   enableCascadingAddress?: boolean;
   onFieldBlur?: (field: keyof BusinessInfo) => void;
   onClearFieldError?: (field: keyof BusinessInfo) => void;
+  onSetFieldError?: (field: keyof BusinessInfo, error: string) => void;
 }
 
 function fieldLocked(lockedFields: Array<keyof BusinessInfo>, key: keyof BusinessInfo) {
@@ -95,7 +97,9 @@ export function BusinessInformationFields({
   enableCascadingAddress = false,
   onFieldBlur,
   onClearFieldError,
+  onSetFieldError,
 }: BusinessInformationFieldsProps) {
+  const [localPhoneError, setLocalPhoneError] = useState<string | null>(null);
   const registrationLabel = getRegistrationLabel(value.businessType);
   const registrationHelperText = getRegistrationHelperText(value.businessType);
   const ownerRoleLabel = getOwnerRoleLabel(value.businessType);
@@ -538,7 +542,29 @@ export function BusinessInformationFields({
           disabled={fieldLocked(lockedFields, "registrationNumber")}
           autoCapitalize="characters"
           spellCheck={false}
-          onChange={(event) => onChange({ ...value, registrationNumber: event.target.value })}
+          inputMode={
+            value.businessType === "Sole Proprietorship" || value.businessType === "Cooperative"
+              ? "numeric"
+              : undefined
+          }
+          maxLength={
+            value.businessType === "Sole Proprietorship"
+              ? Math.max(7, value.registrationNumber?.length || 0)
+              : value.businessType === "Cooperative"
+                ? Math.max(17, value.registrationNumber?.length || 0)
+                : 25
+          }
+          onBlur={() => onFieldBlur?.("registrationNumber")}
+          onChange={(event) => {
+            const formatted = formatRegistrationNumberInput(
+              value.businessType,
+              event.target.value
+            );
+            if (fieldErrors.registrationNumber && formatted !== value.registrationNumber) {
+              onClearFieldError?.("registrationNumber");
+            }
+            onChange({ ...value, registrationNumber: formatted });
+          }}
         />
         <LockedHint visible={fieldLocked(lockedFields, "registrationNumber")} />
       </FormField>
@@ -1415,7 +1441,7 @@ export function BusinessInformationFields({
 
         <div className="grid gap-4 md:grid-cols-2 mb-4">
           <FormField
-            label="PSGC Location Search (Optional)"
+            label="Barangay"
             hint="Search barangay via PSGC. If your location is not found, leave blank and enter your Business Address manually."
             error={fieldErrors.businessBarangay}
           >
@@ -1428,7 +1454,7 @@ export function BusinessInformationFields({
             ) : null}
             <div data-field-key="businessBarangay">
               <SearchableSelect
-                ariaLabel="PSGC Location Search (Barangay)"
+                ariaLabel="Barangay"
                 options={psgcBarangayOptions}
                 value={value.businessBarangay ?? ""}
                 selectedLabel={value.businessBarangay ?? ""}
@@ -1610,7 +1636,7 @@ export function BusinessInformationFields({
         label="Mobile Number"
         hint={PH_MOBILE_HINT}
         required
-        error={fieldErrors.phone}
+        error={fieldErrors.phone || localPhoneError || undefined}
       >
         <input
           data-field-key="phone"
@@ -1628,17 +1654,48 @@ export function BusinessInformationFields({
             handlePhMobileBeforeInput(event.nativeEvent as InputEvent)
           }
           onChange={(event) => {
-            const phone = sanitizePhMobileInput(event.target.value);
+            const raw = event.target.value;
+            const phone = sanitizePhMobileInput(raw);
             onChange({ ...value, phone });
-            onClearFieldError?.("phone");
+
+            if (!phone) {
+              setLocalPhoneError(null);
+              onClearFieldError?.("phone");
+            } else if (phone.length === 11) {
+              if (/^09\d{9}$/.test(phone)) {
+                setLocalPhoneError(null);
+                onClearFieldError?.("phone");
+              } else {
+                setLocalPhoneError(PH_MOBILE_FORMAT_ERROR);
+                onSetFieldError?.("phone", PH_MOBILE_FORMAT_ERROR);
+              }
+            } else if (!phone.startsWith("09") && (phone.length >= 2 || (phone.length === 1 && phone !== "0"))) {
+              setLocalPhoneError(PH_MOBILE_FORMAT_ERROR);
+              onSetFieldError?.("phone", PH_MOBILE_FORMAT_ERROR);
+            } else if (fieldErrors.phone || localPhoneError) {
+              setLocalPhoneError(PH_MOBILE_FORMAT_ERROR);
+              onSetFieldError?.("phone", PH_MOBILE_FORMAT_ERROR);
+            }
           }}
           onPaste={(event) => {
             event.preventDefault();
             const phone = sanitizePhMobileInput(event.clipboardData.getData("text"));
             onChange({ ...value, phone });
-            onClearFieldError?.("phone");
+            if (phone.length === 11 && /^09\d{9}$/.test(phone)) {
+              setLocalPhoneError(null);
+              onClearFieldError?.("phone");
+            } else {
+              setLocalPhoneError(PH_MOBILE_FORMAT_ERROR);
+              onSetFieldError?.("phone", PH_MOBILE_FORMAT_ERROR);
+            }
           }}
-          onBlur={() => onFieldBlur?.("phone")}
+          onBlur={() => {
+            if (value.phone && !/^09\d{9}$/.test(value.phone)) {
+              setLocalPhoneError(PH_MOBILE_FORMAT_ERROR);
+              onSetFieldError?.("phone", PH_MOBILE_FORMAT_ERROR);
+            }
+            onFieldBlur?.("phone");
+          }}
         />
       </FormField>
 

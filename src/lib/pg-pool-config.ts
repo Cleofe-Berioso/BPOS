@@ -36,7 +36,7 @@ export function buildPrismaPgPoolConfig(dbUrl: string): PoolConfig {
   if (!isSupabase) {
     return {
       connectionString,
-      max: isServerless ? 1 : undefined,
+      max: isServerless ? 3 : undefined,
       idleTimeoutMillis: isServerless ? 5_000 : undefined,
       connectionTimeoutMillis: 15_000,
     };
@@ -45,7 +45,7 @@ export function buildPrismaPgPoolConfig(dbUrl: string): PoolConfig {
   return {
     connectionString,
     ssl: { rejectUnauthorized: false },
-    max: isServerless ? 1 : 3,
+    max: isServerless ? 3 : 5,
     idleTimeoutMillis: isServerless ? 5_000 : 20_000,
     connectionTimeoutMillis: 15_000,
     allowExitOnIdle: isServerless,

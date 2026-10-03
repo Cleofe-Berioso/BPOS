@@ -131,6 +131,7 @@ export function RegisterForm() {
 
   // Saved form data carried across steps
   const [savedData, setSavedData] = useState<FormData | null>(null);
+  const [contactNumberError, setContactNumberError] = useState<string | null>(null);
 
   // ── Start resend countdown ─────────────────────────────────────────────────
   function startCountdown() {
@@ -220,9 +221,11 @@ export function RegisterForm() {
     // Client-side password checks before sending
     const contactError = phMobileFieldError(data.contactNumber);
     if (contactError) {
+      setContactNumberError(contactError);
       setFormState({ status: "error", message: contactError });
       return;
     }
+    setContactNumberError(null);
 
     const passwordPolicyError = validatePasswordPolicy(data.password);
     if (passwordPolicyError) {
@@ -604,7 +607,13 @@ export function RegisterForm() {
             </div>
           </FormField>
 
-          <FormField label="Contact Number" htmlFor="contactNumber" hint={PH_MOBILE_HINT} required>
+          <FormField
+            label="Contact Number"
+            htmlFor="contactNumber"
+            hint={PH_MOBILE_HINT}
+            required
+            error={contactNumberError ?? undefined}
+          >
             <div className="relative">
               <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5">
                 <Phone className="h-4 w-4 text-slate-400" />
@@ -628,13 +637,43 @@ export function RegisterForm() {
                 }
                 onPaste={(event) => {
                   event.preventDefault();
-                  event.currentTarget.value = sanitizePhMobileInput(
+                  const sanitized = sanitizePhMobileInput(
                     event.clipboardData.getData("text")
                   );
+                  event.currentTarget.value = sanitized;
+                  if (sanitized.length === 11 && /^09\d{9}$/.test(sanitized)) {
+                    setContactNumberError(null);
+                  } else {
+                    setContactNumberError("Enter valid Philippine Number");
+                  }
                 }}
                 onInput={(event) => {
                   const target = event.currentTarget;
                   target.value = sanitizePhMobileInput(target.value);
+                  const val = target.value;
+                  if (!val) {
+                    setContactNumberError(null);
+                  } else if (val.length === 11) {
+                    if (/^09\d{9}$/.test(val)) {
+                      setContactNumberError(null);
+                    } else {
+                      setContactNumberError("Enter valid Philippine Number");
+                    }
+                  } else if (!val.startsWith("09") && (val.length >= 2 || (val.length === 1 && val !== "0"))) {
+                    setContactNumberError("Enter valid Philippine Number");
+                  } else if (contactNumberError) {
+                    setContactNumberError("Enter valid Philippine Number");
+                  }
+                }}
+                onBlur={(event) => {
+                  const val = event.currentTarget.value.trim();
+                  if (!val) {
+                    setContactNumberError("Enter valid Philippine Number");
+                  } else if (!/^09\d{9}$/.test(val)) {
+                    setContactNumberError("Enter valid Philippine Number");
+                  } else {
+                    setContactNumberError(null);
+                  }
                 }}
               />
             </div>

@@ -14,6 +14,7 @@ import {
   bploTypeBadgeClass,
   paymentStatusBadgeClass,
 } from "@/components/bplo/bplo-ui-styles";
+import { mapPaymentStatusToUi } from "@/lib/application-mappers";
 
 const TYPE_LABEL: Record<string, string> = {
   NEW: "New",
@@ -93,7 +94,11 @@ export default async function BploPermitIssuancePage({ searchParams }: PageProps
                     <tr key={row.applicationId}>
                       <td className="font-mono text-xs text-[var(--ink-muted)]">{row.applicationNumber}</td>
                       <td className="font-medium text-[var(--foreground)]">{row.businessName}</td>
-                      <td className="text-[var(--ink-muted)]">{row.paymentStatus ?? "NO PAYMENT REFERENCE"}</td>
+                      <td>
+                        <span className={paymentStatusBadgeClass(row.paymentStatus ?? "")}>
+                          {row.paymentStatus ? mapPaymentStatusToUi(row.paymentStatus) : "No Payment Reference"}
+                        </span>
+                      </td>
                       <td className="text-[var(--ink-muted)]">₱ {row.requiredReleasePayment.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
                       <td className="text-[var(--ink-muted)]">₱ {row.amountPaid.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
                       <td className="text-[var(--ink-muted)]">{row.blockingReason ?? "Awaiting payment action"}</td>
@@ -117,7 +122,12 @@ export default async function BploPermitIssuancePage({ searchParams }: PageProps
                   <article key={row.applicationId} className={bploMobileRecordCardClass}>
                     <p className="font-mono text-xs text-[var(--ink-muted)]">{row.applicationNumber}</p>
                     <p className="mt-1 text-sm font-semibold text-[var(--foreground)]">{row.businessName}</p>
-                    <p className="mt-1 ui-caption">Payment: {row.paymentStatus ?? "NO PAYMENT REFERENCE"}</p>
+                    <p className="mt-1 ui-caption">
+                      Payment:{" "}
+                      <span className={paymentStatusBadgeClass(row.paymentStatus ?? "")}>
+                        {row.paymentStatus ? mapPaymentStatusToUi(row.paymentStatus) : "No Payment Reference"}
+                      </span>
+                    </p>
                     <p className="ui-caption">Required Release Payment: ₱ {row.requiredReleasePayment.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</p>
                     <p className="ui-caption">Amount Paid: ₱ {row.amountPaid.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</p>
                     <p className="mt-2 text-xs text-[var(--ink-muted)]">{row.blockingReason ?? "Awaiting payment action"}</p>
@@ -181,8 +191,8 @@ export default async function BploPermitIssuancePage({ searchParams }: PageProps
                     </td>
                     <td className="font-mono text-xs text-[var(--ink-muted)]">{row.topNumber ?? "-"}</td>
                     <td>
-                      <span className={`${paymentStatusBadgeClass("VERIFIED")}`}>
-                        {row.paymentStatus ?? "-"}
+                      <span className={paymentStatusBadgeClass(row.paymentStatus ?? "VERIFIED")}>
+                        {mapPaymentStatusToUi(row.paymentStatus)}
                       </span>
                     </td>
                     <td className="text-[var(--ink-muted)]">{dateOnly(row.datePaid)}</td>

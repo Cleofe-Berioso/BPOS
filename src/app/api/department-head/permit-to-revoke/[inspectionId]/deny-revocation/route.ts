@@ -30,7 +30,7 @@ export async function POST(
     );
 
     // Audit: Flagged case reviewed
-    void logInspectionAction(
+    await logInspectionAction(
       session.user.id,
       session.user.name ?? session.user.email ?? null,
       "DEPARTMENT_HEAD",
@@ -45,9 +45,8 @@ export async function POST(
       { remarks: payload.remarks }
     );
 
-
     // Audit: Revocation denied
-    void logRevocationAction(
+    await logRevocationAction(
       session.user.id,
       session.user.name ?? session.user.email ?? null,
       "DEPARTMENT_HEAD",

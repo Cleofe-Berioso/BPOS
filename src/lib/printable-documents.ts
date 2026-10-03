@@ -189,7 +189,8 @@ function toPrintableSnapshot(app: {
         }
       : null,
     payment: {
-      hasVerifiedPaymentReference: app.paymentReferences.length > 0,
+      hasVerifiedPaymentReference:
+        app.status === "RELEASED" || app.paymentReferences.length > 0,
     },
   };
 }
@@ -340,7 +341,7 @@ function toClosureCertificatePrintData(app: {
     certificationStatement:
       "This certifies that the business has completed the required closure processing and has been officially recorded as closed/ceased operation.",
     signatories: {
-      departmentHeadOfBplo: "",
+      departmentHeadOfBplo: "Gracee",
       bploOfficer: "BPLO Officer",
       municipalTreasurerOrAuthorizedOfficer: "Municipal Treasurer / Authorized Officer",
     },
@@ -498,7 +499,7 @@ export function canBploPrintDocument(
     reasons.push("Application must be in FOR_RELEASE or RELEASED status before document printing.");
   }
 
-  if (!application.payment?.hasVerifiedPaymentReference) {
+  if (application.status !== "RELEASED" && !application.payment?.hasVerifiedPaymentReference) {
     reasons.push("Verified payment is required before document printing.");
   }
 
@@ -543,7 +544,7 @@ export function canApplicantPrintDocument(
     reasons.push("Permit issuance must be prepared or released for applicant printing.");
   }
 
-  if (!application.payment?.hasVerifiedPaymentReference) {
+  if (application.status !== "RELEASED" && !application.payment?.hasVerifiedPaymentReference) {
     reasons.push("Verified payment is required before applicant printing.");
   }
 

@@ -31,7 +31,7 @@ export async function POST(req: Request, context: RouteContext) {
     );
 
     // Audit: Application returned for correction
-    void logApplicationAction(
+    await logApplicationAction(
       session.user.id,
       session.user.name ?? session.user.email ?? null,
       "BPLO",

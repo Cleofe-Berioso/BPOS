@@ -60,9 +60,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Contact number is required." }, { status: 400 });
   }
 
-  const normalizedContactNumber = contactNumber.replace(/[\s-]/g, "");
-  if (!isValidPhMobile(normalizedContactNumber)) {
-    return NextResponse.json({ error: "Invalid Philippine mobile number format." }, { status: 400 });
+  if (!isValidPhMobile(contactNumber.trim())) {
+    return NextResponse.json({ error: "Enter valid Philippine Number" }, { status: 400 });
   }
 
   // Basic email format check

@@ -21,15 +21,15 @@ interface PageProps {
 }
 
 const COLUMNS = [
-  { key: "businessName", label: "Business Name" },
-  { key: "tradeName", label: "Trade Name" },
-  { key: "owner", label: "Owner" },
-  { key: "businessType", label: "Business Type" },
-  { key: "lineOfBusiness", label: "Line of Business" },
-  { key: "address", label: "Barangay / Address" },
-  { key: "permitNumber", label: "Permit No.", className: "font-mono text-xs whitespace-nowrap" },
-  { key: "permitValidity", label: "Permit Validity", className: "whitespace-nowrap" },
-  { key: "businessStatus", label: "Status", className: "whitespace-nowrap" },
+  { key: "businessName", label: "Business Name", className: "print:text-[9.5px] print:break-words" },
+  { key: "tradeName", label: "Trade Name", className: "print:text-[9.5px] print:break-words" },
+  { key: "owner", label: "Owner", className: "print:text-[9.5px] print:break-words" },
+  { key: "businessType", label: "Business Type", className: "print:text-[9.5px] print:break-words" },
+  { key: "lineOfBusiness", label: "Line of Business", className: "print:text-[9.5px] print:break-words" },
+  { key: "address", label: "Barangay / Address", className: "print:text-[9.5px] print:break-words" },
+  { key: "permitNumber", label: "Permit No.", className: "font-mono text-xs whitespace-nowrap print:text-[9px] print:whitespace-nowrap" },
+  { key: "permitValidity", label: "Permit Validity", className: "whitespace-nowrap print:text-[9.5px] print:whitespace-normal" },
+  { key: "businessStatus", label: "Status", className: "whitespace-nowrap print:text-[9.5px] print:whitespace-normal" },
 ];
 
 export default async function BusinessRegistryReportPage({ searchParams }: PageProps) {
@@ -72,7 +72,12 @@ export default async function BusinessRegistryReportPage({ searchParams }: PageP
 
   return (
     <div className="report-print-container mx-auto max-w-[1300px] space-y-6 p-4 sm:p-8">
-      <ReportPageHeader meta={meta} backHref="/superadmin/reports" csvExportUrl={csvExportUrl} />
+      <ReportPageHeader
+        meta={meta}
+        backHref="/superadmin/reports"
+        csvExportUrl={csvExportUrl}
+        orientation="landscape"
+      />
 
       {/* ── Filter form (screen only) ──────────────────────────────── */}
       <div className="no-print rounded-xl border border-slate-200 bg-slate-50 p-4">

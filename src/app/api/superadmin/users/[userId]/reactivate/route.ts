@@ -42,7 +42,7 @@ export async function POST(
   });
 
   if (target!.role === "JIT") {
-    void createAuditLog({
+    await createAuditLog({
       actorId: session.user.id,
       actorName: session.user.name ?? session.user.email ?? null,
       actorRole: "SUPER_ADMIN",
@@ -60,7 +60,7 @@ export async function POST(
     });
   }
 
-  void logUserManagementAction(
+  await logUserManagementAction(
     session.user.id,
     session.user.name ?? session.user.email ?? null,
     "SUPER_ADMIN",

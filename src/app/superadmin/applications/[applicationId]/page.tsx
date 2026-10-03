@@ -325,12 +325,20 @@ export default async function SuperAdminApplicationDetailPage({ params }: PagePr
                   <p className={superadminReadOnlyFieldClass}>Payment Status</p>
                   <div className="mt-1">
                     {smallPill(
-                      app.paymentReference.status,
+                      app.paymentReference.status === "RETURNED"
+                        ? "Returned"
+                        : app.paymentReference.status === "REJECTED"
+                        ? "Rejected"
+                        : app.paymentReference.status === "VERIFIED"
+                        ? "Verified"
+                        : "Pending",
                       app.paymentReference.status === "VERIFIED"
                         ? "success"
+                        : app.paymentReference.status === "RETURNED"
+                        ? "warning"
                         : app.paymentReference.status === "REJECTED"
-                          ? "danger"
-                          : "warning"
+                        ? "danger"
+                        : "warning"
                     )}
                   </div>
                 </div>

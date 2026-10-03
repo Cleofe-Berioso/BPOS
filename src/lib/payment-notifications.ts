@@ -59,7 +59,23 @@ function resolveBusinessName(formData: unknown, recordName?: string | null): str
 
 function resolveAppBaseUrl(): string {
   const customUrl = process.env.NEXTAUTH_URL?.trim() || process.env.NEXT_PUBLIC_APP_URL?.trim();
-  if (customUrl) return customUrl.replace(/\/+$/, "");
+  if (customUrl) {
+    try {
+      const url = new URL(customUrl);
+      const host = url.hostname.toLowerCase();
+      if (
+        process.env.NODE_ENV === "production" &&
+        (host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0")
+      ) {
+        return process.env.VERCEL_PROJECT_PRODUCTION_URL
+          ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+          : "https://ebpls.ebmagalona.gov.ph";
+      }
+    } catch {
+      // ignore parsing error and proceed
+    }
+    return customUrl.replace(/\/+$/, "");
+  }
   return "https://ebpls.ebmagalona.gov.ph";
 }
 
@@ -195,7 +211,7 @@ export async function sendPaymentVerifiedEmail(
         },
       });
 
-      void createAuditLog({
+      await createAuditLog({
         actorId: actorId ?? null,
         actorRole: "BPLO",
         action: "NOTIFIED",

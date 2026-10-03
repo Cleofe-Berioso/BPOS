@@ -49,7 +49,7 @@ export async function POST(req: Request) {
       updatedById: session.user.id,
     });
 
-    void logSettingsAction(
+    await logSettingsAction(
       session.user.id,
       session.user.name ?? session.user.email ?? null,
       "SUPER_ADMIN",
@@ -88,7 +88,7 @@ export async function DELETE(req: Request) {
 
   try {
     const deleted = await deleteFeeConfigurationCategory(key.trim());
-    void logSettingsAction(
+    await logSettingsAction(
       session.user.id,
       session.user.name ?? session.user.email ?? null,
       "SUPER_ADMIN",

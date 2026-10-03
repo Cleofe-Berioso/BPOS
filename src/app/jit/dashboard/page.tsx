@@ -84,13 +84,7 @@ export default async function JitDashboardPage() {
             icon={<BarChart3 className="h-4 w-4" />}
             tone="blue"
           />
-          <DashboardSummaryCard
-            title="Flagged Businesses Count"
-            value={summary.flaggedBusinessesCount.toLocaleString("en-PH")}
-            subtitle="Latest inspection is flagged or revoked"
-            icon={<FlagTriangleRight className="h-4 w-4" />}
-            tone="amber"
-          />
+
           <DashboardSummaryCard
             title="Compliant Count"
             value={summary.compliantCount.toLocaleString("en-PH")}

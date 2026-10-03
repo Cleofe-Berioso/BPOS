@@ -38,10 +38,24 @@ describe("Permit Issuance Workflow Guarantees", () => {
     expect(eligibility.reasons).toHaveLength(0);
   });
 
-  it("permits BPLO to view/print permit in RELEASED state", () => {
-    const eligibility = canBploPrintDocument(releasedPermit);
+  it("permits BPLO to view/print permit in RELEASED state even without verified payment reference", () => {
+    const releasedWithoutVerifiedPayment: PrintableDocumentApplication = {
+      ...releasedPermit,
+      payment: { hasVerifiedPaymentReference: false },
+    };
+    const eligibility = canBploPrintDocument(releasedWithoutVerifiedPayment);
     expect(eligibility.canPrint).toBe(true);
     expect(eligibility.reasons).toHaveLength(0);
+  });
+
+  it("requires verified payment before printing for unreleased permits (FOR_RELEASE)", () => {
+    const forReleaseUnpaid: PrintableDocumentApplication = {
+      ...forReleasePermit,
+      payment: { hasVerifiedPaymentReference: false },
+    };
+    const eligibility = canBploPrintDocument(forReleaseUnpaid);
+    expect(eligibility.canPrint).toBe(false);
+    expect(eligibility.reasons).toContain("Verified payment is required before document printing.");
   });
 
   it("disallows permit printing before permit preparation (e.g. in PAID status)", () => {

@@ -9,7 +9,7 @@ export async function GET(req: Request) {
   }
 
   const { searchParams } = new URL(req.url);
-  const tab = (searchParams.get("tab") ?? "PENDING") as "PENDING" | "VERIFIED" | "REJECTED";
+  const tab = (searchParams.get("tab") ?? "PENDING") as "PENDING" | "VERIFIED" | "RETURNED" | "REJECTED";
   const page = searchParams.get("page") ?? undefined;
   const pageSize = searchParams.get("pageSize") ?? undefined;
 

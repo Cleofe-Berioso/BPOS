@@ -233,7 +233,7 @@ export async function updateJitPortalEnabled(input: {
     },
   });
 
-  void createAuditLog({
+  await createAuditLog({
     actorId: input.changedById,
     actorName: input.changedByName,
     actorRole: input.changedByRole,
@@ -251,7 +251,7 @@ export async function updateJitPortalEnabled(input: {
   });
 
   if (enforcementResult && enforcementResult.casesEnforced > 0) {
-    void createAuditLog({
+    await createAuditLog({
       actorId: input.changedById,
       actorName: input.changedByName,
       actorRole: input.changedByRole,

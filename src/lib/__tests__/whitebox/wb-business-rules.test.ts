@@ -21,8 +21,16 @@ import {
   normalizeNationality,
   applyLockedBusinessFields,
   normalizeBusinessInfo,
+  formatRegistrationNumberInput,
 } from "@/lib/business-rules";
 import { resolveLocationBarangay } from "@/lib/business-location";
+import {
+  isValidPhMobile,
+  phMobileFieldError,
+  sanitizePhMobileInput,
+  PH_MOBILE_HINT,
+  PH_MOBILE_FORMAT_ERROR,
+} from "@/lib/ph-mobile";
 
 describe("WB-RULES — business identity & rules", () => {
   it("WB-RULES-01 TIN normalize and format validation", () => {
@@ -41,10 +49,40 @@ describe("WB-RULES — business identity & rules", () => {
   });
 
   it("WB-RULES-03 registration format by business type", () => {
-    expect(validateRegistrationNumberFormat("Sole Proprietorship", "DTI-2026-123456")).toBe(true);
+    // DTI (Sole Proprietorship): exactly 7 digits only
+    expect(validateRegistrationNumberFormat("Sole Proprietorship", "4789351")).toBe(true);
+    expect(validateRegistrationNumberFormat("Sole Proprietorship", "478935")).toBe(false); // 6 digits
+    expect(validateRegistrationNumberFormat("Sole Proprietorship", "47893512")).toBe(false); // 8 digits
     expect(validateRegistrationNumberFormat("Sole Proprietorship", "123456789")).toBe(false);
+    expect(validateRegistrationNumberFormat("Sole Proprietorship", "DTI-2026-123456")).toBe(true); // legacy valid
+
+    // CDA (Cooperative): 14 digits (or example 16 digits) with a hyphen after the first 4 digits
+    expect(validateRegistrationNumberFormat("Cooperative", "9520-101300033148")).toBe(true); // example (16 digits total)
+    expect(validateRegistrationNumberFormat("Cooperative", "9520-1013000331")).toBe(true); // 14-digit format: XXXX-XXXXXXXXXX
+    expect(validateRegistrationNumberFormat("Cooperative", "9520101300033148")).toBe(false); // missing hyphen
+    expect(validateRegistrationNumberFormat("Cooperative", "952-101300033148")).toBe(false); // wrong hyphen position
+    expect(validateRegistrationNumberFormat("Cooperative", "9520-101300033")).toBe(false); // only 13 digits (9 after hyphen)
+    expect(validateRegistrationNumberFormat("Cooperative", "9520-1013000331489")).toBe(false); // 17 digits (13 after hyphen)
+    expect(validateRegistrationNumberFormat("Cooperative", "CDA-2026-123456")).toBe(true); // legacy valid
+
+    // SEC (Corporation, Partnership, OPC)
     expect(validateRegistrationNumberFormat("Corporation", "CS2026-12345")).toBe(true);
     expect(validateRegistrationNumberFormat("Corporation", "CN123456789")).toBe(false);
+    expect(validateRegistrationNumberFormat("Partnership", "CS2026-12345")).toBe(true);
+    expect(validateRegistrationNumberFormat("One Person Corporation", "CS2026-12345")).toBe(true);
+
+    // Auto-enforce typing format: DTI (7 digits max, digits only)
+    expect(formatRegistrationNumberInput("Sole Proprietorship", "4789351")).toBe("4789351");
+    expect(formatRegistrationNumberInput("Sole Proprietorship", "4789351999")).toBe("4789351");
+    expect(formatRegistrationNumberInput("Sole Proprietorship", "abc-4789351-xyz")).toBe("4789351");
+
+    // Auto-enforce typing format: CDA (14 digits max, auto-hyphen after 4 digits)
+    expect(formatRegistrationNumberInput("Cooperative", "9520")).toBe("9520");
+    expect(formatRegistrationNumberInput("Cooperative", "95201")).toBe("9520-1");
+    expect(formatRegistrationNumberInput("Cooperative", "9520101300033148")).toBe("9520-101300033148");
+    expect(formatRegistrationNumberInput("Cooperative", "9520-101300033148")).toBe("9520-101300033148");
+    expect(formatRegistrationNumberInput("Cooperative", "95201013000331489999")).toBe("9520-101300033148");
+    expect(formatRegistrationNumberInput("Cooperative", "cda-9520-101300033148")).toBe("9520-101300033148");
   });
 
   it("WB-RULES-04 corporation helpers", () => {
@@ -283,6 +321,48 @@ describe("WB-RULES — business identity & rules", () => {
     } as any);
 
     expect(infoWithoutProvince.mainOfficeAddress).toBe("7 Avenue Princesse Grace, Monaco, Monaco");
+  });
+
+  it("WB-RULES-12 Philippine mobile validation accepts exact 09XXXXXXXXX format (11 digits, numbers only)", () => {
+    expect(isValidPhMobile("09171234567")).toBe(true);
+    expect(isValidPhMobile("09998765432")).toBe(true);
+    expect(isValidPhMobile("09123456789")).toBe(true);
+    expect(phMobileFieldError("09171234567")).toBeNull();
+    expect(PH_MOBILE_HINT).toBe("Enter valid Philippine Number");
+    expect(PH_MOBILE_FORMAT_ERROR).toBe("Enter valid Philippine Number");
+  });
+
+  it("WB-RULES-13 Philippine mobile rejects letters, symbols, spaces, incorrect length, and invalid formats", () => {
+    // Letters & symbols
+    expect(isValidPhMobile("0917abc4567")).toBe(false);
+    expect(isValidPhMobile("0917-123-4567")).toBe(false);
+    expect(isValidPhMobile("+639171234567")).toBe(false);
+    expect(isValidPhMobile("0917 123 4567")).toBe(false);
+
+    // Incorrect length
+    expect(isValidPhMobile("0917123456")).toBe(false); // 10 digits
+    expect(isValidPhMobile("091712345678")).toBe(false); // 12 digits
+    expect(isValidPhMobile("")).toBe(false);
+    expect(isValidPhMobile("   ")).toBe(false);
+
+    // Invalid prefix
+    expect(isValidPhMobile("08171234567")).toBe(false); // starts with 08
+    expect(isValidPhMobile("02171234567")).toBe(false); // landline prefix
+    expect(isValidPhMobile("12345678901")).toBe(false); // no 09 prefix
+
+    // Error messages
+    expect(phMobileFieldError("0917123456")).toBe("Enter valid Philippine Number");
+    expect(phMobileFieldError("08171234567")).toBe("Enter valid Philippine Number");
+    expect(phMobileFieldError("abc")).toBe("Enter valid Philippine Number");
+  });
+
+  it("WB-RULES-14 sanitizePhMobileInput rejects non-digits, strips spaces/symbols, and caps length at 11 digits", () => {
+    expect(sanitizePhMobileInput("0917-123-4567")).toBe("09171234567");
+    expect(sanitizePhMobileInput("0917 123 4567")).toBe("09171234567");
+    expect(sanitizePhMobileInput("abc0917def1234567xyz")).toBe("09171234567");
+    expect(sanitizePhMobileInput("091712345678999")).toBe("09171234567"); // Max 11 digits
+    expect(sanitizePhMobileInput("639171234567")).toBe("09171234567"); // 63 prefix normalized
+    expect(sanitizePhMobileInput("9171234567")).toBe("09171234567"); // 9 prefix normalized
   });
 });
 

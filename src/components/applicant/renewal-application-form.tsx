@@ -5,9 +5,26 @@ import { defaultBusinessInfo } from "@/lib/applicant-mock";
 import { normalizeBusinessInfo as normalizeBusinessInfoRules } from "@/lib/business-rules";
 import { isWithinEbMagalona } from "@/lib/eb-magalona";
 import { sanitizeDecimalInput, sanitizeIntegerInput } from "@/lib/numeric-input";
-import { isPhilippinesCountry, validateBusinessIdentityFormats } from "@/lib/business-rules";
-import { BUSINESS_ACTIVITY_OPTIONS } from "@/lib/business-rules";
-import { phMobileFieldError, sanitizePhMobileInput } from "@/lib/ph-mobile";
+import {
+  isPhilippinesCountry,
+  validateBusinessIdentityFormats,
+  validateTaxDeclarationNumberFormat,
+  validatePropertyIdentificationNumberFormat,
+  TAX_DECLARATION_NUMBER_FORMAT_ERROR,
+  PROPERTY_IDENTIFICATION_NUMBER_FORMAT_ERROR,
+  BUSINESS_ACTIVITY_OPTIONS,
+  getRenewalLockedFields,
+  isRenewalPresidentEditable,
+  getOwnerRoleLabel,
+  RENEWAL_LOCKED_FIELDS,
+} from "@/lib/business-rules";
+import {
+  isValidPhMobile,
+  PH_MOBILE_FORMAT_ERROR,
+  PH_MOBILE_REQUIRED_ERROR,
+  phMobileFieldError,
+  sanitizePhMobileInput,
+} from "@/lib/ph-mobile";
 import {
   EB_MAGALONA_CITY,
   EB_MAGALONA_COUNTRY,
@@ -100,26 +117,7 @@ const steps = [
   },
 ];
 
-const lockedFields: Array<keyof BusinessInfo> = [
-  "businessType",
-  "registrationNumber",
-  "tin",
-  "businessName",
-  "tradeName",
-  "ownerName",
-  "ownerFirstName",
-  "ownerMiddleName",
-  "ownerSurname",
-  "ownerSuffix",
-  "nationality",
-  "sex",
-  "corporationNationality",
-  "businessAddress",
-  "businessStreetAddress",
-  "businessBarangay",
-  "businessLatitude",
-  "businessLongitude",
-];
+const defaultLockedFields: Array<keyof BusinessInfo> = RENEWAL_LOCKED_FIELDS;
 
 const RENEWAL_OPERATION_FIELDS: Array<{
   label: string;
@@ -352,10 +350,30 @@ function buildCleanPayload(params: {
   selectedRecordBusinessInfo?: BusinessInfo;
 }): SaveApplicationInput {
   const normalized = normalizeBusinessInfo(params.info);
+  const allowPresidentEdit = isRenewalPresidentEditable(
+    params.selectedRecordBusinessInfo?.businessType ?? params.info.businessType
+  );
   const formData = params.selectedRecordBusinessInfo
     ? {
         ...normalized,
-        sex: params.selectedRecordBusinessInfo.sex ?? normalized.sex,
+        ownerFirstName: allowPresidentEdit
+          ? normalized.ownerFirstName || params.selectedRecordBusinessInfo.ownerFirstName
+          : params.selectedRecordBusinessInfo.ownerFirstName ?? normalized.ownerFirstName,
+        ownerMiddleName: allowPresidentEdit
+          ? normalized.ownerMiddleName || params.selectedRecordBusinessInfo.ownerMiddleName
+          : params.selectedRecordBusinessInfo.ownerMiddleName ?? normalized.ownerMiddleName,
+        ownerSurname: allowPresidentEdit
+          ? normalized.ownerSurname || params.selectedRecordBusinessInfo.ownerSurname
+          : params.selectedRecordBusinessInfo.ownerSurname ?? normalized.ownerSurname,
+        ownerSuffix: allowPresidentEdit
+          ? normalized.ownerSuffix || params.selectedRecordBusinessInfo.ownerSuffix
+          : params.selectedRecordBusinessInfo.ownerSuffix ?? normalized.ownerSuffix,
+        ownerName: allowPresidentEdit
+          ? normalized.ownerName || params.selectedRecordBusinessInfo.ownerName
+          : params.selectedRecordBusinessInfo.ownerName ?? normalized.ownerName,
+        sex: allowPresidentEdit
+          ? normalized.sex || params.selectedRecordBusinessInfo.sex
+          : params.selectedRecordBusinessInfo.sex ?? normalized.sex,
         corporationNationality:
           params.selectedRecordBusinessInfo.corporationNationality ?? normalized.corporationNationality,
         businessAddress: params.selectedRecordBusinessInfo.businessAddress ?? normalized.businessAddress,
@@ -522,6 +540,10 @@ export function RenewalApplicationForm() {
     editId,
     applicationStatus: existingApplicationAccess?.status,
   });
+  const currentLockedFields = useMemo(
+    () => getRenewalLockedFields(info.businessType),
+    [info.businessType]
+  );
   const lockInteractivityClass = isReadOnly ? "pointer-events-none" : "";
 
   useEffect(() => {
@@ -557,6 +579,45 @@ export function RenewalApplicationForm() {
         nextErrors.tin = "Wrong Format";
       } else if (nextErrors.tin === "Wrong Format" || nextErrors.tin === "This already exist") {
         delete nextErrors.tin;
+      }
+
+      const rawPhone = normalizedInfo.phone?.trim() ?? "";
+      if (rawPhone.length > 0) {
+        if (!isValidPhMobile(rawPhone)) {
+          if (
+            rawPhone.length === 11 ||
+            (!rawPhone.startsWith("09") && (rawPhone.length >= 2 || (rawPhone.length === 1 && rawPhone !== "0"))) ||
+            nextErrors.phone
+          ) {
+            nextErrors.phone = PH_MOBILE_FORMAT_ERROR;
+          }
+        } else if (nextErrors.phone === PH_MOBILE_FORMAT_ERROR || nextErrors.phone === PH_MOBILE_REQUIRED_ERROR) {
+          delete nextErrors.phone;
+        }
+      } else if (nextErrors.phone === PH_MOBILE_FORMAT_ERROR) {
+        delete nextErrors.phone;
+      }
+
+      const rawTaxDeclaration = normalizedInfo.taxDeclarationNumber?.trim() ?? "";
+      if (rawTaxDeclaration.length > 0) {
+        if (!validateTaxDeclarationNumberFormat(rawTaxDeclaration)) {
+          nextErrors.taxDeclarationNumber = TAX_DECLARATION_NUMBER_FORMAT_ERROR;
+        } else if (nextErrors.taxDeclarationNumber === TAX_DECLARATION_NUMBER_FORMAT_ERROR) {
+          delete nextErrors.taxDeclarationNumber;
+        }
+      } else if (nextErrors.taxDeclarationNumber === TAX_DECLARATION_NUMBER_FORMAT_ERROR) {
+        delete nextErrors.taxDeclarationNumber;
+      }
+
+      const rawPin = normalizedInfo.propertyIdentificationNumber?.trim() ?? "";
+      if (rawPin.length > 0) {
+        if (!validatePropertyIdentificationNumberFormat(rawPin)) {
+          nextErrors.propertyIdentificationNumber = PROPERTY_IDENTIFICATION_NUMBER_FORMAT_ERROR;
+        } else if (nextErrors.propertyIdentificationNumber === PROPERTY_IDENTIFICATION_NUMBER_FORMAT_ERROR) {
+          delete nextErrors.propertyIdentificationNumber;
+        }
+      } else if (nextErrors.propertyIdentificationNumber === PROPERTY_IDENTIFICATION_NUMBER_FORMAT_ERROR) {
+        delete nextErrors.propertyIdentificationNumber;
       }
 
       return nextErrors;
@@ -635,6 +696,24 @@ export function RenewalApplicationForm() {
       // Birthdate removed from Renewal form per Phase 1.
     }
 
+    if (field === "ownerFirstName" && isRenewalPresidentEditable(normalizedInfo.businessType)) {
+      if (!normalizedInfo.ownerFirstName?.trim()) {
+        nextErrors.ownerFirstName = `${getOwnerRoleLabel(normalizedInfo.businessType)} First Name is required.`;
+      } else if (nextErrors.ownerFirstName !== "This already exist") {
+        delete nextErrors.ownerFirstName;
+        delete nextErrors.ownerName;
+      }
+    }
+
+    if (field === "ownerSurname" && isRenewalPresidentEditable(normalizedInfo.businessType)) {
+      if (!normalizedInfo.ownerSurname?.trim()) {
+        nextErrors.ownerSurname = `${getOwnerRoleLabel(normalizedInfo.businessType)} Surname is required.`;
+      } else if (nextErrors.ownerSurname !== "This already exist") {
+        delete nextErrors.ownerSurname;
+        delete nextErrors.ownerName;
+      }
+    }
+
     if (field === "grossProfit") {
       const grossRaw = normalizedInfo.grossProfit?.trim() ?? "";
       if (!grossRaw) {
@@ -671,6 +750,28 @@ export function RenewalApplicationForm() {
     if (field === "tin" && normalizedInfo.tin.trim().length > 0) {
       const valid = validateBusinessIdentityFormats(normalizedInfo).tin;
       if (!valid) nextErrors.tin = "Wrong Format";
+    }
+
+    if (field === "taxDeclarationNumber") {
+      const raw = normalizedInfo.taxDeclarationNumber?.trim() ?? "";
+      if (raw.length === 0) {
+        nextErrors.taxDeclarationNumber = "Tax Declaration Number is required.";
+      } else if (!validateTaxDeclarationNumberFormat(raw)) {
+        nextErrors.taxDeclarationNumber = TAX_DECLARATION_NUMBER_FORMAT_ERROR;
+      } else {
+        delete nextErrors.taxDeclarationNumber;
+      }
+    }
+
+    if (field === "propertyIdentificationNumber") {
+      const raw = normalizedInfo.propertyIdentificationNumber?.trim() ?? "";
+      if (raw.length === 0) {
+        nextErrors.propertyIdentificationNumber = "Property Identification Number is required.";
+      } else if (!validatePropertyIdentificationNumberFormat(raw)) {
+        nextErrors.propertyIdentificationNumber = PROPERTY_IDENTIFICATION_NUMBER_FORMAT_ERROR;
+      } else {
+        delete nextErrors.propertyIdentificationNumber;
+      }
     }
 
     setFieldErrors(nextErrors);
@@ -813,6 +914,15 @@ export function RenewalApplicationForm() {
 
       Object.assign(nextErrors, validateBusinessLocation(normalizedInfo));
 
+      if (isRenewalPresidentEditable(normalizedInfo.businessType)) {
+        if (!normalizedInfo.ownerFirstName?.trim()) {
+          nextErrors.ownerFirstName = `${getOwnerRoleLabel(normalizedInfo.businessType)} First Name is required.`;
+        }
+        if (!normalizedInfo.ownerSurname?.trim()) {
+          nextErrors.ownerSurname = `${getOwnerRoleLabel(normalizedInfo.businessType)} Surname is required.`;
+        }
+      }
+
       logStepValidationDebug({
         step,
         missingKeys: Object.keys(nextErrors),
@@ -839,6 +949,20 @@ export function RenewalApplicationForm() {
         nextErrors.grossProfit = "Gross Profit / Gross Receipts is required.";
       } else if (parsePositiveAmount(grossRaw) == null) {
         nextErrors.grossProfit = "Gross Profit / Gross Receipts must be a non-negative amount.";
+      }
+
+      const tdn = normalizedInfo.taxDeclarationNumber?.trim() ?? "";
+      if (!tdn) {
+        nextErrors.taxDeclarationNumber = "Tax Declaration Number is required.";
+      } else if (!validateTaxDeclarationNumberFormat(tdn)) {
+        nextErrors.taxDeclarationNumber = TAX_DECLARATION_NUMBER_FORMAT_ERROR;
+      }
+
+      const pin = normalizedInfo.propertyIdentificationNumber?.trim() ?? "";
+      if (!pin) {
+        nextErrors.propertyIdentificationNumber = "Property Identification Number is required.";
+      } else if (!validatePropertyIdentificationNumberFormat(pin)) {
+        nextErrors.propertyIdentificationNumber = PROPERTY_IDENTIFICATION_NUMBER_FORMAT_ERROR;
       }
 
       Object.assign(nextErrors, validateRenewalBusinessOperations(normalizedInfo));
@@ -905,10 +1029,35 @@ export function RenewalApplicationForm() {
     if (info.tin.trim().length > 0 && !identityFormats.tin) {
       identityErrors.tin = "Wrong Format";
     }
+    if (mode === "SUBMIT") {
+      if (!info.taxDeclarationNumber?.trim()) {
+        identityErrors.taxDeclarationNumber = "Tax Declaration Number is required.";
+      } else if (!validateTaxDeclarationNumberFormat(info.taxDeclarationNumber)) {
+        identityErrors.taxDeclarationNumber = TAX_DECLARATION_NUMBER_FORMAT_ERROR;
+      }
+
+      if (!info.propertyIdentificationNumber?.trim()) {
+        identityErrors.propertyIdentificationNumber = "Property Identification Number is required.";
+      } else if (!validatePropertyIdentificationNumberFormat(info.propertyIdentificationNumber)) {
+        identityErrors.propertyIdentificationNumber = PROPERTY_IDENTIFICATION_NUMBER_FORMAT_ERROR;
+      }
+    } else {
+      if (info.taxDeclarationNumber?.trim()) {
+        if (!validateTaxDeclarationNumberFormat(info.taxDeclarationNumber)) {
+          identityErrors.taxDeclarationNumber = TAX_DECLARATION_NUMBER_FORMAT_ERROR;
+        }
+      }
+      if (info.propertyIdentificationNumber?.trim()) {
+        if (!validatePropertyIdentificationNumberFormat(info.propertyIdentificationNumber)) {
+          identityErrors.propertyIdentificationNumber = PROPERTY_IDENTIFICATION_NUMBER_FORMAT_ERROR;
+        }
+      }
+    }
 
     if (Object.keys(identityErrors).length > 0) {
       setFieldErrors(identityErrors);
-      setStatusMessage({ kind: "error", text: "Wrong Format" });
+      const firstErrorMessage = Object.values(identityErrors)[0] ?? "Wrong Format";
+      setStatusMessage({ kind: "error", text: firstErrorMessage });
       setSubmitting(false);
       return null;
     }
@@ -949,6 +1098,21 @@ export function RenewalApplicationForm() {
       }
 
       // Birthdate validation removed from Renewal form per Phase 1.
+
+      if (isRenewalPresidentEditable(info.businessType)) {
+        if (!info.ownerFirstName?.trim()) {
+          setFieldErrors({ ownerFirstName: `${getOwnerRoleLabel(info.businessType)} First Name is required.` });
+          setStatusMessage({ kind: "error", text: `${getOwnerRoleLabel(info.businessType)} First Name is required.` });
+          setSubmitting(false);
+          return null;
+        }
+        if (!info.ownerSurname?.trim()) {
+          setFieldErrors({ ownerSurname: `${getOwnerRoleLabel(info.businessType)} Surname is required.` });
+          setStatusMessage({ kind: "error", text: `${getOwnerRoleLabel(info.businessType)} Surname is required.` });
+          setSubmitting(false);
+          return null;
+        }
+      }
 
       const grossRaw = info.grossProfit?.trim() ?? "";
       if (!grossRaw || parsePositiveAmount(grossRaw) == null) {
@@ -1382,7 +1546,11 @@ export function RenewalApplicationForm() {
         <div className={`space-y-4 ${lockInteractivityClass}`}>
           <InfoBanner
             title="Locked fields come from the selected business record"
-            description="Business type, registration details, owner identity, sex, corporation nationality, and business address remain read-only during renewal. Editable fields can still be updated if needed."
+            description={
+              isRenewalPresidentEditable(info.businessType)
+                ? "Business type, registration details, and business address remain read-only during renewal. President name and sex can be updated if needed."
+                : "Business type, registration details, owner identity, sex, corporation nationality, and business address remain read-only during renewal. Editable fields can still be updated if needed."
+            }
             variant="readOnly"
           />
           <SectionCard
@@ -1393,16 +1561,27 @@ export function RenewalApplicationForm() {
               value={info}
               onChange={(nextInfo) => {
                 const normalizedNext = normalizeBusinessInfo(nextInfo);
+                const allowPresidentEdit = isRenewalPresidentEditable(nextInfo.businessType);
                 setInfo({
                   ...normalizedNext,
                   // Preserve live typing (spaces / multi-word) — trim only on blur/submit.
                   businessName: nextInfo.businessName,
                   tradeName: nextInfo.tradeName,
-                  ownerName: nextInfo.ownerName,
-                  ownerFirstName: nextInfo.ownerFirstName,
-                  ownerMiddleName: nextInfo.ownerMiddleName,
-                  ownerSurname: nextInfo.ownerSurname,
-                  ownerSuffix: nextInfo.ownerSuffix,
+                  ownerName: allowPresidentEdit
+                    ? nextInfo.ownerName
+                    : selectedRecord?.businessInfo.ownerName ?? nextInfo.ownerName,
+                  ownerFirstName: allowPresidentEdit
+                    ? nextInfo.ownerFirstName
+                    : selectedRecord?.businessInfo.ownerFirstName ?? nextInfo.ownerFirstName,
+                  ownerMiddleName: allowPresidentEdit
+                    ? nextInfo.ownerMiddleName
+                    : selectedRecord?.businessInfo.ownerMiddleName ?? nextInfo.ownerMiddleName,
+                  ownerSurname: allowPresidentEdit
+                    ? nextInfo.ownerSurname
+                    : selectedRecord?.businessInfo.ownerSurname ?? nextInfo.ownerSurname,
+                  ownerSuffix: allowPresidentEdit
+                    ? nextInfo.ownerSuffix
+                    : selectedRecord?.businessInfo.ownerSuffix ?? nextInfo.ownerSuffix,
                   businessAddress: nextInfo.businessAddress,
                   businessStreetAddress: nextInfo.businessStreetAddress,
                   streetAddress: nextInfo.streetAddress,
@@ -1417,7 +1596,9 @@ export function RenewalApplicationForm() {
                   // Keep locked fields unchanged from the selected record
                   ...(selectedRecord
                     ? {
-                        sex: selectedRecord.businessInfo.sex ?? nextInfo.sex,
+                        sex: allowPresidentEdit
+                          ? nextInfo.sex ?? selectedRecord.businessInfo.sex
+                          : selectedRecord.businessInfo.sex ?? nextInfo.sex,
                         corporationNationality:
                           selectedRecord.businessInfo.corporationNationality ?? nextInfo.corporationNationality,
                         businessAddress: selectedRecord.businessInfo.businessAddress ?? nextInfo.businessAddress,
@@ -1466,7 +1647,13 @@ export function RenewalApplicationForm() {
                   return nextErrors;
                 });
               }}
-              lockedFields={lockedFields}
+              onSetFieldError={(field, error) => {
+                setFieldErrors((current) => ({
+                  ...current,
+                  [field]: error,
+                }));
+              }}
+              lockedFields={currentLockedFields}
               fieldErrors={fieldErrors}
               enableCascadingAddress
             />
@@ -1706,49 +1893,49 @@ export function RenewalApplicationForm() {
                 </select>
               </FormField>
 
-              {info.propertyOwnership !== "Owned" && (
-                <FormField
-                  label="Tax Declaration Number"
-                  hint="Example format: 2026-18045-00001"
-                  error={fieldErrors.taxDeclarationNumber}
-                >
-                  <input
-                    aria-label="Tax Declaration Number"
-                    className={applicantFormControlClass}
-                    value={info.taxDeclarationNumber ?? ""}
-                    placeholder="2026-18045-00001"
-                    disabled={isReadOnly}
-                    onChange={(event) =>
-                      setInfo((current) => ({
-                        ...current,
-                        taxDeclarationNumber: event.target.value,
-                      }))
-                    }
-                  />
-                </FormField>
-              )}
+              <FormField
+                label="Tax Declaration Number"
+                hint="Example format: 2026-18045-00001"
+                required={true}
+                error={fieldErrors.taxDeclarationNumber}
+              >
+                <input
+                  aria-label="Tax Declaration Number"
+                  className={applicantFormControlClass}
+                  value={info.taxDeclarationNumber ?? ""}
+                  placeholder="2026-18045-00001"
+                  disabled={isReadOnly}
+                  onBlur={() => validateFieldOnBlur("taxDeclarationNumber")}
+                  onChange={(event) =>
+                    setInfo((current) => ({
+                      ...current,
+                      taxDeclarationNumber: event.target.value,
+                    }))
+                  }
+                />
+              </FormField>
 
-              {info.propertyOwnership !== "Owned" && (
-                <FormField
-                  label="Property Identification Number"
-                  hint="Example format: 180-08-002-001-001"
-                  error={fieldErrors.propertyIdentificationNumber}
-                >
-                  <input
-                    aria-label="Property Identification Number"
-                    className={applicantFormControlClass}
-                    value={info.propertyIdentificationNumber ?? ""}
-                    placeholder="180-08-002-001-001"
-                    disabled={isReadOnly}
-                    onChange={(event) =>
-                      setInfo((current) => ({
-                        ...current,
-                        propertyIdentificationNumber: event.target.value,
-                      }))
-                    }
-                  />
-                </FormField>
-              )}
+              <FormField
+                label="Property Identification Number"
+                hint="Example format: 180-08-002-001-001"
+                required={true}
+                error={fieldErrors.propertyIdentificationNumber}
+              >
+                <input
+                  aria-label="Property Identification Number"
+                  className={applicantFormControlClass}
+                  value={info.propertyIdentificationNumber ?? ""}
+                  placeholder="180-08-002-001-001"
+                  disabled={isReadOnly}
+                  onBlur={() => validateFieldOnBlur("propertyIdentificationNumber")}
+                  onChange={(event) =>
+                    setInfo((current) => ({
+                      ...current,
+                      propertyIdentificationNumber: event.target.value,
+                    }))
+                  }
+                />
+              </FormField>
 
 
               <div className={`md:col-span-2 ${applicantPanelClass}`}>

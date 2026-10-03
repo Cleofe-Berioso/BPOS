@@ -433,7 +433,7 @@ function resolveBuiltInCategoryAlias(lineOfBusiness: string | null | undefined):
   const trimmed = (lineOfBusiness ?? "").trim();
   if (!trimmed) return null;
   const lower = trimmed.toLowerCase();
-  if (lower === "banks") return "BANKS";
+  if (lower === "banks" || lower === "bank") return "BANKS";
   if (lower === "lessors of real estate") return "LESSORS_LAND";
   if (lower.includes("lessors of real estate") && lower.includes("commercial")) {
     return "LESSORS_COMMERCIAL";

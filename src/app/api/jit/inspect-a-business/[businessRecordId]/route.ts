@@ -125,7 +125,7 @@ export async function POST(
 
     const submittedDescription = "JIT submitted inspection (pending Department Head verification)";
 
-    void logInspectionAction(
+    await logInspectionAction(
       session.user.id,
       session.user.name ?? session.user.email ?? null,
       "JIT",
@@ -141,7 +141,7 @@ export async function POST(
     );
 
     if (storedEvidence) {
-      void logInspectionAction(
+      await logInspectionAction(
         session.user.id,
         session.user.name ?? session.user.email ?? null,
         "JIT",

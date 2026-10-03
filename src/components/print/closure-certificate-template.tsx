@@ -97,51 +97,54 @@ export function ClosureCertificateTemplate({ certificate }: ClosureCertificateTe
         </div>
 
         {/* Content */}
-        <div className="relative z-10 px-4 py-6 sm:px-8">
+        <div className="relative z-10 px-6 pb-8 pt-16 sm:px-10 sm:pt-20">
           {/* Header with logos */}
           <header className="mb-8">
-            <div className="grid grid-cols-[70px_1fr_70px] items-start gap-3 sm:grid-cols-[90px_1fr_90px]">
+            <div className="grid grid-cols-[76px_1fr_76px] items-center gap-2 sm:grid-cols-[92px_1fr_92px] sm:gap-4">
               {/* Left Logo */}
               <div className="flex justify-start">
-                <div className="flex h-[70px] w-[70px] items-center justify-center rounded-full border-2 border-black bg-white p-1 sm:h-[90px] sm:w-[90px]">
+                <div className="flex h-[76px] w-[76px] items-center justify-center rounded-full border border-slate-300 bg-white p-1 shadow-sm sm:h-[92px] sm:w-[92px]">
                   <Image
                     src="/images/logo.png"
                     alt="Municipality seal"
-                    width={80}
-                    height={80}
+                    width={88}
+                    height={88}
                     className="h-full w-full object-contain"
+                    priority
                   />
                 </div>
               </div>
 
               {/* Center heading */}
               <div className="text-center">
-                <p className="text-[13px] font-semibold leading-tight sm:text-[14px]">{certificate.heading.republic}</p>
-                <p className="text-[13px] font-semibold leading-tight sm:text-[14px]">{certificate.heading.province}</p>
-                <p className="text-[18px] font-black uppercase leading-tight sm:text-[24px]">{certificate.heading.municipality}</p>
-                <p className="text-[12px] font-bold uppercase leading-tight sm:text-[13px]">
+                <p className="text-[12px] font-medium leading-tight text-slate-800 sm:text-[14px]">
+                  {certificate.heading.republic}
+                </p>
+                <p className="mt-0.5 text-[12px] font-medium leading-tight text-slate-800 sm:text-[14px]">
+                  {certificate.heading.province}
+                </p>
+                <p className="mt-1.5 text-[20px] font-black uppercase leading-tight tracking-[0.02em] text-black sm:text-[24px]">
+                  {certificate.heading.municipality}
+                </p>
+                <p className="mt-1 text-[12px] font-bold uppercase leading-tight tracking-[0.05em] text-red-700 sm:text-[13px]">
                   {certificate.heading.office}
                 </p>
               </div>
 
-              {/* Right Logo (placeholder for BPLO seal if available) */}
-              <div className="flex justify-end">
-                <div className="flex h-[70px] w-[70px] items-center justify-center rounded-full border-2 border-red-700 bg-white p-1 sm:h-[90px] sm:w-[90px]">
-                  <div className="text-center text-[10px] font-bold text-red-700">BUSINESS<br/>PERMIT</div>
-                </div>
-              </div>
+              {/* Symmetrical spacer to keep center heading optically centered */}
+              <div aria-hidden="true" className="w-[76px] sm:w-[92px]" />
             </div>
 
             {/* Main title */}
-            <div className="mt-6 border-b-4 border-red-700 pb-3 text-center">
-              <h1 className="text-[32px] font-black uppercase leading-tight tracking-wide text-red-700 sm:text-[40px]">
+            <div className="mt-6 border-b-2 border-red-700 pb-2.5 text-center">
+              <h1 className="text-[30px] font-black uppercase leading-tight tracking-wide text-red-700 sm:text-[38px]">
                 Business Closure Certificate
               </h1>
             </div>
 
             {/* Series year */}
             <div className="mt-2 text-center">
-              <p className="text-[16px] font-bold uppercase text-red-700">
+              <p className="text-[14px] font-bold uppercase tracking-wider text-red-700 sm:text-[15px]">
                 Series of Year {certYear}
               </p>
             </div>
@@ -183,16 +186,14 @@ export function ClosureCertificateTemplate({ certificate }: ClosureCertificateTe
             </div>
           </section>
 
-          {/* Signature Block */}
-          <section className="mt-10 flex justify-end">
-            <div className="w-full max-w-[320px] text-center">
-              <div className="mb-2 h-[80px] border-b-2 border-black" />
-              <p className="font-bold">
-                {certificate.signatories.departmentHeadOfBplo ||
-                  certificate.signatories.bploOfficer ||
-                  "[Department Head of BPLO]"}
+          {/* BPLO Office Section */}
+          <section className="mt-10 flex justify-end sm:mt-12">
+            <div className="w-full max-w-[280px] text-center">
+              <div className="mb-2 h-16 border-b border-black sm:h-20" />
+              <p className="text-[15px] font-bold text-black sm:text-[16px]">
+                {certificate.signatories.departmentHeadOfBplo || "Gracee"}
               </p>
-              <p className="text-[13px] font-semibold uppercase">
+              <p className="mt-0.5 text-[12px] font-semibold uppercase tracking-wider text-slate-800 sm:text-[13px]">
                 Department Head of BPLO
               </p>
             </div>
